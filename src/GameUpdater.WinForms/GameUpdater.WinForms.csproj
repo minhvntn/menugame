@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GameUpdater.Shared\GameUpdater.Shared.csproj" />
+    <ProjectReference Include="..\GameUpdater.Core\GameUpdater.Core.csproj" />
+    <ProjectReference Include="..\GameUpdater.Data\GameUpdater.Data.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,10 @@
+bin/
+obj/
+.tmpbuild/
+.vs/
+*.user
+*.suo
+*.cache
+*.db
+*.db-shm
+*.db-wal
