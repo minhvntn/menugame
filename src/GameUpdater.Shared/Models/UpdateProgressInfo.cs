@@ -6,13 +6,26 @@ public sealed class UpdateProgressInfo
 
     public string Message { get; init; } = string.Empty;
 
-    public static UpdateProgressInfo Create(int percent, string message)
+    public long? TotalBytes { get; init; }
+
+    public long? ProcessedBytes { get; init; }
+
+    public double? SpeedMbps { get; init; }
+
+    public static UpdateProgressInfo Create(
+        int percent,
+        string message,
+        long? totalBytes = null,
+        long? processedBytes = null,
+        double? speedMbps = null)
     {
         return new UpdateProgressInfo
         {
             Percent = Math.Clamp(percent, 0, 100),
-            Message = message
+            Message = message,
+            TotalBytes = totalBytes,
+            ProcessedBytes = processedBytes,
+            SpeedMbps = speedMbps
         };
     }
 }
-

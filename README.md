@@ -36,6 +36,8 @@ dotnet run --project .\src\GameLauncher.Client\GameLauncher.Client.csproj
 
 ```powershell
 dotnet build GameUpdater.sln -c Release
+
+dotnet build "I:\servermanagergame\GameUpdater.sln" -c Release
 ```
 
 File EXE:
