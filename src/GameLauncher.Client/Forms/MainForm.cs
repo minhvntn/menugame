@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using GameLauncher.Client.Controls;
@@ -19,23 +20,26 @@ public sealed class MainForm : Form
     private const uint SpifSendWinIniChange = 0x02;
     private const string StartupRegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string StartupRegistryValueName = "GameLauncher.Client";
+    private const string CafeDisplayName = "Cyber Game";
+
     private static readonly HttpClient WallpaperHttpClient = new();
+    private static readonly Color HeaderBackColor = Color.FromArgb(33, 56, 74);
+    private static readonly Color BodyBackColor = Color.FromArgb(24, 39, 54);
 
     private readonly SettingsService _settingsService;
     private readonly CatalogReaderService _catalogService;
     private readonly GameLaunchService _launchService;
 
-    private readonly TextBox _searchTextBox = new();
-    private readonly ComboBox _categoryComboBox = new();
-    private readonly Label _summaryLabel = new();
-    private readonly FlowLayoutPanel _cardsPanel = new();
+    private readonly Label _headerSectionLabel = new();
+    private readonly Label _cafeNameLabel = new();
+    private readonly FlowLayoutPanel _hotCardsPanel = new();
+    private readonly FlowLayoutPanel _normalCardsPanel = new();
 
     private List<LauncherGameRow> _allRows = new();
     private string _catalogPath = string.Empty;
-    private string _backgroundImagePath = string.Empty;
     private bool _enableCloseAppHotKeyFromServer = true;
-    private Image? _cardsBackgroundImage;
     private bool _isCloseAppHotKeyRegistered;
+    private Image? _headerLogoImage;
 
     public MainForm(
         SettingsService settingsService,
@@ -47,10 +51,16 @@ public sealed class MainForm : Form
         _launchService = launchService;
 
         Text = "Menu trò chơi";
-        Width = 1260;
-        Height = 820;
+        Width = 1320;
+        Height = 860;
         StartPosition = FormStartPosition.CenterScreen;
-        BackColor = Color.FromArgb(245, 247, 250);
+        BackColor = Color.FromArgb(236, 241, 246);
+        MinimumSize = new Size(1000, 680);
+
+        if (File.Exists("app.ico"))
+        {
+            Icon = new Icon("app.ico");
+        }
 
         BuildLayout();
     }
@@ -68,17 +78,17 @@ public sealed class MainForm : Form
         UpdateCloseAppHotKeyRegistration();
     }
 
-    protected override void OnFormClosed(FormClosedEventArgs e)
-    {
-        _cardsBackgroundImage?.Dispose();
-        _cardsBackgroundImage = null;
-        base.OnFormClosed(e);
-    }
-
     protected override void OnHandleDestroyed(EventArgs e)
     {
         UnregisterCloseAppHotKey();
         base.OnHandleDestroyed(e);
+    }
+
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        _headerLogoImage?.Dispose();
+        _headerLogoImage = null;
+        base.OnFormClosed(e);
     }
 
     protected override void WndProc(ref Message m)
@@ -98,94 +108,127 @@ public sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 3,
-            Padding = new Padding(12)
+            RowCount = 2
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
+        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
-        var topBar = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 7
-        };
-        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
-        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
-        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
-        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
-        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
-        topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
-
-        var titleLabel = new Label
-        {
-            Text = "Tìm trò chơi",
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Font = new Font("Segoe UI", 10f, FontStyle.Bold)
-        };
-
-        _searchTextBox.Dock = DockStyle.Fill;
-        _searchTextBox.PlaceholderText = "Nhập tên trò chơi...";
-        _searchTextBox.TextChanged += (_, _) => ApplyFilter();
-
-        _categoryComboBox.Dock = DockStyle.Fill;
-        _categoryComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-        _categoryComboBox.SelectedIndexChanged += (_, _) => ApplyFilter();
-
-        var refreshButton = new Button
-        {
-            Text = "Làm mới",
-            Dock = DockStyle.Fill
-        };
-        refreshButton.Click += RefreshButton_Click;
-
-        var reloadButton = new Button
-        {
-            Text = "Tải lại",
-            Dock = DockStyle.Fill
-        };
-        reloadButton.Click += ReloadCatalogButton_Click;
-
-        var chooseBackgroundButton = new Button
-        {
-            Text = "Chọn nền",
-            Dock = DockStyle.Fill
-        };
-        chooseBackgroundButton.Click += ChooseBackgroundButton_Click;
-
-        var clearBackgroundButton = new Button
-        {
-            Text = "Xóa nền",
-            Dock = DockStyle.Fill
-        };
-        clearBackgroundButton.Click += ClearBackgroundButton_Click;
-
-        topBar.Controls.Add(titleLabel, 0, 0);
-        topBar.Controls.Add(_searchTextBox, 1, 0);
-        topBar.Controls.Add(_categoryComboBox, 2, 0);
-        topBar.Controls.Add(refreshButton, 3, 0);
-        topBar.Controls.Add(reloadButton, 4, 0);
-        topBar.Controls.Add(chooseBackgroundButton, 5, 0);
-        topBar.Controls.Add(clearBackgroundButton, 6, 0);
-
-        _cardsPanel.Dock = DockStyle.Fill;
-        _cardsPanel.AutoScroll = true;
-        _cardsPanel.WrapContents = true;
-        _cardsPanel.FlowDirection = FlowDirection.LeftToRight;
-        _cardsPanel.Padding = new Padding(4);
-        _cardsPanel.BackgroundImageLayout = ImageLayout.Zoom;
-
-        _summaryLabel.Dock = DockStyle.Fill;
-        _summaryLabel.TextAlign = ContentAlignment.MiddleLeft;
-        _summaryLabel.Text = "Đang tải danh sách trò chơi... (Ctrl + Alt + K: đóng game đang chạy)";
-
-        root.Controls.Add(topBar, 0, 0);
-        root.Controls.Add(_cardsPanel, 0, 1);
-        root.Controls.Add(_summaryLabel, 0, 2);
+        root.Controls.Add(BuildHeaderPanel(), 0, 0);
+        root.Controls.Add(BuildBodyPanel(), 0, 1);
 
         Controls.Add(root);
+    }
+
+    private Control BuildHeaderPanel()
+    {
+        var headerPanel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = HeaderBackColor,
+            Padding = new Padding(10, 6, 10, 6)
+        };
+
+        var headerLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 3
+        };
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 360));
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 280));
+
+        _headerLogoImage = BuildHeaderLogoImage();
+        var logoBox = new PictureBox
+        {
+            Width = 42,
+            Height = 42,
+            Margin = new Padding(0),
+            Image = _headerLogoImage,
+            SizeMode = PictureBoxSizeMode.Zoom
+        };
+
+        _cafeNameLabel.Text = CafeDisplayName;
+        _cafeNameLabel.AutoSize = true;
+        _cafeNameLabel.ForeColor = Color.White;
+        _cafeNameLabel.Font = new Font("Segoe UI Semibold", 13f, FontStyle.Bold);
+
+        var cafeTextPanel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 1,
+            Margin = new Padding(8, 8, 0, 0)
+        };
+        cafeTextPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        cafeTextPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        cafeTextPanel.Controls.Add(_cafeNameLabel, 0, 0);
+
+        var leftPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false
+        };
+        leftPanel.Controls.Add(logoBox);
+        leftPanel.Controls.Add(cafeTextPanel);
+
+        _headerSectionLabel.Dock = DockStyle.Fill;
+        _headerSectionLabel.TextAlign = ContentAlignment.MiddleCenter;
+        _headerSectionLabel.ForeColor = Color.White;
+        _headerSectionLabel.Font = new Font("Segoe UI Semibold", 14f, FontStyle.Bold);
+        _headerSectionLabel.Text = "Online Games";
+
+        var quickActions = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.RightToLeft,
+            WrapContents = false,
+            Padding = new Padding(0, 4, 0, 0)
+        };
+        quickActions.Controls.Add(CreateHeaderLinkButton("YT", "YouTube", "https://www.youtube.com"));
+        quickActions.Controls.Add(CreateHeaderLinkButton("FB", "Facebook", "https://www.facebook.com"));
+        quickActions.Controls.Add(CreateHeaderLinkButton("Web", "Website", "https://www.google.com"));
+
+        headerLayout.Controls.Add(leftPanel, 0, 0);
+        headerLayout.Controls.Add(_headerSectionLabel, 1, 0);
+        headerLayout.Controls.Add(quickActions, 2, 0);
+
+        headerPanel.Controls.Add(headerLayout);
+        return headerPanel;
+    }
+
+    private Control BuildBodyPanel()
+    {
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            Padding = new Padding(10, 10, 10, 10),
+            BackColor = BodyBackColor
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 132));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+        _hotCardsPanel.Dock = DockStyle.Fill;
+        _hotCardsPanel.AutoScroll = true;
+        _hotCardsPanel.WrapContents = false;
+        _hotCardsPanel.FlowDirection = FlowDirection.LeftToRight;
+        _hotCardsPanel.Padding = new Padding(8, 8, 8, 8);
+        _hotCardsPanel.Margin = new Padding(0, 0, 0, 8);
+        _hotCardsPanel.BackColor = Color.FromArgb(20, 33, 47);
+        _normalCardsPanel.Dock = DockStyle.Fill;
+        _normalCardsPanel.AutoScroll = true;
+        _normalCardsPanel.WrapContents = true;
+        _normalCardsPanel.FlowDirection = FlowDirection.LeftToRight;
+        _normalCardsPanel.Padding = new Padding(8, 6, 8, 8);
+        _normalCardsPanel.BackColor = BodyBackColor;
+
+        layout.Controls.Add(_hotCardsPanel, 0, 0);
+        layout.Controls.Add(_normalCardsPanel, 0, 1);
+        return layout;
     }
 
     private async Task LoadCatalogOnStartupAsync()
@@ -194,9 +237,6 @@ public sealed class MainForm : Form
         {
             var settings = await _settingsService.LoadAsync();
             _catalogPath = ResolveCatalogPathWithPriority(settings.CatalogPath);
-            _backgroundImagePath = settings.BackgroundImagePath;
-
-            ApplyBackgroundImage(_backgroundImagePath);
             await LoadCatalogAsync();
         });
     }
@@ -211,79 +251,45 @@ public sealed class MainForm : Form
         var catalog = await _catalogService.LoadCatalogAsync(_catalogPath);
         _allRows = CatalogReaderService.BuildRows(catalog).ToList();
         await ApplyServerPolicyAsync(catalog.ClientPolicy);
-
         await SaveLauncherSettingsAsync();
-
-        BuildCategoryFilter();
         ApplyFilter();
-    }
-
-    private void BuildCategoryFilter()
-    {
-        var previous = _categoryComboBox.SelectedItem?.ToString() ?? "Tất cả nhóm";
-        var categories = _allRows
-            .Select(row => row.Category)
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        categories.Insert(0, "Tất cả nhóm");
-
-        _categoryComboBox.DataSource = null;
-        _categoryComboBox.DataSource = categories;
-
-        _categoryComboBox.SelectedItem = categories.Contains(previous, StringComparer.OrdinalIgnoreCase)
-            ? categories.First(item => string.Equals(item, previous, StringComparison.OrdinalIgnoreCase))
-            : "Tất cả nhóm";
     }
 
     private void ApplyFilter()
     {
-        var keyword = _searchTextBox.Text.Trim();
-        var category = _categoryComboBox.SelectedItem?.ToString() ?? "Tất cả nhóm";
-
-        var query = _allRows.AsEnumerable();
-
-        if (!string.IsNullOrWhiteSpace(keyword))
-        {
-            query = query.Where(row => row.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase));
-        }
-
-        if (!string.Equals(category, "Tất cả nhóm", StringComparison.OrdinalIgnoreCase))
-        {
-            query = query.Where(row => string.Equals(row.Category, category, StringComparison.OrdinalIgnoreCase));
-        }
-
-        var filtered = query
-            .OrderBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
+        var hotRows = _allRows
+            .Where(row => row.IsHot)
+            .OrderBy(row => row.SortOrder)
+            .ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        RenderCards(filtered);
+        var normalRows = _allRows
+            .Where(row => !row.IsHot)
+            .OrderBy(row => row.SortOrder)
+            .ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-        var readyCount = filtered.Count(row => string.Equals(row.Status, "Sẵn sàng", StringComparison.OrdinalIgnoreCase));
-        var hotKeyStatus = _enableCloseAppHotKeyFromServer ? "Hotkey đóng app: Bật" : "Hotkey đóng app: Tắt";
-        _summaryLabel.Text = $"Hiển thị {filtered.Count}/{_allRows.Count} trò chơi. Sẵn sàng: {readyCount}. {hotKeyStatus}.";
+        RenderCards(_hotCardsPanel, hotRows, isHotRow: true);
+        RenderCards(_normalCardsPanel, normalRows, isHotRow: false);
     }
 
-    private void RenderCards(IReadOnlyList<LauncherGameRow> rows)
+    private void RenderCards(FlowLayoutPanel panel, IReadOnlyList<LauncherGameRow> rows, bool isHotRow)
     {
-        _cardsPanel.SuspendLayout();
+        panel.SuspendLayout();
 
-        foreach (Control control in _cardsPanel.Controls)
+        foreach (Control control in panel.Controls)
         {
             control.Dispose();
         }
 
-        _cardsPanel.Controls.Clear();
+        panel.Controls.Clear();
 
         foreach (var row in rows)
         {
-            var card = new GameCardControl(row, PlayGame);
-            _cardsPanel.Controls.Add(card);
+            panel.Controls.Add(new GameCardControl(row, PlayGame, isHotRow));
         }
 
-        _cardsPanel.ResumeLayout();
+        panel.ResumeLayout();
     }
 
     private void PlayGame(LauncherGameRow row)
@@ -306,83 +312,12 @@ public sealed class MainForm : Form
         SendToBack();
     }
 
-    private async void ChooseBackgroundButton_Click(object? sender, EventArgs e)
-    {
-        using var dialog = new OpenFileDialog
-        {
-            Title = "Chọn hình nền client",
-            Filter = "Ảnh (*.jpg;*.jpeg;*.png;*.bmp;*.webp)|*.jpg;*.jpeg;*.png;*.bmp;*.webp|Tất cả tệp (*.*)|*.*",
-            CheckFileExists = true
-        };
-
-        if (dialog.ShowDialog(this) != DialogResult.OK)
-        {
-            return;
-        }
-
-        await ExecuteWithErrorHandlingAsync(async () =>
-        {
-            ApplyBackgroundImage(dialog.FileName);
-            await SaveLauncherSettingsAsync();
-        });
-    }
-
-    private async void ClearBackgroundButton_Click(object? sender, EventArgs e)
-    {
-        await ExecuteWithErrorHandlingAsync(async () =>
-        {
-            ApplyBackgroundImage(string.Empty);
-            await SaveLauncherSettingsAsync();
-        });
-    }
-
-    private void ApplyBackgroundImage(string? imagePath)
-    {
-        _cardsBackgroundImage?.Dispose();
-        _cardsBackgroundImage = null;
-        _cardsPanel.BackgroundImage = null;
-
-        var normalizedPath = imagePath?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(normalizedPath))
-        {
-            _backgroundImagePath = string.Empty;
-            return;
-        }
-
-        if (!File.Exists(normalizedPath))
-        {
-            _backgroundImagePath = string.Empty;
-            return;
-        }
-
-        try
-        {
-            _cardsBackgroundImage = LoadImageWithoutLock(normalizedPath);
-            _cardsPanel.BackgroundImage = _cardsBackgroundImage;
-            _backgroundImagePath = normalizedPath;
-        }
-        catch
-        {
-            _cardsBackgroundImage?.Dispose();
-            _cardsBackgroundImage = null;
-            _cardsPanel.BackgroundImage = null;
-            _backgroundImagePath = string.Empty;
-        }
-    }
-
-    private static Image LoadImageWithoutLock(string path)
-    {
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        using var image = Image.FromStream(stream);
-        return new Bitmap(image);
-    }
-
     private async Task SaveLauncherSettingsAsync()
     {
         await _settingsService.SaveAsync(new LauncherSettings
         {
             CatalogPath = _catalogPath,
-            BackgroundImagePath = _backgroundImagePath
+            BackgroundImagePath = string.Empty
         });
     }
 
@@ -450,10 +385,7 @@ public sealed class MainForm : Form
         }
 
         var resolvedWallpaperPath = ResolvePolicyWallpaperPath(wallpaperPath, _catalogPath);
-        if (!await TrySetWindowsWallpaperAsync(resolvedWallpaperPath))
-        {
-            _summaryLabel.Text = $"Không thể áp dụng hình nền Windows từ server: {wallpaperPath}";
-        }
+        await TrySetWindowsWallpaperAsync(resolvedWallpaperPath);
     }
 
     private void UpdateCloseAppHotKeyRegistration()
@@ -496,12 +428,7 @@ public sealed class MainForm : Form
 
     private static bool ApplyWindowsWallpaper(string imagePath)
     {
-        if (string.IsNullOrWhiteSpace(imagePath))
-        {
-            return false;
-        }
-
-        if (!File.Exists(imagePath))
+        if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
         {
             return false;
         }
@@ -607,48 +534,10 @@ public sealed class MainForm : Form
     {
         if (!_enableCloseAppHotKeyFromServer)
         {
-            _summaryLabel.Text = "Server đã tắt tính năng đóng ứng dụng bằng phím tắt.";
             return;
         }
 
-        if (_launchService.TryCloseLastLaunchedApplication(out var message))
-        {
-            _summaryLabel.Text = $"{message} (Ctrl + Alt + K)";
-            return;
-        }
-
-        _summaryLabel.Text = message;
-    }
-
-    private void RegisterCloseAppHotKey()
-    {
-        if (_isCloseAppHotKeyRegistered || !IsHandleCreated)
-        {
-            return;
-        }
-
-        _isCloseAppHotKeyRegistered = RegisterHotKey(Handle, CloseLaunchedAppHotKeyId, ModControl | ModAlt, (uint)Keys.K);
-    }
-
-    private void UnregisterCloseAppHotKey()
-    {
-        if (!_isCloseAppHotKeyRegistered || !IsHandleCreated)
-        {
-            return;
-        }
-
-        UnregisterHotKey(Handle, CloseLaunchedAppHotKeyId);
-        _isCloseAppHotKeyRegistered = false;
-    }
-
-    private async void ReloadCatalogButton_Click(object? sender, EventArgs e)
-    {
-        await ExecuteWithErrorHandlingAsync(LoadCatalogAsync);
-    }
-
-    private void RefreshButton_Click(object? sender, EventArgs e)
-    {
-        ApplyFilter();
+        _launchService.TryCloseLastLaunchedApplication(out _);
     }
 
     private async Task ExecuteWithErrorHandlingAsync(Func<Task> action)
@@ -660,7 +549,6 @@ public sealed class MainForm : Form
         catch (Exception exception)
         {
             MessageBox.Show(this, exception.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            _summaryLabel.Text = "Không thể tải menu trò chơi. Vui lòng liên hệ kỹ thuật.";
         }
     }
 
@@ -691,6 +579,86 @@ public sealed class MainForm : Form
         {
             // Ignore autostart registration failures on restricted environments.
         }
+    }
+
+    private void RegisterCloseAppHotKey()
+    {
+        if (_isCloseAppHotKeyRegistered || !IsHandleCreated)
+        {
+            return;
+        }
+
+        _isCloseAppHotKeyRegistered = RegisterHotKey(Handle, CloseLaunchedAppHotKeyId, ModControl | ModAlt, (uint)Keys.K);
+    }
+
+    private void UnregisterCloseAppHotKey()
+    {
+        if (!_isCloseAppHotKeyRegistered || !IsHandleCreated)
+        {
+            return;
+        }
+
+        UnregisterHotKey(Handle, CloseLaunchedAppHotKeyId);
+        _isCloseAppHotKeyRegistered = false;
+    }
+
+    private static Button CreateHeaderLinkButton(string text, string tooltip, string url)
+    {
+        var button = new Button
+        {
+            Text = text,
+            Width = 58,
+            Height = 30,
+            FlatStyle = FlatStyle.Flat,
+            Margin = new Padding(6, 2, 0, 0),
+            BackColor = Color.FromArgb(237, 245, 251),
+            ForeColor = Color.FromArgb(24, 44, 62),
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            Cursor = Cursors.Hand
+        };
+        button.FlatAppearance.BorderColor = Color.FromArgb(174, 196, 214);
+        button.FlatAppearance.BorderSize = 1;
+        button.Click += (_, _) => OpenExternalUrl(url);
+
+        var toolTip = new ToolTip();
+        toolTip.SetToolTip(button, tooltip);
+        return button;
+    }
+
+    private static void OpenExternalUrl(string url)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // Ignore inability to open quick links.
+        }
+    }
+
+    private static Image BuildHeaderLogoImage()
+    {
+        using var source = SystemIcons.Shield.ToBitmap();
+        var size = 36;
+        var bitmap = new Bitmap(size, size);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        graphics.Clear(Color.Transparent);
+
+        using var circleBrush = new SolidBrush(Color.FromArgb(255, 122, 55));
+        graphics.FillEllipse(circleBrush, 0, 0, size - 1, size - 1);
+        graphics.DrawImage(source, 6, 6, size - 12, size - 12);
+        return bitmap;
     }
 
     [DllImport("user32.dll", SetLastError = true)]

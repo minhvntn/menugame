@@ -15,4 +15,8 @@ public sealed class LauncherGameEntry
     public string LaunchRelativePath { get; set; } = string.Empty;
 
     public string LaunchArguments { get; set; } = string.Empty;
+
+    public int SortOrder { get; set; } = 999999;
+
+    public bool IsHot { get; set; }
 }

@@ -10,17 +10,28 @@ public sealed class GameEditorForm : Form
     private readonly TextBox _versionTextBox = new() { Dock = DockStyle.Fill };
     private readonly TextBox _launchPathTextBox = new() { Dock = DockStyle.Fill };
     private readonly TextBox _launchArgumentsTextBox = new() { Dock = DockStyle.Fill };
-    private readonly TextBox _notesTextBox = new() { Dock = DockStyle.Fill, Multiline = true, ScrollBars = ScrollBars.Vertical };
+    private readonly CheckBox _isHotCheckBox = new()
+    {
+        Dock = DockStyle.Left,
+        AutoSize = true,
+        Text = "Hien thi trong Hot game (client)"
+    };
+    private readonly TextBox _notesTextBox = new()
+    {
+        Dock = DockStyle.Fill,
+        Multiline = true,
+        ScrollBars = ScrollBars.Vertical
+    };
     private readonly GameRecord? _existingGame;
 
     public GameEditorForm(GameRecord? existingGame = null)
     {
         _existingGame = existingGame;
 
-        Text = existingGame is null ? "Thêm trò chơi" : "Sửa trò chơi";
+        Text = existingGame is null ? "Them tro choi" : "Sua tro choi";
         StartPosition = FormStartPosition.CenterParent;
         Width = 740;
-        Height = 500;
+        Height = 520;
         MinimizeBox = false;
         MaximizeBox = false;
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -30,7 +41,7 @@ public sealed class GameEditorForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 3,
-            RowCount = 8,
+            RowCount = 9,
             Padding = new Padding(12)
         };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
@@ -42,49 +53,54 @@ public sealed class GameEditorForm : Form
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
 
-        root.Controls.Add(CreateLabel("Tên trò chơi"), 0, 0);
+        root.Controls.Add(CreateLabel("Ten tro choi"), 0, 0);
         root.Controls.Add(_nameTextBox, 1, 0);
         root.SetColumnSpan(_nameTextBox, 2);
 
-        root.Controls.Add(CreateLabel("Nhóm"), 0, 1);
+        root.Controls.Add(CreateLabel("Nhom"), 0, 1);
         root.Controls.Add(_categoryTextBox, 1, 1);
         root.SetColumnSpan(_categoryTextBox, 2);
 
-        root.Controls.Add(CreateLabel("Đường dẫn cài đặt"), 0, 2);
+        root.Controls.Add(CreateLabel("Duong dan cai dat"), 0, 2);
         root.Controls.Add(_pathTextBox, 1, 2);
 
         var browseInstallButton = new Button
         {
-            Text = "Chọn",
+            Text = "Chon",
             Dock = DockStyle.Fill
         };
         browseInstallButton.Click += BrowseInstallButton_Click;
         root.Controls.Add(browseInstallButton, 2, 2);
 
-        root.Controls.Add(CreateLabel("Phiên bản"), 0, 3);
+        root.Controls.Add(CreateLabel("Phien ban"), 0, 3);
         root.Controls.Add(_versionTextBox, 1, 3);
         root.SetColumnSpan(_versionTextBox, 2);
 
-        root.Controls.Add(CreateLabel("Tệp chạy (EXE)"), 0, 4);
+        root.Controls.Add(CreateLabel("Tep chay (EXE)"), 0, 4);
         root.Controls.Add(_launchPathTextBox, 1, 4);
 
         var browseLaunchButton = new Button
         {
-            Text = "Chọn",
+            Text = "Chon",
             Dock = DockStyle.Fill
         };
         browseLaunchButton.Click += BrowseLaunchButton_Click;
         root.Controls.Add(browseLaunchButton, 2, 4);
 
-        root.Controls.Add(CreateLabel("Tham số"), 0, 5);
+        root.Controls.Add(CreateLabel("Tham so"), 0, 5);
         root.Controls.Add(_launchArgumentsTextBox, 1, 5);
         root.SetColumnSpan(_launchArgumentsTextBox, 2);
 
-        root.Controls.Add(CreateLabel("Ghi chú"), 0, 6);
-        root.Controls.Add(_notesTextBox, 1, 6);
+        root.Controls.Add(CreateLabel("Hien thi client"), 0, 6);
+        root.Controls.Add(_isHotCheckBox, 1, 6);
+        root.SetColumnSpan(_isHotCheckBox, 2);
+
+        root.Controls.Add(CreateLabel("Ghi chu"), 0, 7);
+        root.Controls.Add(_notesTextBox, 1, 7);
         root.SetColumnSpan(_notesTextBox, 2);
 
         var buttonsPanel = new FlowLayoutPanel
@@ -95,21 +111,21 @@ public sealed class GameEditorForm : Form
 
         var saveButton = new Button
         {
-            Text = "Lưu",
+            Text = "Luu",
             Width = 90
         };
         saveButton.Click += SaveButton_Click;
 
         var cancelButton = new Button
         {
-            Text = "Hủy",
+            Text = "Huy",
             Width = 90
         };
         cancelButton.Click += (_, _) => DialogResult = DialogResult.Cancel;
 
         buttonsPanel.Controls.Add(saveButton);
         buttonsPanel.Controls.Add(cancelButton);
-        root.Controls.Add(buttonsPanel, 0, 7);
+        root.Controls.Add(buttonsPanel, 0, 8);
         root.SetColumnSpan(buttonsPanel, 3);
 
         Controls.Add(root);
@@ -122,6 +138,7 @@ public sealed class GameEditorForm : Form
             _versionTextBox.Text = existingGame.Version;
             _launchPathTextBox.Text = existingGame.LaunchRelativePath;
             _launchArgumentsTextBox.Text = existingGame.LaunchArguments;
+            _isHotCheckBox.Checked = existingGame.IsHot;
             _notesTextBox.Text = existingGame.Notes;
         }
         else
@@ -137,7 +154,7 @@ public sealed class GameEditorForm : Form
     {
         using var dialog = new FolderBrowserDialog
         {
-            Description = "Chọn thư mục trò chơi dùng chung trên server.",
+            Description = "Chon thu muc tro choi dung chung tren server.",
             UseDescriptionForTitle = true,
             SelectedPath = _pathTextBox.Text
         };
@@ -152,8 +169,8 @@ public sealed class GameEditorForm : Form
     {
         using var dialog = new OpenFileDialog
         {
-            Title = "Chọn tệp chạy trò chơi",
-            Filter = "Tệp EXE (*.exe)|*.exe|Tất cả tệp (*.*)|*.*",
+            Title = "Chon tep chay tro choi",
+            Filter = "Tep EXE (*.exe)|*.exe|Tat ca tep (*.*)|*.*",
             CheckFileExists = true,
             InitialDirectory = Directory.Exists(_pathTextBox.Text) ? _pathTextBox.Text : string.Empty
         };
@@ -177,7 +194,7 @@ public sealed class GameEditorForm : Form
             }
             catch
             {
-                // Bỏ qua lỗi quy đổi đường dẫn và fallback sang đường dẫn tuyệt đối.
+                // Keep absolute path when relative conversion fails.
             }
         }
 
@@ -188,19 +205,19 @@ public sealed class GameEditorForm : Form
     {
         if (string.IsNullOrWhiteSpace(_nameTextBox.Text))
         {
-            MessageBox.Show(this, "Vui lòng nhập tên trò chơi.", "Kiểm tra dữ liệu", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "Vui long nhap ten tro choi.", "Kiem tra du lieu", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_pathTextBox.Text))
         {
-            MessageBox.Show(this, "Vui lòng nhập đường dẫn cài đặt.", "Kiểm tra dữ liệu", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "Vui long nhap duong dan cai dat.", "Kiem tra du lieu", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_launchPathTextBox.Text))
         {
-            MessageBox.Show(this, "Vui lòng nhập tệp chạy trò chơi (EXE).", "Kiểm tra dữ liệu", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "Vui long nhap tep chay tro choi (EXE).", "Kiem tra du lieu", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -213,9 +230,11 @@ public sealed class GameEditorForm : Form
             Version = string.IsNullOrWhiteSpace(_versionTextBox.Text) ? "1.0.0" : _versionTextBox.Text.Trim(),
             LaunchRelativePath = _launchPathTextBox.Text.Trim(),
             LaunchArguments = _launchArgumentsTextBox.Text.Trim(),
+            IsHot = _isHotCheckBox.Checked,
             Notes = _notesTextBox.Text.Trim(),
             LastScannedAt = _existingGame?.LastScannedAt,
-            LastUpdatedAt = _existingGame?.LastUpdatedAt
+            LastUpdatedAt = _existingGame?.LastUpdatedAt,
+            SortOrder = _existingGame?.SortOrder ?? 999999
         };
 
         DialogResult = DialogResult.OK;

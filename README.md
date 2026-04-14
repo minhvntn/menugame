@@ -40,6 +40,10 @@ dotnet build GameUpdater.sln -c Release
 dotnet build "I:\servermanagergame\GameUpdater.sln" -c Release
 ```
 
+## Public server folder game
+http-server E:\GameOnlineIDC -p 8088 -a 0.0.0.0
+Access URL: http://14.187.93.143:8088/
+
 File EXE:
 
 - Server: `src\GameUpdater.WinForms\bin\Release\net8.0-windows\GameUpdater.WinForms.exe`
@@ -59,3 +63,6 @@ File EXE:
 ```
 
 5. Mở `GameLauncher.Client.exe`, menu game sẽ tự tải và cho phép bấm chơi.
+
+
+Refer: https://vietboot.com/forum/threads/menu-games.14990/

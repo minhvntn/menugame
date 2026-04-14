@@ -1,0 +1,5 @@
+i:\servermanagergame\buildtmp2\obj-shared\Debug\net8.0\GameUpdater.Shared.GeneratedMSBuildEditorConfig.editorconfig
+i:\servermanagergame\buildtmp2\obj-shared\Debug\net8.0\GameUpdater.Shared.AssemblyInfoInputs.cache
+i:\servermanagergame\buildtmp2\obj-shared\Debug\net8.0\GameUpdater.Shared.AssemblyInfo.cs
+i:\servermanagergame\buildtmp2\obj-shared\Debug\net8.0\GameUpdater.Shared.csproj.CoreCompileInputs.cache
+i:\servermanagergame\buildtmp2\obj-shared\Debug\net8.0\GameUpdater.Shared.sourcelink.json

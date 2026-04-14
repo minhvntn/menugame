@@ -21,5 +21,8 @@ public sealed class LauncherGameRow
     public string ResolvedExecutablePath { get; init; } = string.Empty;
 
     public string Status { get; init; } = string.Empty;
-}
 
+    public int SortOrder => Source.SortOrder;
+
+    public bool IsHot => Source.IsHot;
+}

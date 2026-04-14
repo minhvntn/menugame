@@ -36,7 +36,9 @@ public static class DatabaseInitializer
                 LaunchArguments TEXT NOT NULL DEFAULT '',
                 LastScannedAt TEXT NULL,
                 LastUpdatedAt TEXT NULL,
-                Notes TEXT NOT NULL
+                Notes TEXT NOT NULL,
+                SortOrder INTEGER NOT NULL DEFAULT 999999,
+                IsHot INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS UpdateLogs (
@@ -57,6 +59,8 @@ public static class DatabaseInitializer
 
         await AddColumnIfMissingAsync(connection, "Games", "LaunchRelativePath", "TEXT NOT NULL DEFAULT ''", cancellationToken);
         await AddColumnIfMissingAsync(connection, "Games", "LaunchArguments", "TEXT NOT NULL DEFAULT ''", cancellationToken);
+        await AddColumnIfMissingAsync(connection, "Games", "SortOrder", "INTEGER NOT NULL DEFAULT 999999", cancellationToken);
+        await AddColumnIfMissingAsync(connection, "Games", "IsHot", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
     }
 
     private static async Task AddColumnIfMissingAsync(

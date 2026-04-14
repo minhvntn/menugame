@@ -5,11 +5,18 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\GameUpdater.Shared\GameUpdater.Shared.csproj" />
     <ProjectReference Include="..\GameUpdater.Core\GameUpdater.Core.csproj" />
     <ProjectReference Include="..\GameUpdater.Data\GameUpdater.Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="app.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

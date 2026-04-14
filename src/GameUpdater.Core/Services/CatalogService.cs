@@ -31,7 +31,9 @@ public sealed class CatalogService
             ClientPolicy = ClonePolicy(clientPolicy)
         };
 
-        foreach (var game in games.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+        foreach (var game in games
+                     .OrderBy(item => item.SortOrder)
+                     .ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
         {
             catalog.Games.Add(new LauncherGameEntry
             {
@@ -41,7 +43,9 @@ public sealed class CatalogService
                 Version = game.Version,
                 InstallPath = game.InstallPath,
                 LaunchRelativePath = game.LaunchRelativePath ?? string.Empty,
-                LaunchArguments = game.LaunchArguments ?? string.Empty
+                LaunchArguments = game.LaunchArguments ?? string.Empty,
+                SortOrder = game.SortOrder,
+                IsHot = game.IsHot
             });
         }
 

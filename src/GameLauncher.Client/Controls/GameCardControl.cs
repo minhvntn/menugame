@@ -1,4 +1,4 @@
-using System.Drawing.Drawing2D;
+using System.Text;
 using GameLauncher.Client.Models;
 
 namespace GameLauncher.Client.Controls;
@@ -7,21 +7,45 @@ public sealed class GameCardControl : UserControl
 {
     private readonly LauncherGameRow _row;
     private readonly Action<LauncherGameRow> _playAction;
+    private readonly bool _isHotRow;
+    private readonly int _iconSize;
+    private readonly int _cardWidth;
+    private readonly int _cardHeight;
+    private readonly int _tileSize;
+    private readonly Font _nameFont;
 
-    public GameCardControl(
-        LauncherGameRow row,
-        Action<LauncherGameRow> playAction)
+    public GameCardControl(LauncherGameRow row, Action<LauncherGameRow> playAction, bool isHotRow = false)
     {
         _row = row;
         _playAction = playAction;
+        _isHotRow = isHotRow;
 
-        Width = 190;
-        Height = 180;
-        Margin = new Padding(10);
-        BackColor = Color.White;
-        BorderStyle = BorderStyle.FixedSingle;
+        _iconSize = _isHotRow ? 60 : 40;
+        _tileSize = _isHotRow ? 78 : 56;
+        _cardWidth = _isHotRow ? 118 : 96;
+        _cardHeight = _isHotRow ? 114 : 98;
+        _nameFont = new Font("Segoe UI Semibold", _isHotRow ? 8.5f : 8f, FontStyle.Bold);
+
+        Width = _cardWidth;
+        Height = _cardHeight;
+        Margin = _isHotRow ? new Padding(9, 0, 9, 0) : new Padding(8, 8, 8, 8);
+        Padding = new Padding(2);
+        BackColor = Color.Transparent;
+        Cursor = Cursors.Hand;
+        DoubleBuffered = true;
 
         BuildLayout();
+        WireCardClick(this);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _nameFont.Dispose();
+        }
+
+        base.Dispose(disposing);
     }
 
     private void BuildLayout()
@@ -29,40 +53,75 @@ public sealed class GameCardControl : UserControl
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            RowCount = 3,
-            Padding = new Padding(8)
+            ColumnCount = 1,
+            RowCount = 2,
+            BackColor = Color.Transparent
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 110));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, _tileSize + 8));
+        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+        var hostPanel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.Transparent
+        };
+
+        var iconTile = new Panel
+        {
+            Width = _tileSize,
+            Height = _tileSize,
+            BackColor = Color.FromArgb(58, 73, 91)
+        };
 
         var iconBox = new PictureBox
         {
-            Dock = DockStyle.Fill,
+            Width = _iconSize,
+            Height = _iconSize,
             SizeMode = PictureBoxSizeMode.Zoom,
-            Image = LoadGameImage(_row),
-            Cursor = Cursors.Hand
+            Image = LoadGameImage(_row, _iconSize),
+            BackColor = Color.Transparent
         };
-        iconBox.Click += (_, _) => _playAction(_row);
-        iconBox.DoubleClick += (_, _) => _playAction(_row);
+
+        iconTile.Controls.Add(iconBox);
+        CenterControl(iconTile, iconBox);
+        iconTile.Resize += (_, _) => CenterControl(iconTile, iconBox);
+
+        hostPanel.Controls.Add(iconTile);
+        CenterControl(hostPanel, iconTile);
+        hostPanel.Resize += (_, _) => CenterControl(hostPanel, iconTile);
 
         var nameLabel = new Label
         {
-            Text = _row.Name,
+            Text = BuildTwoLineText(_row.Name, _nameFont, _cardWidth - 10),
             Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI Semibold", 11f, FontStyle.Bold),
-            TextAlign = ContentAlignment.MiddleCenter,
-            AutoEllipsis = true
+            Font = _nameFont,
+            TextAlign = ContentAlignment.TopCenter,
+            AutoEllipsis = false,
+            ForeColor = Color.FromArgb(236, 245, 252),
+            Padding = new Padding(2, 1, 2, 0)
         };
+        nameLabel.UseCompatibleTextRendering = true;
 
-        root.Controls.Add(iconBox, 0, 0);
+        root.Controls.Add(hostPanel, 0, 0);
         root.Controls.Add(nameLabel, 0, 1);
-        root.Controls.Add(new Panel { Dock = DockStyle.Fill }, 0, 2);
 
         Controls.Add(root);
+
+        WireCardClick(root);
+        WireCardClick(hostPanel);
+        WireCardClick(iconTile);
+        WireCardClick(iconBox);
+        WireCardClick(nameLabel);
     }
 
-    private static Image LoadGameImage(LauncherGameRow row)
+    private void WireCardClick(Control control)
+    {
+        control.Click += (_, _) => _playAction(_row);
+        control.DoubleClick += (_, _) => _playAction(_row);
+    }
+
+    private static Image LoadGameImage(LauncherGameRow row, int iconSize)
     {
         try
         {
@@ -71,31 +130,148 @@ public sealed class GameCardControl : UserControl
                 using var icon = Icon.ExtractAssociatedIcon(row.ResolvedExecutablePath);
                 if (icon is not null)
                 {
-                    return CreateRoundedImage(icon.ToBitmap());
+                    return CreatePlainIcon(icon.ToBitmap(), iconSize);
                 }
             }
         }
         catch
         {
-            // Fallback to app icon.
+            // Fallback to default icon.
         }
 
-        return CreateRoundedImage(SystemIcons.Application.ToBitmap());
+        return CreatePlainIcon(SystemIcons.Application.ToBitmap(), iconSize);
     }
 
-    private static Image CreateRoundedImage(Image source)
+    private static Image CreatePlainIcon(Image source, int iconSize)
     {
-        var size = 80;
-        var bitmap = new Bitmap(size, size);
+        var bitmap = new Bitmap(iconSize, iconSize);
         using var graphics = Graphics.FromImage(bitmap);
-        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
         graphics.Clear(Color.Transparent);
-
-        using var path = new GraphicsPath();
-        path.AddEllipse(0, 0, size - 1, size - 1);
-        graphics.SetClip(path);
-        graphics.DrawImage(source, 0, 0, size, size);
-
+        graphics.DrawImage(source, 0, 0, iconSize, iconSize);
         return bitmap;
+    }
+
+    private static void CenterControl(Control hostPanel, Control childControl)
+    {
+        childControl.Left = Math.Max(0, (hostPanel.ClientSize.Width - childControl.Width) / 2);
+        childControl.Top = Math.Max(0, (hostPanel.ClientSize.Height - childControl.Height) / 2);
+    }
+
+    private static string BuildTwoLineText(string text, Font font, int maxWidth)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        var normalized = NormalizeWhitespace(text);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return string.Empty;
+        }
+
+        var lines = new List<string>(2);
+        var index = 0;
+
+        while (index < normalized.Length && lines.Count < 2)
+        {
+            var currentLine = new StringBuilder();
+            while (index < normalized.Length)
+            {
+                var candidate = currentLine.ToString() + normalized[index];
+                if (currentLine.Length > 0 && MeasureSingleLineWidth(candidate, font) > maxWidth)
+                {
+                    break;
+                }
+
+                currentLine.Append(normalized[index]);
+                index++;
+            }
+
+            var lineText = currentLine.ToString().Trim();
+            if (lineText.Length == 0 && index < normalized.Length)
+            {
+                lineText = normalized[index].ToString();
+                index++;
+            }
+
+            lines.Add(lineText);
+        }
+
+        if (lines.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        if (index < normalized.Length)
+        {
+            if (lines.Count < 2)
+            {
+                lines.Add(string.Empty);
+            }
+
+            lines[1] = FitLineWithEllipsis(lines[1], font, maxWidth);
+        }
+
+        return string.Join(Environment.NewLine, lines.Take(2));
+    }
+
+    private static string NormalizeWhitespace(string text)
+    {
+        var builder = new StringBuilder(text.Length);
+        var previousIsWhitespace = false;
+
+        foreach (var character in text)
+        {
+            if (char.IsWhiteSpace(character))
+            {
+                if (previousIsWhitespace)
+                {
+                    continue;
+                }
+
+                builder.Append(' ');
+                previousIsWhitespace = true;
+                continue;
+            }
+
+            builder.Append(character);
+            previousIsWhitespace = false;
+        }
+
+        return builder.ToString().Trim();
+    }
+
+    private static string FitLineWithEllipsis(string line, Font font, int maxWidth)
+    {
+        var workingLine = string.IsNullOrWhiteSpace(line)
+            ? string.Empty
+            : line.TrimEnd();
+
+        const string ellipsis = "...";
+        if (workingLine.Length == 0)
+        {
+            return ellipsis;
+        }
+
+        while (workingLine.Length > 0 && MeasureSingleLineWidth(workingLine + ellipsis, font) > maxWidth)
+        {
+            workingLine = workingLine[..^1].TrimEnd();
+        }
+
+        return workingLine.Length == 0 ? ellipsis : workingLine + ellipsis;
+    }
+
+    private static int MeasureSingleLineWidth(string text, Font font)
+    {
+        var measured = TextRenderer.MeasureText(
+            text,
+            font,
+            new Size(int.MaxValue, int.MaxValue),
+            TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
+
+        return measured.Width;
     }
 }

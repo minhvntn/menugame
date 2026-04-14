@@ -21,4 +21,8 @@ public sealed class GameRecord
     public DateTime? LastUpdatedAt { get; set; }
 
     public string Notes { get; set; } = string.Empty;
+
+    public int SortOrder { get; set; } = 999999;
+
+    public bool IsHot { get; set; }
 }

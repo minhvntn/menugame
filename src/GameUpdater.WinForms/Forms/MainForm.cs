@@ -28,6 +28,11 @@ public sealed class MainForm : Form
     private readonly BindingSource _downloadMonitorBinding = new();
 
     private readonly DataGridView _gamesGrid = new();
+    private readonly FlowLayoutPanel _gamesGridPanel = new();
+    private readonly ComboBox _gamesViewModeComboBox = new();
+    private readonly Button _moveTopButton = new();
+    private readonly Button _moveUpButton = new();
+    private readonly Button _moveDownButton = new();
     private readonly DataGridView _resourcesGrid = new();
     private readonly DataGridView _downloadMonitorGrid = new();
     private readonly DataGridView _logsGrid = new();
@@ -75,6 +80,8 @@ public sealed class MainForm : Form
     private readonly ToolStripMenuItem _editGameMenuItem = new("Sửa");
     private readonly ToolStripMenuItem _deleteGameMenuItem = new("Xóa");
     private readonly ToolStripMenuItem _viewManifestMenuItem = new("Xem manifest");
+    private readonly ToolStripMenuItem _markHotGameMenuItem = new("Danh dau Hot game");
+    private readonly ToolStripMenuItem _unmarkHotGameMenuItem = new("Bo Hot game");
     private readonly ContextMenuStrip _downloadMonitorContextMenu = new();
     private readonly ToolStripMenuItem _pauseDownloadMenuItem = new("Tạm dừng");
     private readonly ToolStripMenuItem _resumeDownloadMenuItem = new("Tiếp tục");
@@ -122,6 +129,11 @@ public sealed class MainForm : Form
         Height = 820;
         StartPosition = FormStartPosition.CenterScreen;
 
+        if (File.Exists("app.ico"))
+        {
+            this.Icon = new Icon("app.ico");
+        }
+
         _gamesBinding.CurrentChanged += GamesBinding_CurrentChanged;
         _downloadMonitorBinding.DataSource = _downloadMonitorRows;
 
@@ -148,6 +160,7 @@ public sealed class MainForm : Form
         await LoadGamesAsync(selectedGameId);
         await LoadLogsAsync();
         await RefreshSelectedGameDetailsAsync();
+        RefreshGamesGridPanel();
     }
 
     private async Task LoadGamesAsync(int? selectedGameId = null)
@@ -238,13 +251,39 @@ public sealed class MainForm : Form
         _scanManifestButton.Click += ScanManifestButton_Click;
         toolbar.Controls.Add(_scanManifestButton);
 
+        _gamesViewModeComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
+        _gamesViewModeComboBox.Items.AddRange(new object[] { "Dạng bảng", "Dạng lưới" });
+        _gamesViewModeComboBox.SelectedIndex = 0;
+        _gamesViewModeComboBox.SelectedIndexChanged += GamesViewModeComboBox_SelectedIndexChanged;
+        toolbar.Controls.Add(_gamesViewModeComboBox);
+
+        _moveTopButton.Text = "Lên đầu";
+        _moveTopButton.Click += async (_, _) => await ReorderSelectedGameAsync(-99999);
+        toolbar.Controls.Add(_moveTopButton);
+
+        _moveUpButton.Text = "Lên trên";
+        _moveUpButton.Click += async (_, _) => await ReorderSelectedGameAsync(-15);
+        toolbar.Controls.Add(_moveUpButton);
+
+        _moveDownButton.Text = "Xuống dưới";
+        _moveDownButton.Click += async (_, _) => await ReorderSelectedGameAsync(15);
+        toolbar.Controls.Add(_moveDownButton);
+        toolbar.Controls.Add(CreateButton("Danh dau Hot", async (_, _) => await SetSelectedGameHotAsync(true)));
+        toolbar.Controls.Add(CreateButton("Bo Hot", async (_, _) => await SetSelectedGameHotAsync(false)));
+
         toolbar.Controls.Add(CreateButton("Xuất danh mục client", ExportCatalogButton_Click));
         toolbar.Controls.Add(CreateButton("Làm mới", RefreshButton_Click));
 
         ConfigureGamesGrid();
+        ConfigureGamesGridPanel();
         EnsureGamesContextMenu();
+
+        var gridContainer = new Panel { Dock = DockStyle.Fill };
+        gridContainer.Controls.Add(_gamesGridPanel);
+        gridContainer.Controls.Add(_gamesGrid);
+
         leftPanel.Controls.Add(toolbar, 0, 0);
-        leftPanel.Controls.Add(_gamesGrid, 0, 1);
+        leftPanel.Controls.Add(gridContainer, 0, 1);
 
         root.Controls.Add(leftPanel, 0, 0);
 
@@ -2081,6 +2120,7 @@ private async void SyncSelectedResourceButton_Click(object? sender, EventArgs e)
         };
         toolbar.Controls.Add(CreateButton("Làm mới lịch sử", RefreshLogsButton_Click));
         toolbar.Controls.Add(CreateButton("Xuất CSV", ExportLogsCsvButton_Click));
+        toolbar.Controls.Add(CreateButton("Xóa lịch sử", ClearLogsButton_Click));
 
         ConfigureLogsGrid();
         root.Controls.Add(toolbar, 0, 0);
@@ -2088,6 +2128,17 @@ private async void SyncSelectedResourceButton_Click(object? sender, EventArgs e)
 
         page.Controls.Add(root);
         return page;
+    }
+
+    private async void ClearLogsButton_Click(object? sender, EventArgs e)
+    {
+        var confirm = MessageBox.Show(this, "Bạn có chắc chắn muốn xóa toàn bộ lịch sử không?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+        if (confirm == DialogResult.Yes)
+        {
+            await _logRepository.ClearAllAsync();
+            await LoadLogsAsync();
+            MessageBox.Show(this, "Đã xóa lịch sử thành công.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
     }
 
     private TabPage BuildSettingsTab()
@@ -2191,6 +2242,9 @@ private async void SyncSelectedResourceButton_Click(object? sender, EventArgs e)
         _gamesGrid.ReadOnly = true;
         _gamesGrid.RowHeadersVisible = false;
         _gamesGrid.DataSource = _gamesBinding;
+        _gamesGrid.Columns.Add(CreateCheckBoxColumn("Hot", nameof(GameRecord.IsHot), 55));
+
+        _gamesGrid.Columns.Add(CreateTextColumn("Ưu tiên", nameof(GameRecord.SortOrder), 70));
 
         _gamesGrid.Columns.Add(CreateTextColumn("Tên trò chơi", nameof(GameRecord.Name), 180));
         _gamesGrid.Columns.Add(CreateTextColumn("Nhóm", nameof(GameRecord.Category), 120));
@@ -2199,6 +2253,95 @@ private async void SyncSelectedResourceButton_Click(object? sender, EventArgs e)
         _gamesGrid.Columns.Add(CreateTextColumn("Đường dẫn cài đặt", nameof(GameRecord.InstallPath), 320));
         _gamesGrid.Columns.Add(CreateTextColumn("Quét gần nhất", nameof(GameRecord.LastScannedAt), 140, "yyyy-MM-dd HH:mm:ss"));
         _gamesGrid.Columns.Add(CreateTextColumn("Cập nhật gần nhất", nameof(GameRecord.LastUpdatedAt), 140, "yyyy-MM-dd HH:mm:ss"));
+    }
+
+    private void ConfigureGamesGridPanel()
+    {
+        _gamesGridPanel.Dock = DockStyle.Fill;
+        _gamesGridPanel.AutoScroll = true;
+        _gamesGridPanel.Visible = false;
+        _gamesGridPanel.BackColor = Color.FromArgb(14, 25, 37);
+        _gamesGridPanel.Padding = new Padding(12);
+    }
+
+    private void GamesViewModeComboBox_SelectedIndexChanged(object? sender, EventArgs e)
+    {
+        var isGrid = _gamesViewModeComboBox.SelectedIndex == 1;
+        _gamesGrid.Visible = !isGrid;
+        _gamesGridPanel.Visible = isGrid;
+        if (isGrid) RefreshGamesGridPanel();
+    }
+
+    private void RefreshGamesGridPanel()
+    {
+        if (_gamesViewModeComboBox.SelectedIndex != 1) return;
+
+        _gamesGridPanel.SuspendLayout();
+        _gamesGridPanel.Controls.Clear();
+
+        var games = _gamesBinding.DataSource as List<GameRecord> ?? new List<GameRecord>();
+        var ordered = games.OrderBy(g => g.SortOrder).ThenBy(g => g.Name).ToList();
+
+        foreach (var game in ordered)
+        {
+            var card = new GameUpdater.WinForms.Controls.ServerGameCardControl(game, clickedGame =>
+            {
+                foreach (GameUpdater.WinForms.Controls.ServerGameCardControl c in _gamesGridPanel.Controls) c.IsSelected = false;
+                
+                var control = _gamesGridPanel.Controls.OfType<GameUpdater.WinForms.Controls.ServerGameCardControl>().FirstOrDefault(c => c.GameRecord.Id == clickedGame.Id);
+                if (control != null) control.IsSelected = true;
+
+                for (var i = 0; i < _gamesBinding.Count; i++)
+                {
+                    if (_gamesBinding[i] is GameRecord gr && gr.Id == clickedGame.Id)
+                    {
+                        _gamesBinding.Position = i;
+                        break;
+                    }
+                }
+            });
+            
+            if (SelectedGame != null && SelectedGame.Id == game.Id) card.IsSelected = true;
+            _gamesGridPanel.Controls.Add(card);
+        }
+        _gamesGridPanel.ResumeLayout();
+    }
+
+    private async Task ReorderSelectedGameAsync(int deltaOffset)
+    {
+        if (SelectedGame == null) return;
+        var games = _gamesBinding.DataSource as List<GameRecord>;
+        if (games == null || games.Count == 0) return;
+
+        var currentIndex = games.FindIndex(g => g.Id == SelectedGame.Id);
+        if (currentIndex < 0) return;
+
+        var targetIndex = Math.Max(0, Math.Min(games.Count - 1, currentIndex + Math.Sign(deltaOffset)));
+        if (deltaOffset == -99999) targetIndex = 0;
+
+        if (targetIndex != currentIndex)
+        {
+            var targetGame = games[targetIndex];
+            var currentSort = SelectedGame.SortOrder;
+            SelectedGame.SortOrder = targetGame.SortOrder;
+            targetGame.SortOrder = currentSort;
+            
+            if (SelectedGame.SortOrder == targetGame.SortOrder)
+            {
+                SelectedGame.SortOrder -= Math.Sign(deltaOffset);
+            }
+
+            try
+            {
+                await _gameService.SaveGameAsync(SelectedGame);
+                await _gameService.SaveGameAsync(targetGame);
+                await LoadGamesAsync(SelectedGame.Id);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi đổi vị trí: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
     }
 
     private void EnsureGamesContextMenu()
@@ -2213,11 +2356,16 @@ private async void SyncSelectedResourceButton_Click(object? sender, EventArgs e)
         _gamesContextMenu.Items.Add(_deleteGameMenuItem);
         _gamesContextMenu.Items.Add(_editGameMenuItem);
         _gamesContextMenu.Items.Add(new ToolStripSeparator());
+        _gamesContextMenu.Items.Add(_markHotGameMenuItem);
+        _gamesContextMenu.Items.Add(_unmarkHotGameMenuItem);
+        _gamesContextMenu.Items.Add(new ToolStripSeparator());
         _gamesContextMenu.Items.Add(_viewManifestMenuItem);
         _gamesContextMenu.Opening += GamesContextMenu_Opening;
         _addGameMenuItem.Click += AddGameButton_Click;
         _editGameMenuItem.Click += EditGameButton_Click;
         _deleteGameMenuItem.Click += DeleteGameButton_Click;
+        _markHotGameMenuItem.Click += MarkHotGameMenuItem_Click;
+        _unmarkHotGameMenuItem.Click += UnmarkHotGameMenuItem_Click;
         _viewManifestMenuItem.Click += ViewManifestMenuItem_Click;
 
         _gamesGrid.ContextMenuStrip = _gamesContextMenu;
@@ -2250,6 +2398,8 @@ private async void SyncSelectedResourceButton_Click(object? sender, EventArgs e)
         _addGameMenuItem.Enabled = true;
         _editGameMenuItem.Enabled = hasSelectedGame;
         _deleteGameMenuItem.Enabled = hasSelectedGame;
+        _markHotGameMenuItem.Enabled = hasSelectedGame && SelectedGame is { IsHot: false };
+        _unmarkHotGameMenuItem.Enabled = hasSelectedGame && SelectedGame is { IsHot: true };
         _viewManifestMenuItem.Enabled = hasSelectedGame;
     }
 
@@ -2265,6 +2415,39 @@ private async void SyncSelectedResourceButton_Click(object? sender, EventArgs e)
         {
             var manifestPreview = await _gameService.GetManifestPreviewAsync(game);
             ShowManifestDialog(game.Name, manifestPreview);
+        });
+    }
+
+    private async void MarkHotGameMenuItem_Click(object? sender, EventArgs e)
+    {
+        await SetSelectedGameHotAsync(true);
+    }
+
+    private async void UnmarkHotGameMenuItem_Click(object? sender, EventArgs e)
+    {
+        await SetSelectedGameHotAsync(false);
+    }
+
+    private async Task SetSelectedGameHotAsync(bool isHot)
+    {
+        if (SelectedGame is null)
+        {
+            ShowInfo("Vui lÃ²ng chá»n trÃ² chÆ¡i trÆ°á»›c.");
+            return;
+        }
+
+        if (SelectedGame.IsHot == isHot)
+        {
+            return;
+        }
+
+        var game = SelectedGame;
+        await ExecuteWithErrorHandlingAsync(async () =>
+        {
+            game.IsHot = isHot;
+            var gameId = await _gameService.SaveGameAsync(game);
+            await AutoExportCatalogAsync();
+            await ReloadAllAsync(gameId);
         });
     }
 
@@ -2331,6 +2514,19 @@ private async void SyncSelectedResourceButton_Click(object? sender, EventArgs e)
         }
 
         return column;
+    }
+
+    private static DataGridViewCheckBoxColumn CreateCheckBoxColumn(string header, string propertyName, int width)
+    {
+        return new DataGridViewCheckBoxColumn
+        {
+            HeaderText = header,
+            DataPropertyName = propertyName,
+            Width = width,
+            ReadOnly = true,
+            ThreeState = false,
+            AutoSizeMode = DataGridViewAutoSizeColumnMode.None
+        };
     }
 
     private static string EscapeCsv(string? value)

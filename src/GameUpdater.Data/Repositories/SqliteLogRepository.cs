@@ -73,4 +73,14 @@ public sealed class SqliteLogRepository : ILogRepository
 
         return logs;
     }
+
+    public async Task ClearAllAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM UpdateLogs;";
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
 }
