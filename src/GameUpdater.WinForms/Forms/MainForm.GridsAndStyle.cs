@@ -79,12 +79,12 @@ public sealed partial class MainForm
         if (_gamesViewModeComboBox.SelectedIndex != 1) return;
 
         _gamesGridPanel.SuspendLayout();
-        foreach (Control control in _gamesGridPanel.Controls)
+        var controlsToDispose = _gamesGridPanel.Controls.Cast<Control>().ToList();
+        _gamesGridPanel.Controls.Clear();
+        foreach (var control in controlsToDispose)
         {
             control.Dispose();
         }
-
-        _gamesGridPanel.Controls.Clear();
 
         var games = _gamesBinding.DataSource as List<GameRecord> ?? new List<GameRecord>();
         var ordered = games.OrderBy(g => g.SortOrder).ThenBy(g => g.Name).ToList();
@@ -460,11 +460,12 @@ public sealed partial class MainForm
     private static void ApplyDataGridFont(DataGridView grid, Font uiFont)
     {
         grid.Font = uiFont;
-        grid.ColumnHeadersDefaultCellStyle.Font = uiFont;
+        grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+        grid.ColumnHeadersDefaultCellStyle.Font = new Font(uiFont, FontStyle.Bold); // Make header font slightly bolder for better appearance
         grid.DefaultCellStyle.Font = uiFont;
         grid.DefaultCellStyle.Padding = new Padding(0, 4, 0, 4);
         grid.RowTemplate.Height = Math.Max(34, (int)Math.Ceiling(uiFont.Size * 2.6f));
-        grid.ColumnHeadersHeight = Math.Max(36, (int)Math.Ceiling(uiFont.Size * 2.8f));
+        grid.ColumnHeadersHeight = Math.Max(46, (int)Math.Ceiling(uiFont.Size * 3.4f)); // Increased header height
     }
 
     private void ApplyListItemSpacing(float uiFontSize)

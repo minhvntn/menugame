@@ -17,6 +17,8 @@ public sealed class GameCardControl : UserControl
     private readonly int _tileSize;
     private readonly Font _nameFont;
 
+    public LauncherGameRow Row => _row;
+
     public GameCardControl(LauncherGameRow row, Action<LauncherGameRow> playAction, bool isHotRow = false)
     {
         _row = row;
