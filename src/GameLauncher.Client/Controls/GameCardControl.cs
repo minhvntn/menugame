@@ -5,6 +5,9 @@ namespace GameLauncher.Client.Controls;
 
 public sealed class GameCardControl : UserControl
 {
+    private static readonly object IconCacheSyncRoot = new();
+    private static readonly Dictionary<string, Image> IconCache = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly LauncherGameRow _row;
     private readonly Action<LauncherGameRow> _playAction;
     private readonly bool _isHotRow;
@@ -123,6 +126,32 @@ public sealed class GameCardControl : UserControl
 
     private static Image LoadGameImage(LauncherGameRow row, int iconSize)
     {
+        var cacheKey = BuildIconCacheKey(row.ResolvedExecutablePath, iconSize);
+
+        lock (IconCacheSyncRoot)
+        {
+            if (IconCache.TryGetValue(cacheKey, out var cachedImage))
+            {
+                return cachedImage;
+            }
+        }
+
+        var image = CreateGameImage(row, iconSize);
+        lock (IconCacheSyncRoot)
+        {
+            if (IconCache.TryGetValue(cacheKey, out var existingImage))
+            {
+                image.Dispose();
+                return existingImage;
+            }
+
+            IconCache[cacheKey] = image;
+            return image;
+        }
+    }
+
+    private static Image CreateGameImage(LauncherGameRow row, int iconSize)
+    {
         try
         {
             if (!string.IsNullOrWhiteSpace(row.ResolvedExecutablePath) && File.Exists(row.ResolvedExecutablePath))
@@ -130,7 +159,8 @@ public sealed class GameCardControl : UserControl
                 using var icon = Icon.ExtractAssociatedIcon(row.ResolvedExecutablePath);
                 if (icon is not null)
                 {
-                    return CreatePlainIcon(icon.ToBitmap(), iconSize);
+                    using var iconBitmap = icon.ToBitmap();
+                    return CreatePlainIcon(iconBitmap, iconSize);
                 }
             }
         }
@@ -139,7 +169,25 @@ public sealed class GameCardControl : UserControl
             // Fallback to default icon.
         }
 
-        return CreatePlainIcon(SystemIcons.Application.ToBitmap(), iconSize);
+        using var fallbackBitmap = SystemIcons.Application.ToBitmap();
+        return CreatePlainIcon(fallbackBitmap, iconSize);
+    }
+
+    private static string BuildIconCacheKey(string executablePath, int iconSize)
+    {
+        if (string.IsNullOrWhiteSpace(executablePath))
+        {
+            return $"__default__:{iconSize}";
+        }
+
+        try
+        {
+            return $"{Path.GetFullPath(executablePath)}:{iconSize}";
+        }
+        catch
+        {
+            return $"{executablePath.Trim()}:{iconSize}";
+        }
     }
 
     private static Image CreatePlainIcon(Image source, int iconSize)

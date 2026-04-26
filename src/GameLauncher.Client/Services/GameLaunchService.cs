@@ -9,7 +9,7 @@ public sealed class GameLaunchService
     private Process? _lastLaunchedProcess;
     private string _lastExecutablePath = string.Empty;
 
-    public void Launch(LauncherGameRow row)
+    public Process Launch(LauncherGameRow row)
     {
         if (string.IsNullOrWhiteSpace(row.ResolvedExecutablePath))
         {
@@ -53,6 +53,8 @@ public sealed class GameLaunchService
             _lastLaunchedProcess = process;
             _lastExecutablePath = Path.GetFullPath(row.ResolvedExecutablePath);
         }
+
+        return process;
     }
 
     public bool TryCloseLastLaunchedApplication(out string message)

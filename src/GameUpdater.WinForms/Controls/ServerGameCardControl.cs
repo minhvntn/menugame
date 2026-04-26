@@ -10,8 +10,12 @@ public sealed class ServerGameCardControl : UserControl
     private const int CardWidth = 96;
     private const int CardHeight = 94;
 
+    private static readonly object IconCacheSyncRoot = new();
+    private static readonly Dictionary<string, Image> IconCache = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly GameRecord _row;
     private readonly Action<GameRecord> _clickAction;
+    private readonly Font _nameFont = new("Segoe UI Semibold", 8f, FontStyle.Bold);
     private bool _isSelected;
 
     public ServerGameCardControl(GameRecord row, Action<GameRecord> clickAction)
@@ -29,6 +33,16 @@ public sealed class ServerGameCardControl : UserControl
 
         BuildLayout();
         WireCardClick(this);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _nameFont.Dispose();
+        }
+
+        base.Dispose(disposing);
     }
 
     public GameRecord GameRecord => _row;
@@ -100,12 +114,11 @@ public sealed class ServerGameCardControl : UserControl
         CenterIconInPanel(iconWrap, iconBox);
         iconWrap.Resize += (_, _) => CenterIconInPanel(iconWrap, iconBox);
 
-        var nameFont = new Font("Segoe UI Semibold", 8f, FontStyle.Bold);
         var nameLabel = new Label
         {
-            Text = BuildTwoLineText(_row.Name, nameFont, CardWidth - 8),
+            Text = BuildTwoLineText(_row.Name, _nameFont, CardWidth - 8),
             Dock = DockStyle.Fill,
-            Font = nameFont,
+            Font = _nameFont,
             TextAlign = ContentAlignment.TopCenter,
             AutoEllipsis = false,
             ForeColor = Color.FromArgb(236, 245, 252),
@@ -141,18 +154,42 @@ public sealed class ServerGameCardControl : UserControl
 
     private static Image LoadGameImage(GameRecord row)
     {
+        var exePath = ResolveExecutablePath(row);
+        var cacheKey = string.IsNullOrWhiteSpace(exePath) ? "__default__" : exePath;
+
+        lock (IconCacheSyncRoot)
+        {
+            if (IconCache.TryGetValue(cacheKey, out var cachedImage))
+            {
+                return cachedImage;
+            }
+        }
+
+        var image = CreateGameImage(exePath);
+        lock (IconCacheSyncRoot)
+        {
+            if (IconCache.TryGetValue(cacheKey, out var existingImage))
+            {
+                image.Dispose();
+                return existingImage;
+            }
+
+            IconCache[cacheKey] = image;
+            return image;
+        }
+    }
+
+    private static Image CreateGameImage(string exePath)
+    {
         try
         {
-            if (!string.IsNullOrWhiteSpace(row.InstallPath) && !string.IsNullOrWhiteSpace(row.LaunchRelativePath))
+            if (!string.IsNullOrWhiteSpace(exePath) && File.Exists(exePath))
             {
-                var exePath = Path.Combine(row.InstallPath, row.LaunchRelativePath);
-                if (File.Exists(exePath))
+                using var icon = Icon.ExtractAssociatedIcon(exePath);
+                if (icon is not null)
                 {
-                    using var icon = Icon.ExtractAssociatedIcon(exePath);
-                    if (icon is not null)
-                    {
-                        return CreateRoundedImage(icon.ToBitmap());
-                    }
+                    using var iconBitmap = icon.ToBitmap();
+                    return CreateRoundedImage(iconBitmap);
                 }
             }
         }
@@ -161,7 +198,25 @@ public sealed class ServerGameCardControl : UserControl
             // Fallback
         }
 
-        return CreateRoundedImage(SystemIcons.Application.ToBitmap());
+        using var fallbackBitmap = SystemIcons.Application.ToBitmap();
+        return CreateRoundedImage(fallbackBitmap);
+    }
+
+    private static string ResolveExecutablePath(GameRecord row)
+    {
+        if (string.IsNullOrWhiteSpace(row.InstallPath) || string.IsNullOrWhiteSpace(row.LaunchRelativePath))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return Path.GetFullPath(Path.Combine(row.InstallPath, row.LaunchRelativePath));
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     private static Image CreateRoundedImage(Image source)
@@ -193,7 +248,7 @@ public sealed class ServerGameCardControl : UserControl
     private static string BuildTwoLineText(string text, Font font, int maxWidth)
     {
         if (string.IsNullOrWhiteSpace(text)) return string.Empty;
-        var normalized = string.Join(" ", text.Split((char[])null, StringSplitOptions.RemoveEmptyEntries));
+        var normalized = string.Join(" ", text.Split(Array.Empty<char>(), StringSplitOptions.RemoveEmptyEntries));
         if (string.IsNullOrWhiteSpace(normalized)) return string.Empty;
 
         var lines = new List<string>(2);

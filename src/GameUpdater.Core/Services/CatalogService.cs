@@ -168,7 +168,11 @@ public sealed class CatalogService
         return new LauncherClientPolicy
         {
             ClientWindowsWallpaperPath = clientPolicy?.ClientWindowsWallpaperPath?.Trim() ?? string.Empty,
-            EnableCloseRunningApplicationHotKey = clientPolicy?.EnableCloseRunningApplicationHotKey ?? true
+            EnableCloseRunningApplicationHotKey = clientPolicy?.EnableCloseRunningApplicationHotKey ?? true,
+            CafeDisplayName = string.IsNullOrWhiteSpace(clientPolicy?.CafeDisplayName) ? "Cyber Game" : clientPolicy.CafeDisplayName.Trim(),
+            BannerMessage = clientPolicy?.BannerMessage?.Trim() ?? string.Empty,
+            EnableFullscreenKioskMode = clientPolicy?.EnableFullscreenKioskMode ?? false,
+            ThemeAccentColor = string.IsNullOrWhiteSpace(clientPolicy?.ThemeAccentColor) ? "#38BDF8" : clientPolicy.ThemeAccentColor.Trim()
         };
     }
 }

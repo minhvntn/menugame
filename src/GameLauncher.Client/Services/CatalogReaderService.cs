@@ -41,16 +41,13 @@ public sealed class CatalogReaderService
     public static IReadOnlyList<LauncherGameRow> BuildRows(LauncherCatalog catalog)
     {
         var rows = new List<LauncherGameRow>(catalog.Games.Count);
-        foreach (var game in catalog.Games.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+        foreach (var game in catalog.Games)
         {
-            var resolvedExecutable = ResolveExecutablePath(game);
-            var status = File.Exists(resolvedExecutable) ? "Sẵn sàng" : "Thiếu tệp chạy";
-
             rows.Add(new LauncherGameRow
             {
                 Source = game,
-                ResolvedExecutablePath = resolvedExecutable,
-                Status = status
+                ResolvedExecutablePath = ResolveExecutablePath(game),
+                Status = "Sẵn sàng"
             });
         }
 
