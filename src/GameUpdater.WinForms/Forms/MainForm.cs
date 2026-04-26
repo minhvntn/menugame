@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
@@ -13,12 +13,17 @@ namespace GameUpdater.WinForms.Forms;
 public sealed partial class MainForm : Form
 {
     private const string DownloadProgressColumnName = "downloadProgressColumn";
-    private static readonly Color AccentColor = Color.FromArgb(37, 99, 235);
-    private static readonly Color AccentHoverColor = Color.FromArgb(29, 78, 216);
-    private static readonly Color SecondaryButtonColor = Color.FromArgb(241, 245, 249);
-    private static readonly Color SecondaryButtonHoverColor = Color.FromArgb(226, 232, 240);
-    private static readonly Color SecondaryButtonTextColor = Color.FromArgb(15, 23, 42);
+    private static readonly Color AccentColor = Color.FromArgb(59, 130, 246);
+    private static readonly Color AccentHoverColor = Color.FromArgb(37, 99, 235);
+    private static readonly Color SecondaryButtonColor = Color.FromArgb(30, 41, 59);
+    private static readonly Color SecondaryButtonHoverColor = Color.FromArgb(51, 65, 85);
+    private static readonly Color SecondaryButtonTextColor = Color.FromArgb(226, 232, 240);
+    private static readonly Color ButtonBorderColor = Color.FromArgb(51, 65, 85);
+    private const int ButtonHorizontalPadding = 8;
+    private const int ButtonVerticalPadding = 0;
     private static readonly List<Button> StyledButtons = new();
+    private static readonly Dictionary<Button, bool> StyledButtonPrimaryStates = new();
+    private static readonly Dictionary<Button, Color> StyledButtonTargetColors = new();
 
     private static readonly JsonSerializerOptions ManifestJsonOptions = new()
     {

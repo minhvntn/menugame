@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
@@ -430,7 +430,7 @@ public sealed partial class MainForm
                     Math.Max(1, fillWidth),
                     Math.Max(1, barBounds.Height - 1));
 
-                using var fillBrush = new SolidBrush(Color.FromArgb(64, 196, 99));
+                using var fillBrush = new SolidBrush(Color.FromArgb(16, 185, 129));
                 graphics.FillRectangle(fillBrush, fillRect);
             }
         }

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
@@ -47,7 +47,7 @@ public sealed partial class MainForm
             Dock = DockStyle.Fill,
             RowCount = 2
         };
-        leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
+        leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
         leftPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var toolbar = new FlowLayoutPanel
@@ -59,8 +59,8 @@ public sealed partial class MainForm
 
 
         _scanManifestButton.Text = "Quét manifest";
-        _scanManifestButton.AutoSize = true;
         _scanManifestButton.Click += ScanManifestButton_Click;
+        StyleButton(_scanManifestButton);
         toolbar.Controls.Add(_scanManifestButton);
 
         _gamesViewModeComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -71,14 +71,17 @@ public sealed partial class MainForm
 
         _moveTopButton.Text = "Lên đầu";
         _moveTopButton.Click += async (_, _) => await ReorderSelectedGameAsync(-99999);
+        StyleButton(_moveTopButton);
         toolbar.Controls.Add(_moveTopButton);
 
         _moveUpButton.Text = "Lên trên";
         _moveUpButton.Click += async (_, _) => await ReorderSelectedGameAsync(-15);
+        StyleButton(_moveUpButton);
         toolbar.Controls.Add(_moveUpButton);
 
         _moveDownButton.Text = "Xuống dưới";
         _moveDownButton.Click += async (_, _) => await ReorderSelectedGameAsync(15);
+        StyleButton(_moveDownButton);
         toolbar.Controls.Add(_moveDownButton);
         toolbar.Controls.Add(CreateButton("Danh dau Hot", async (_, _) => await SetSelectedGameHotAsync(true)));
         toolbar.Controls.Add(CreateButton("Bo Hot", async (_, _) => await SetSelectedGameHotAsync(false)));
@@ -145,6 +148,25 @@ public sealed partial class MainForm
         return page;
     }
 
+    // Dashboard card color palette – modern elevated dark theme.
+    private static readonly Color DashboardCardBackground = Color.FromArgb(24, 30, 50);
+    private static readonly Color DashboardCardBorder = Color.FromArgb(45, 55, 80);
+    private static readonly Color DashboardTitleColor = Color.FromArgb(0, 200, 255);      // Vivid cyan
+    private static readonly Color DashboardValueColor = Color.FromArgb(240, 245, 255);    // Near-white
+    private static readonly Color DashboardInfoTextColor = Color.FromArgb(180, 200, 225); // Light steel
+    private static readonly Color DashboardSummaryColor = Color.FromArgb(160, 210, 255);  // Soft sky-blue
+    private static readonly Color DashboardGoodColor = Color.FromArgb(34, 197, 94);       // Emerald green
+    private static readonly Color DashboardWarnColor = Color.FromArgb(250, 204, 21);      // Amber
+    private static readonly Color DashboardDangerColor = Color.FromArgb(239, 68, 68);     // Red
+
+    /// <summary>Returns a color based on usage percent: green → amber → red.</summary>
+    private static Color GetUsageColor(double percent)
+    {
+        if (percent >= 85) return DashboardDangerColor;
+        if (percent >= 65) return DashboardWarnColor;
+        return DashboardGoodColor;
+    }
+
     private TabPage BuildServerDashboardTab()
     {
         var page = new TabPage("Dashboard máy server");
@@ -153,15 +175,17 @@ public sealed partial class MainForm
             Dock = DockStyle.Fill,
             RowCount = 4,
             ColumnCount = 1,
-            Padding = new Padding(12)
+            Padding = new Padding(16),
+            BackColor = Color.FromArgb(14, 18, 32)
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 150));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 210));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 155));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 220));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         _serverDashboardSummaryLabel.Dock = DockStyle.Fill;
         _serverDashboardSummaryLabel.Font = new Font("Segoe UI Semibold", 12f, FontStyle.Bold);
+        _serverDashboardSummaryLabel.ForeColor = DashboardSummaryColor;
         _serverDashboardSummaryLabel.TextAlign = ContentAlignment.MiddleLeft;
         _serverDashboardSummaryLabel.Text = "Đang tải thông tin máy server...";
 
@@ -169,7 +193,8 @@ public sealed partial class MainForm
         {
             Dock = DockStyle.Fill,
             ColumnCount = 3,
-            Padding = new Padding(0, 4, 0, 8)
+            Padding = new Padding(0, 4, 0, 8),
+            BackColor = Color.Transparent
         };
         metricCards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
         metricCards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
@@ -182,7 +207,8 @@ public sealed partial class MainForm
         {
             Dock = DockStyle.Fill,
             ColumnCount = 2,
-            Padding = new Padding(0, 4, 0, 8)
+            Padding = new Padding(0, 4, 0, 8),
+            BackColor = Color.Transparent
         };
         details.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         details.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -192,7 +218,8 @@ public sealed partial class MainForm
         var bottom = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 2
+            ColumnCount = 2,
+            BackColor = Color.Transparent
         };
         bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -211,13 +238,16 @@ public sealed partial class MainForm
     {
         var card = CreateServerCardBase(title);
         valueLabel.Dock = DockStyle.Fill;
-        valueLabel.Font = new Font("Segoe UI Semibold", 12f, FontStyle.Bold);
+        valueLabel.Font = new Font("Segoe UI Semibold", 13f, FontStyle.Bold);
+        valueLabel.ForeColor = DashboardValueColor;
         valueLabel.TextAlign = ContentAlignment.MiddleLeft;
         valueLabel.Text = "-";
         progressBar.Dock = DockStyle.Bottom;
-        progressBar.Height = 18;
+        progressBar.Height = 10;
         progressBar.Minimum = 0;
         progressBar.Maximum = 100;
+        progressBar.Style = ProgressBarStyle.Continuous;
+        progressBar.BackColor = Color.FromArgb(35, 42, 65);
         card.Controls.Add(valueLabel, 0, 1);
         card.Controls.Add(progressBar, 0, 2);
         return card;
@@ -228,6 +258,7 @@ public sealed partial class MainForm
         var card = CreateServerCardBase(title);
         valueLabel.Dock = DockStyle.Fill;
         valueLabel.Font = new Font("Segoe UI", 10f, FontStyle.Regular);
+        valueLabel.ForeColor = DashboardInfoTextColor;
         valueLabel.TextAlign = ContentAlignment.TopLeft;
         valueLabel.Text = "-";
         card.Controls.Add(valueLabel, 0, 1);
@@ -241,20 +272,20 @@ public sealed partial class MainForm
             Dock = DockStyle.Fill,
             RowCount = 3,
             ColumnCount = 1,
-            Padding = new Padding(12),
-            Margin = new Padding(4),
-            BackColor = Color.FromArgb(245, 248, 252)
+            Padding = new Padding(14),
+            Margin = new Padding(5),
+            BackColor = DashboardCardBackground
         };
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
         card.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
+        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 16));
 
         var titleLabel = new Label
         {
             Dock = DockStyle.Fill,
             Text = title,
-            Font = new Font("Segoe UI Semibold", 10f, FontStyle.Bold),
-            ForeColor = Color.FromArgb(31, 58, 86),
+            Font = new Font("Segoe UI Semibold", 10.5f, FontStyle.Bold),
+            ForeColor = DashboardTitleColor,
             TextAlign = ContentAlignment.MiddleLeft
         };
         card.Controls.Add(titleLabel, 0, 0);

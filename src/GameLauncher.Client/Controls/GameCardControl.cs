@@ -74,7 +74,7 @@ public sealed class GameCardControl : UserControl
         {
             Width = _tileSize,
             Height = _tileSize,
-            BackColor = Color.FromArgb(58, 73, 91)
+            BackColor = Color.FromArgb(30, 41, 59)
         };
 
         var iconBox = new PictureBox
@@ -101,7 +101,7 @@ public sealed class GameCardControl : UserControl
             Font = _nameFont,
             TextAlign = ContentAlignment.TopCenter,
             AutoEllipsis = false,
-            ForeColor = Color.FromArgb(236, 245, 252),
+            ForeColor = Color.FromArgb(241, 245, 249),
             Padding = new Padding(2, 1, 2, 0)
         };
         nameLabel.UseCompatibleTextRendering = true;

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
@@ -62,7 +62,7 @@ public sealed partial class MainForm
         _gamesGridPanel.Dock = DockStyle.Fill;
         _gamesGridPanel.AutoScroll = true;
         _gamesGridPanel.Visible = false;
-        _gamesGridPanel.BackColor = Color.FromArgb(14, 25, 37);
+        _gamesGridPanel.BackColor = Color.FromArgb(11, 17, 32);
         _gamesGridPanel.Padding = new Padding(12);
     }
 
@@ -505,28 +505,121 @@ public sealed partial class MainForm
             StyledButtons.Add(button);
         }
 
+        StyledButtonPrimaryStates[button] = primary;
+        StyledButtonTargetColors[button] = primary ? AccentColor : SecondaryButtonColor;
+
         button.AutoSize = false;
         button.FlatStyle = FlatStyle.Flat;
-        button.FlatAppearance.BorderSize = 0;
+        button.FlatAppearance.BorderSize = 1;
+        button.FlatAppearance.BorderColor = primary ? AccentColor : ButtonBorderColor;
+        button.FlatAppearance.MouseOverBackColor = primary ? AccentColor : SecondaryButtonColor;
+        button.FlatAppearance.MouseDownBackColor = primary ? AccentHoverColor : SecondaryButtonHoverColor;
         button.UseVisualStyleBackColor = false;
         button.Cursor = Cursors.Hand;
-        button.Margin = new Padding(4, 4, 6, 4);
-        button.Padding = new Padding(12, 4, 12, 4);
+        button.Margin = new Padding(5, 4, 7, 4);
+        button.Padding = new Padding(ButtonHorizontalPadding, ButtonVerticalPadding, ButtonHorizontalPadding, ButtonVerticalPadding);
+        button.TextAlign = ContentAlignment.MiddleCenter;
         button.BackColor = primary ? AccentColor : SecondaryButtonColor;
         button.ForeColor = primary ? Color.White : SecondaryButtonTextColor;
-        button.FlatAppearance.MouseOverBackColor = primary ? AccentHoverColor : SecondaryButtonHoverColor;
-        button.FlatAppearance.MouseDownBackColor = primary ? AccentHoverColor : SecondaryButtonHoverColor;
+
+        button.MouseEnter -= StyledButton_MouseEnter;
+        button.MouseLeave -= StyledButton_MouseLeave;
+        button.MouseDown -= StyledButton_MouseDown;
+        button.MouseUp -= StyledButton_MouseUp;
+        button.Disposed -= StyledButton_Disposed;
+
+        button.MouseEnter += StyledButton_MouseEnter;
+        button.MouseLeave += StyledButton_MouseLeave;
+        button.MouseDown += StyledButton_MouseDown;
+        button.MouseUp += StyledButton_MouseUp;
+        button.Disposed += StyledButton_Disposed;
+        button.Region?.Dispose();
+        button.Region = null;
     }
 
     private static void ApplyButtonSizing(float uiFontSize)
     {
-        var height = Math.Max(34, (int)Math.Ceiling(uiFontSize * 2.7f));
+        var height = Math.Max(42, (int)Math.Ceiling(uiFontSize * 3.2f));
         foreach (var button in StyledButtons.Where(button => !button.IsDisposed))
         {
             button.Height = height;
             button.MinimumSize = new Size(0, height);
-            button.Width = Math.Max(button.Width, TextRenderer.MeasureText(button.Text, button.Font).Width + 32);
+            button.Width = Math.Max(button.Width, TextRenderer.MeasureText(button.Text, button.Font).Width + (ButtonHorizontalPadding * 2) + 8);
         }
+    }
+
+    private static void StyledButton_MouseEnter(object? sender, EventArgs e)
+    {
+        if (sender is not Button button) return;
+        var primary = StyledButtonPrimaryStates.TryGetValue(button, out var isPrimary) && isPrimary;
+        AnimateButtonColor(button, primary ? AccentHoverColor : SecondaryButtonHoverColor);
+    }
+
+    private static void StyledButton_MouseLeave(object? sender, EventArgs e)
+    {
+        if (sender is not Button button) return;
+        var primary = StyledButtonPrimaryStates.TryGetValue(button, out var isPrimary) && isPrimary;
+        AnimateButtonColor(button, primary ? AccentColor : SecondaryButtonColor);
+    }
+
+    private static void StyledButton_MouseDown(object? sender, MouseEventArgs e)
+    {
+        if (sender is not Button button) return;
+        var primary = StyledButtonPrimaryStates.TryGetValue(button, out var isPrimary) && isPrimary;
+        AnimateButtonColor(button, primary ? Color.FromArgb(29, 78, 216) : Color.FromArgb(71, 85, 105));
+    }
+
+    private static void StyledButton_MouseUp(object? sender, MouseEventArgs e)
+    {
+        if (sender is not Button button) return;
+        var primary = StyledButtonPrimaryStates.TryGetValue(button, out var isPrimary) && isPrimary;
+        var isHovering = button.ClientRectangle.Contains(button.PointToClient(Cursor.Position));
+        AnimateButtonColor(button, isHovering ? primary ? AccentHoverColor : SecondaryButtonHoverColor : primary ? AccentColor : SecondaryButtonColor);
+    }
+
+    private static void StyledButton_Disposed(object? sender, EventArgs e)
+    {
+        if (sender is not Button button) return;
+        StyledButtons.Remove(button);
+        StyledButtonPrimaryStates.Remove(button);
+        StyledButtonTargetColors.Remove(button);
+    }
+
+    private static void AnimateButtonColor(Button button, Color targetColor)
+    {
+        StyledButtonTargetColors[button] = targetColor;
+        var startColor = button.BackColor;
+        const int steps = 5;
+        var currentStep = 0;
+        var timer = new System.Windows.Forms.Timer { Interval = 12 };
+        timer.Tick += (_, _) =>
+        {
+            if (button.IsDisposed || !StyledButtonTargetColors.TryGetValue(button, out var latestTarget) || latestTarget != targetColor)
+            {
+                timer.Stop();
+                timer.Dispose();
+                return;
+            }
+
+            currentStep++;
+            button.BackColor = InterpolateColor(startColor, targetColor, currentStep / (float)steps);
+            if (currentStep >= steps)
+            {
+                button.BackColor = targetColor;
+                timer.Stop();
+                timer.Dispose();
+            }
+        };
+        timer.Start();
+    }
+
+    private static Color InterpolateColor(Color from, Color to, float amount)
+    {
+        amount = Math.Clamp(amount, 0f, 1f);
+        return Color.FromArgb(
+            (int)(from.R + ((to.R - from.R) * amount)),
+            (int)(from.G + ((to.G - from.G) * amount)),
+            (int)(from.B + ((to.B - from.B) * amount)));
     }
 
     private static Label CreateFieldLabel(string text)

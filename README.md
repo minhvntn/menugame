@@ -62,7 +62,7 @@ File EXE:
 }
 ```
 
-5. Mở `GameLauncher.Client.exe`, menu game sẽ tự tải và cho phép bấm chơi.
+5. Mở `GameLauncher.Client.exe`, menu game sẽ tự tải và cho phép bấm chơi.la
 
 
 Refer: https://vietboot.com/forum/threads/menu-games.14990/

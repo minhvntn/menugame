@@ -24,8 +24,8 @@ public sealed class MainForm : Form
     private const string CafeDisplayName = "Cyber Game";
 
     private static readonly HttpClient WallpaperHttpClient = new();
-    private static readonly Color HeaderBackColor = Color.FromArgb(33, 56, 74);
-    private static readonly Color BodyBackColor = Color.FromArgb(24, 39, 54);
+    private static readonly Color HeaderBackColor = Color.FromArgb(17, 24, 39);
+    private static readonly Color BodyBackColor = Color.FromArgb(11, 17, 32);
 
     private readonly SettingsService _settingsService;
     private readonly CatalogReaderService _catalogService;
@@ -50,6 +50,11 @@ public sealed class MainForm : Form
     private DateTime _lastNetworkSampleUtc = DateTime.UtcNow;
     private readonly DateTime _clientStartedAtUtc = DateTime.UtcNow;
 
+    private readonly TextBox _searchTextBox = new();
+    private readonly FlowLayoutPanel _categoriesPanel = new();
+    private string _currentSearchQuery = string.Empty;
+    private string _currentCategory = "Tất cả";
+
     public MainForm(
         SettingsService settingsService,
         CatalogReaderService catalogService,
@@ -63,7 +68,7 @@ public sealed class MainForm : Form
         Width = 1320;
         Height = 860;
         StartPosition = FormStartPosition.CenterScreen;
-        BackColor = Color.FromArgb(236, 241, 246);
+        BackColor = BodyBackColor;
         MinimumSize = new Size(1000, 680);
 
         if (File.Exists("app.ico"))
@@ -193,7 +198,36 @@ public sealed class MainForm : Form
         _headerSectionLabel.TextAlign = ContentAlignment.MiddleCenter;
         _headerSectionLabel.ForeColor = Color.White;
         _headerSectionLabel.Font = new Font("Segoe UI Semibold", 14f, FontStyle.Bold);
-        _headerSectionLabel.Text = "Online Games";
+        _headerSectionLabel.Text = "Menu Trò Chơi";
+
+        var systemTools = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            Padding = new Padding(0, 4, 0, 0),
+            AutoSize = true
+        };
+        systemTools.Controls.Add(CreateSystemToolButton("Dọn RAM", () => {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            MessageBox.Show(this, "Đã dọn dẹp bộ nhớ RAM thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }));
+        systemTools.Controls.Add(CreateSystemToolButton("Chuột", () => {
+            try { Process.Start(new ProcessStartInfo("main.cpl") { UseShellExecute = true }); } 
+            catch (Exception ex) { MessageBox.Show(this, "Không thể mở bảng điều khiển chuột: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+        }));
+
+        var headerCenterPanel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1
+        };
+        headerCenterPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        headerCenterPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        headerCenterPanel.Controls.Add(systemTools, 0, 0);
+        headerCenterPanel.Controls.Add(_headerSectionLabel, 1, 0);
 
         var quickActions = new FlowLayoutPanel
         {
@@ -207,7 +241,7 @@ public sealed class MainForm : Form
         quickActions.Controls.Add(CreateHeaderLinkButton("Web", "Website", "https://www.google.com"));
 
         headerLayout.Controls.Add(leftPanel, 0, 0);
-        headerLayout.Controls.Add(_headerSectionLabel, 1, 0);
+        headerLayout.Controls.Add(headerCenterPanel, 1, 0);
         headerLayout.Controls.Add(quickActions, 2, 0);
 
         headerPanel.Controls.Add(headerLayout);
@@ -220,13 +254,39 @@ public sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 2,
+            RowCount = 3,
             Padding = new Padding(10, 10, 10, 10),
             BackColor = BodyBackColor
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 132));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+        var topToolbar = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            Margin = new Padding(0, 0, 0, 8)
+        };
+        topToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        topToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 300));
+        
+        _categoriesPanel.Dock = DockStyle.Fill;
+        _categoriesPanel.FlowDirection = FlowDirection.LeftToRight;
+        _categoriesPanel.WrapContents = false;
+        
+        _searchTextBox.Dock = DockStyle.Fill;
+        _searchTextBox.Font = new Font("Segoe UI", 12f);
+        _searchTextBox.PlaceholderText = "Tìm kiếm trò chơi...";
+        _searchTextBox.TextChanged += (s, e) => {
+            _currentSearchQuery = _searchTextBox.Text.Trim();
+            ApplyFilter();
+        };
+
+        topToolbar.Controls.Add(_categoriesPanel, 0, 0);
+        topToolbar.Controls.Add(_searchTextBox, 1, 0);
 
         _hotCardsPanel.Dock = DockStyle.Fill;
         _hotCardsPanel.AutoScroll = true;
@@ -234,7 +294,7 @@ public sealed class MainForm : Form
         _hotCardsPanel.FlowDirection = FlowDirection.LeftToRight;
         _hotCardsPanel.Padding = new Padding(8, 8, 8, 8);
         _hotCardsPanel.Margin = new Padding(0, 0, 0, 8);
-        _hotCardsPanel.BackColor = Color.FromArgb(20, 33, 47);
+        _hotCardsPanel.BackColor = Color.FromArgb(17, 24, 39);
 
         _normalCardsPanel.Dock = DockStyle.Fill;
         _normalCardsPanel.AutoScroll = true;
@@ -243,8 +303,9 @@ public sealed class MainForm : Form
         _normalCardsPanel.Padding = new Padding(8, 8, 8, 8);
         _normalCardsPanel.BackColor = BodyBackColor;
 
-        layout.Controls.Add(_hotCardsPanel, 0, 0);
-        layout.Controls.Add(_normalCardsPanel, 0, 1);
+        layout.Controls.Add(topToolbar, 0, 0);
+        layout.Controls.Add(_hotCardsPanel, 0, 1);
+        layout.Controls.Add(_normalCardsPanel, 0, 2);
         return layout;
     }
 
@@ -288,6 +349,7 @@ public sealed class MainForm : Form
 
         var catalog = await _catalogService.LoadCatalogAsync(_catalogPath);
         _allRows = CatalogReaderService.BuildRows(catalog).ToList();
+        PopulateCategories();
         await ApplyServerPolicyAsync(catalog.ClientPolicy);
         await SaveLauncherSettingsAsync();
         ApplyFilter();
@@ -295,15 +357,63 @@ public sealed class MainForm : Form
         _statusHeartbeatTimer.Start();
     }
 
+    private void PopulateCategories()
+    {
+        _categoriesPanel.SuspendLayout();
+        _categoriesPanel.Controls.Clear();
+
+        var categories = new List<string> { "Tất cả" };
+        var uniqueCategories = _allRows
+            .Select(r => r.Category)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(c => c)
+            .ToList();
+        
+        categories.AddRange(uniqueCategories);
+
+        foreach (var category in categories)
+        {
+            var btn = new Button
+            {
+                Text = category,
+                AutoSize = true,
+                FlatStyle = FlatStyle.Flat,
+                ForeColor = Color.White,
+                BackColor = category == _currentCategory ? Color.FromArgb(59, 130, 246) : Color.FromArgb(30, 41, 59),
+                Cursor = Cursors.Hand,
+                Font = new Font("Segoe UI Semibold", 10f),
+                Padding = new Padding(8, 4, 8, 4),
+                Margin = new Padding(0, 0, 8, 0)
+            };
+            btn.FlatAppearance.BorderSize = 0;
+            btn.Click += (s, e) => {
+                _currentCategory = category;
+                foreach (Button c in _categoriesPanel.Controls)
+                {
+                    c.BackColor = c.Text == _currentCategory ? Color.FromArgb(59, 130, 246) : Color.FromArgb(30, 41, 59);
+                }
+                ApplyFilter();
+            };
+            _categoriesPanel.Controls.Add(btn);
+        }
+        _categoriesPanel.ResumeLayout();
+    }
+
     private void ApplyFilter()
     {
-        var hotRows = _allRows
+        var filteredRows = _allRows.Where(row => 
+            (string.IsNullOrWhiteSpace(_currentSearchQuery) || row.Name.Contains(_currentSearchQuery, StringComparison.OrdinalIgnoreCase)) &&
+            (_currentCategory == "Tất cả" || string.Equals(row.Category, _currentCategory, StringComparison.OrdinalIgnoreCase))
+        ).ToList();
+
+        var hotRows = filteredRows
             .Where(row => row.IsHot)
             .OrderBy(row => row.SortOrder)
             .ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var normalRows = _allRows
+        var normalRows = filteredRows
             .Where(row => !row.IsHot)
             .OrderBy(row => row.SortOrder)
             .ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
@@ -841,18 +951,44 @@ public sealed class MainForm : Form
             Height = 30,
             FlatStyle = FlatStyle.Flat,
             Margin = new Padding(6, 2, 0, 0),
-            BackColor = Color.FromArgb(237, 245, 251),
-            ForeColor = Color.FromArgb(24, 44, 62),
+            BackColor = Color.FromArgb(59, 130, 246),
+            ForeColor = Color.White,
             Font = new Font("Segoe UI", 9f, FontStyle.Bold),
             Cursor = Cursors.Hand
         };
-        button.FlatAppearance.BorderColor = Color.FromArgb(174, 196, 214);
+        button.FlatAppearance.BorderColor = Color.FromArgb(34, 211, 238);
         button.FlatAppearance.BorderSize = 1;
-        button.Click += (_, _) => OpenExternalUrl(url);
+        button.Click += (_, _) =>
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            }
+            catch
+            {
+                // Ignore url start errors.
+            }
+        };
 
-        var toolTip = new ToolTip();
-        toolTip.SetToolTip(button, tooltip);
         return button;
+    }
+
+    private Button CreateSystemToolButton(string text, Action onClick)
+    {
+        var btn = new Button
+        {
+            Text = text,
+            AutoSize = true,
+            FlatStyle = FlatStyle.Flat,
+            ForeColor = Color.White,
+            BackColor = Color.FromArgb(45, 55, 72),
+            Cursor = Cursors.Hand,
+            Font = new Font("Segoe UI Semibold", 10f),
+            Margin = new Padding(0, 0, 8, 0)
+        };
+        btn.FlatAppearance.BorderSize = 0;
+        btn.Click += (s, e) => onClick();
+        return btn;
     }
 
     private static void OpenExternalUrl(string url)
@@ -885,7 +1021,7 @@ public sealed class MainForm : Form
         graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
         graphics.Clear(Color.Transparent);
 
-        using var circleBrush = new SolidBrush(Color.FromArgb(255, 122, 55));
+        using var circleBrush = new SolidBrush(Color.FromArgb(34, 211, 238));
         graphics.FillEllipse(circleBrush, 0, 0, size - 1, size - 1);
         graphics.DrawImage(source, 6, 6, size - 12, size - 12);
         return bitmap;

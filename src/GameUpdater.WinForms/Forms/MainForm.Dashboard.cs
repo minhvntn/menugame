@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
@@ -10,7 +10,8 @@ using GameUpdater.Shared.Models;
 namespace GameUpdater.WinForms.Forms;
 
 public sealed partial class MainForm
-{    private void RefreshServerDashboard()
+{
+    private void RefreshServerDashboard()
     {
         try
         {
@@ -43,6 +44,14 @@ public sealed partial class MainForm
             _serverCpuProgressBar.Value = ClampPercent(cpuPercent);
             _serverMemoryProgressBar.Value = ClampPercent(memory.Percent);
             _serverDiskProgressBar.Value = ClampPercent(systemDrive.UsedPercent);
+
+            // Dynamic color coding: green → amber → red based on usage.
+            _serverCpuProgressBar.ForeColor = GetUsageColor(cpuPercent);
+            _serverMemoryProgressBar.ForeColor = GetUsageColor(memory.Percent);
+            _serverDiskProgressBar.ForeColor = GetUsageColor(systemDrive.UsedPercent);
+            _serverDashboardCpuLabel.ForeColor = GetUsageColor(cpuPercent);
+            _serverDashboardMemoryLabel.ForeColor = GetUsageColor(memory.Percent);
+            _serverDashboardDiskLabel.ForeColor = GetUsageColor(systemDrive.UsedPercent);
         }
         catch (Exception exception)
         {
@@ -277,9 +286,4 @@ public sealed partial class MainForm
             EnableCloseRunningApplicationHotKey = _enableClientCloseApplicationHotKey
         };
     }
-
 }
-
-
-
-

@@ -27,7 +27,7 @@ public sealed class ServerGameCardControl : UserControl
         Height = CardHeight;
         Margin = new Padding(8, 10, 8, 10);
         Padding = new Padding(2);
-        BackColor = Color.FromArgb(24, 39, 54);
+        BackColor = Color.FromArgb(30, 41, 59);
         Cursor = Cursors.Hand;
         DoubleBuffered = true;
 
@@ -55,7 +55,7 @@ public sealed class ServerGameCardControl : UserControl
             if (_isSelected != value)
             {
                 _isSelected = value;
-                BackColor = _isSelected ? Color.FromArgb(41, 64, 88) : Color.FromArgb(24, 39, 54);
+                BackColor = _isSelected ? Color.FromArgb(37, 99, 235) : Color.FromArgb(30, 41, 59);
                 Invalidate();
             }
         }
@@ -93,7 +93,7 @@ public sealed class ServerGameCardControl : UserControl
                 TextAlign = ContentAlignment.MiddleCenter,
                 Font = new Font("Segoe UI", 7f, FontStyle.Bold),
                 ForeColor = Color.White,
-                BackColor = Color.FromArgb(205, 67, 57)
+                BackColor = Color.FromArgb(239, 68, 68)
             };
             hotBadge.Click += (_, _) => _clickAction(_row);
             hotBadge.DoubleClick += (_, _) => _clickAction(_row);
@@ -121,7 +121,7 @@ public sealed class ServerGameCardControl : UserControl
             Font = _nameFont,
             TextAlign = ContentAlignment.TopCenter,
             AutoEllipsis = false,
-            ForeColor = Color.FromArgb(236, 245, 252),
+            ForeColor = Color.FromArgb(241, 245, 249),
             Padding = new Padding(1, 1, 1, 0)
         };
         nameLabel.UseCompatibleTextRendering = true;
@@ -147,7 +147,7 @@ public sealed class ServerGameCardControl : UserControl
         base.OnPaint(e);
         if (_isSelected)
         {
-            using var pen = new Pen(Color.FromArgb(178, 204, 224), 2f);
+            using var pen = new Pen(Color.FromArgb(34, 211, 238), 2f);
             e.Graphics.DrawRectangle(pen, 1, 1, Width - 2, Height - 2);
         }
     }
@@ -232,7 +232,7 @@ public sealed class ServerGameCardControl : UserControl
         graphics.SetClip(path);
         graphics.DrawImage(source, 0, 0, size, size);
 
-        using var borderPen = new Pen(Color.FromArgb(178, 204, 224), 1f);
+        using var borderPen = new Pen(Color.FromArgb(34, 211, 238), 1f);
         graphics.ResetClip();
         graphics.DrawEllipse(borderPen, 1, 1, size - 3, size - 3);
 
