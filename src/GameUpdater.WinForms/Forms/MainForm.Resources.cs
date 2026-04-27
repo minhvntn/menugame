@@ -248,9 +248,19 @@ public sealed partial class MainForm
         }
     }
 
-    private async Task SyncGameFromResourceAsync(GameRecord game, ResourceSyncMode syncMode = ResourceSyncMode.Incremental)
+    private async Task SyncGameFromResourceAsync(
+        GameRecord game,
+        ResourceSyncMode syncMode = ResourceSyncMode.Incremental,
+        IReadOnlyList<string>? sourceRoots = null,
+        string? resourceKey = null)
     {
-        var monitorRow = StartDownloadMonitor(game.Name, game.Id > 0 ? game.Id : null, resourceKey: ResolveSourceKeyForGame(game));
+        var sourceRootCandidates = sourceRoots is { Count: > 0 }
+            ? sourceRoots
+            : GetConfiguredResourceSourceRoots();
+        var monitorRow = StartDownloadMonitor(
+            game.Name,
+            game.Id > 0 ? game.Id : null,
+            resourceKey: resourceKey ?? ResolveSourceKeyForGame(game));
         var syncControl = new ResourceSyncTaskControl();
         syncControl.SetBandwidthLimitMbps(_resourceBandwidthLimitMbps);
         RegisterResourceSyncToken(monitorRow, syncControl);
@@ -268,18 +278,12 @@ public sealed partial class MainForm
                 UpdateDownloadMonitor(monitorRow, info.Percent, "Đang tải", info.Message, info);
             });
 
-            var result = await Task.Run(
-                () => _resourceSyncService.SyncGameAsync(
-                    game,
-                    _resourceSourceRootPath,
-                    _resourceTargetRootPath,
-                    progress,
-                    maxBytesPerSecond: null,
-                    waitIfPausedAsync: syncControl.WaitIfPausedAsync,
-                    syncMode: syncMode,
-                    cancellationToken: syncControl.CancellationToken,
-                    getMaxBytesPerSecond: () => syncControl.BandwidthLimitBytesPerSecond),
-                syncControl.CancellationToken);
+            var result = await SyncGameWithMirrorFallbackAsync(
+                game,
+                sourceRootCandidates,
+                progress,
+                syncMode,
+                syncControl);
 
             var successMessage = syncMode == ResourceSyncMode.MissingOnly
                 ? $"Đồng bộ file thiếu {game.Name}: sao chép {result.CopiedFiles}/{result.TotalFiles} tệp."
@@ -338,6 +342,60 @@ public sealed partial class MainForm
         }
     }
 
+    private async Task<ResourceSyncResult> SyncGameWithMirrorFallbackAsync(
+        GameRecord game,
+        IReadOnlyList<string> sourceRoots,
+        IProgress<UpdateProgressInfo> progress,
+        ResourceSyncMode syncMode,
+        ResourceSyncTaskControl syncControl)
+    {
+        if (sourceRoots.Count == 0)
+        {
+            throw new InvalidOperationException("Chưa cấu hình nguồn IDC hợp lệ.");
+        }
+
+        Exception? lastException = null;
+        for (var index = 0; index < sourceRoots.Count; index++)
+        {
+            var sourceRoot = sourceRoots[index];
+            if (string.IsNullOrWhiteSpace(sourceRoot))
+            {
+                continue;
+            }
+
+            progress.Report(UpdateProgressInfo.Create(
+                5,
+                $"Đang thử nguồn IDC {index + 1}/{sourceRoots.Count}: {sourceRoot}"));
+
+            try
+            {
+                return await Task.Run(
+                    () => _resourceSyncService.SyncGameAsync(
+                        game,
+                        sourceRoot,
+                        _resourceTargetRootPath,
+                        progress,
+                        maxBytesPerSecond: null,
+                        waitIfPausedAsync: syncControl.WaitIfPausedAsync,
+                        syncMode: syncMode,
+                        cancellationToken: syncControl.CancellationToken,
+                        getMaxBytesPerSecond: () => syncControl.BandwidthLimitBytesPerSecond),
+                    syncControl.CancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                lastException = exception;
+                AppendUpdateMessage($"Nguồn IDC lỗi ({sourceRoot}): {exception.Message}");
+            }
+        }
+
+        throw lastException ?? new InvalidOperationException("Không thể đồng bộ từ các nguồn IDC đã cấu hình.");
+    }
+
     private GameRecord? FindGameById(int gameId)
     {
         var games = (_gamesBinding.DataSource as IEnumerable<GameRecord>)?.ToList();
@@ -393,7 +451,8 @@ public sealed partial class MainForm
             : FindGameByInstallPath(row.InstallPath);
 
         var game = existingGame ?? BuildTransientGameRecordFromResourceRow(row);
-        await SyncGameFromResourceAsync(game, syncMode);
+        var sourceRoots = GetCandidateSourceRootsForRow(row);
+        await SyncGameFromResourceAsync(game, syncMode, sourceRoots, resourceKey: row.SourceKey);
         return await EnsureManagedGameRegistrationAsync(game, row);
     }
 
@@ -504,8 +563,18 @@ public sealed partial class MainForm
     private string BuildResourceHealthSummary()
     {
         var messages = new List<string>();
-        var sourceOk = IsHttpSourceRootConfigured() || Directory.Exists(_resourceSourceRootPath);
-        messages.Add(sourceOk ? "Nguồn IDC: OK" : "Nguồn IDC: Không truy cập");
+        var sourceRoots = GetConfiguredResourceSourceRoots();
+        var sourceOk = sourceRoots.Any(root => IsHttpSourceRootConfigured(root) || Directory.Exists(root));
+        if (sourceRoots.Count > 1)
+        {
+            messages.Add(sourceOk
+                ? $"Nguồn IDC mirror: {sourceRoots.Count} nguồn"
+                : $"Nguồn IDC mirror: {sourceRoots.Count} nguồn không truy cập");
+        }
+        else
+        {
+            messages.Add(sourceOk ? "Nguồn IDC: OK" : "Nguồn IDC: Không truy cập");
+        }
 
         var targetOk = Directory.Exists(_resourceTargetRootPath);
         var targetWritable = targetOk && CanWriteToFolder(_resourceTargetRootPath);
@@ -617,15 +686,47 @@ public sealed partial class MainForm
         return gameId;
     }
 
+    private IReadOnlyList<string> GetConfiguredResourceSourceRoots()
+    {
+        if (string.IsNullOrWhiteSpace(_resourceSourceRootPath))
+        {
+            return Array.Empty<string>();
+        }
+
+        return _resourceSourceRootPath
+            .Split(['\r', '\n', ';', '|'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private IReadOnlyList<string> GetCandidateSourceRootsForRow(ResourceGameRow row)
+    {
+        var configured = GetConfiguredResourceSourceRoots().ToList();
+        if (configured.Count == 0)
+        {
+            return configured;
+        }
+
+        if (string.IsNullOrWhiteSpace(row.SourceRoot))
+        {
+            return configured;
+        }
+
+        configured.RemoveAll(item => string.Equals(item, row.SourceRoot, StringComparison.OrdinalIgnoreCase));
+        configured.Insert(0, row.SourceRoot);
+        return configured;
+    }
+
     private void UpdateResourceRootsFromInputs()
     {
         _resourceSourceRootPath = _resourceSourceRootTextBox.Text.Trim();
         _resourceTargetRootPath = _resourceTargetRootTextBox.Text.Trim();
         _resourceBandwidthLimitMbps = Decimal.ToInt32(_resourceBandwidthLimitNumeric.Value);
 
-        if (string.IsNullOrWhiteSpace(_resourceSourceRootPath))
+        if (GetConfiguredResourceSourceRoots().Count == 0)
         {
-            throw new InvalidOperationException("Vui lòng nhập nguồn IDC (thư mục local/UNC hoặc URL HTTP/HTTPS).");
+            throw new InvalidOperationException("Vui lòng nhập ít nhất một nguồn IDC (hỗ trợ ngăn cách bằng dấu ; hoặc xuống dòng để mirror/fallback).");
         }
 
         if (string.IsNullOrWhiteSpace(_resourceTargetRootPath))
@@ -1081,9 +1182,13 @@ public sealed partial class MainForm
     {
         var sourceKey = ResolveSourceKeyForGame(game);
         var sourcePath = ResolveSourcePathForGame(game);
+        var sourceRoot = string.Empty;
         var sourceExists = sourceFoldersByKey.ContainsKey(sourceKey);
 
-        if (!sourceExists && !IsHttpSourceRootConfigured() && !string.IsNullOrWhiteSpace(sourcePath))
+        if (!sourceExists &&
+            !string.IsNullOrWhiteSpace(sourcePath) &&
+            !sourcePath.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !sourcePath.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
         {
             sourceExists = Directory.Exists(sourcePath);
         }
@@ -1092,6 +1197,7 @@ public sealed partial class MainForm
             !string.IsNullOrWhiteSpace(sourceFolder.FullPath))
         {
             sourcePath = sourceFolder.FullPath;
+            sourceRoot = sourceFolder.SourceRoot;
         }
 
         var hasDownloadedData = HasAnyFileSystemEntry(game.InstallPath);
@@ -1117,6 +1223,7 @@ public sealed partial class MainForm
             Name = game.Name,
             Category = game.Category,
             SourceKey = sourceKey,
+            SourceRoot = sourceRoot,
             SourcePath = sourcePath,
             SourceStatus = sourceExists ? "Có nguồn" : "Thiếu nguồn",
             InstallPath = game.InstallPath,
@@ -1137,7 +1244,30 @@ public sealed partial class MainForm
     private string ResolveSourcePathForGame(GameRecord game)
     {
         var sourceKey = ResolveSourceKeyForGame(game);
-        return ResolveSourcePathForKey(sourceKey);
+        var sourceRoots = GetConfiguredResourceSourceRoots();
+        foreach (var sourceRoot in sourceRoots)
+        {
+            var candidate = ResolveSourcePathForKey(sourceKey, sourceRoot);
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                continue;
+            }
+
+            if (candidate.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                candidate.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                return candidate;
+            }
+
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return sourceRoots.Count > 0
+            ? ResolveSourcePathForKey(sourceKey, sourceRoots[0])
+            : string.Empty;
     }
 
     private string ResolveSourceKeyForGame(GameRecord game)
@@ -1180,16 +1310,27 @@ public sealed partial class MainForm
 
     private string ResolveSourcePathForKey(string sourceKey)
     {
-        if (string.IsNullOrWhiteSpace(sourceKey) || string.IsNullOrWhiteSpace(_resourceSourceRootPath))
+        var sourceRoots = GetConfiguredResourceSourceRoots();
+        if (sourceRoots.Count == 0)
         {
             return string.Empty;
         }
 
-        if (IsHttpSourceRootConfigured())
+        return ResolveSourcePathForKey(sourceKey, sourceRoots[0]);
+    }
+
+    private string ResolveSourcePathForKey(string sourceKey, string sourceRoot)
+    {
+        if (string.IsNullOrWhiteSpace(sourceKey) || string.IsNullOrWhiteSpace(sourceRoot))
+        {
+            return string.Empty;
+        }
+
+        if (IsHttpSourceRootConfigured(sourceRoot))
         {
             try
             {
-                if (!Uri.TryCreate(_resourceSourceRootPath.Trim(), UriKind.Absolute, out var sourceRootUri))
+                if (!Uri.TryCreate(sourceRoot.Trim(), UriKind.Absolute, out var sourceRootUri))
                 {
                     return string.Empty;
                 }
@@ -1212,7 +1353,7 @@ public sealed partial class MainForm
 
         try
         {
-            return Path.GetFullPath(Path.Combine(_resourceSourceRootPath, sourceKey));
+            return Path.GetFullPath(Path.Combine(sourceRoot, sourceKey));
         }
         catch
         {
@@ -1237,71 +1378,91 @@ public sealed partial class MainForm
         }
     }
 
+    private bool IsHttpSourceRootConfigured(string sourceRoot)
+    {
+        return _resourceSyncService.IsHttpSourceRoot(sourceRoot);
+    }
+
     private bool IsHttpSourceRootConfigured()
     {
-        return _resourceSyncService.IsHttpSourceRoot(_resourceSourceRootPath);
+        return GetConfiguredResourceSourceRoots().Any(IsHttpSourceRootConfigured);
     }
 
     private async Task<IReadOnlyList<SourceFolderEntry>> GetSourceFolderEntriesAsync()
     {
-        if (string.IsNullOrWhiteSpace(_resourceSourceRootPath))
-        {
-            return Array.Empty<SourceFolderEntry>();
-        }
-
-        if (IsHttpSourceRootConfigured())
-        {
-            IReadOnlyList<string> sourceKeys;
-            try
-            {
-                sourceKeys = await _resourceSyncService.GetHttpTopLevelDirectoryKeysAsync(_resourceSourceRootPath);
-            }
-            catch
-            {
-                return Array.Empty<SourceFolderEntry>();
-            }
-
-            return sourceKeys
-                .Select(sourceKey => new SourceFolderEntry
-                {
-                    Key = sourceKey,
-                    Name = sourceKey,
-                    FullPath = ResolveSourcePathForKey(sourceKey)
-                })
-                .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
-
-        string sourceRootPath;
-        try
-        {
-            sourceRootPath = Path.GetFullPath(_resourceSourceRootPath);
-        }
-        catch
-        {
-            return Array.Empty<SourceFolderEntry>();
-        }
-
-        if (!Directory.Exists(sourceRootPath))
+        var sourceRoots = GetConfiguredResourceSourceRoots();
+        if (sourceRoots.Count == 0)
         {
             return Array.Empty<SourceFolderEntry>();
         }
 
         var result = new List<SourceFolderEntry>();
-        foreach (var directory in Directory.EnumerateDirectories(sourceRootPath, "*", SearchOption.TopDirectoryOnly))
+        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var sourceRoot in sourceRoots)
         {
-            var folderName = Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            if (string.IsNullOrWhiteSpace(folderName))
+            if (IsHttpSourceRootConfigured(sourceRoot))
+            {
+                IReadOnlyList<string> sourceKeys;
+                try
+                {
+                    sourceKeys = await _resourceSyncService.GetHttpTopLevelDirectoryKeysAsync(sourceRoot);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                foreach (var sourceKey in sourceKeys)
+                {
+                    if (!seenKeys.Add(sourceKey))
+                    {
+                        continue;
+                    }
+
+                    result.Add(new SourceFolderEntry
+                    {
+                        Key = sourceKey,
+                        SourceRoot = sourceRoot,
+                        Name = sourceKey,
+                        FullPath = ResolveSourcePathForKey(sourceKey, sourceRoot)
+                    });
+                }
+
+                continue;
+            }
+
+            string sourceRootPath;
+            try
+            {
+                sourceRootPath = Path.GetFullPath(sourceRoot);
+            }
+            catch
             {
                 continue;
             }
 
-            result.Add(new SourceFolderEntry
+            if (!Directory.Exists(sourceRootPath))
             {
-                Key = folderName,
-                Name = folderName,
-                FullPath = directory
-            });
+                continue;
+            }
+
+            foreach (var directory in Directory.EnumerateDirectories(sourceRootPath, "*", SearchOption.TopDirectoryOnly))
+            {
+                var folderName = Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                if (string.IsNullOrWhiteSpace(folderName) || !seenKeys.Add(folderName))
+                {
+                    continue;
+                }
+
+                result.Add(new SourceFolderEntry
+                {
+                    Key = folderName,
+                    SourceRoot = sourceRoot,
+                    Name = folderName,
+                    FullPath = directory
+                });
+            }
         }
 
         return result.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase).ToList();
@@ -1323,6 +1484,7 @@ public sealed partial class MainForm
             Name = sourceFolder.Name,
             Category = "IDC",
             SourceKey = sourceFolder.Key,
+            SourceRoot = sourceFolder.SourceRoot,
             SourceStatus = "Có nguồn",
             SourcePath = sourceFolder.FullPath,
             DownloadStatus = hasDownloadedData ? "Đã tải" : "Chưa tải",
@@ -1380,19 +1542,38 @@ public sealed partial class MainForm
             return isCompleteFromManifest;
         }
 
-        if (!row.HasSource || string.IsNullOrWhiteSpace(row.SourcePath))
+        if (!row.HasSource)
         {
             return true;
         }
 
-        try
+        var candidateSourcePaths = GetCandidateSourceRootsForRow(row)
+            .Select(root => ResolveSourcePathForKey(row.SourceKey, root))
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (candidateSourcePaths.Count == 0 && !string.IsNullOrWhiteSpace(row.SourcePath))
         {
-            return await _resourceSyncService.IsSourceMirroredToTargetAsync(row.SourcePath, row.InstallPath);
+            candidateSourcePaths.Add(row.SourcePath);
         }
-        catch
+
+        foreach (var sourcePath in candidateSourcePaths)
         {
-            return false;
+            try
+            {
+                if (await _resourceSyncService.IsSourceMirroredToTargetAsync(sourcePath, row.InstallPath))
+                {
+                    return true;
+                }
+            }
+            catch
+            {
+                // Continue trying mirror source roots.
+            }
         }
+
+        return false;
     }
 
     private static bool TryCheckDownloadedByManifest(GameRecord game, string installPath, out bool isComplete)

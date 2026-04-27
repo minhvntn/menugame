@@ -166,15 +166,70 @@ public sealed partial class MainForm
         return $"{duration.Minutes}m {duration.Seconds}s";
     }
 
-    private void RefreshClientDashboard()
+    private async Task RefreshClientDashboardAsync(bool forceNetworkProbe = false)
     {
-        var rows = LoadClientDashboardRows();
-        _clientStatusBinding.DataSource = rows;
+        if (Interlocked.Exchange(ref _clientDashboardRefreshInProgress, 1) == 1)
+        {
+            return;
+        }
 
-        var onlineCount = rows.Count(row => row.IsOnline);
-        var playingCount = rows.Count(row => row.IsPlaying);
-        _clientDashboardSummaryLabel.Text = $"Online: {onlineCount} / {rows.Count} máy • Đang chơi: {playingCount} • Cập nhật: {DateTime.Now:HH:mm:ss}";
-        _clientDashboardGameStatsLabel.Text = BuildClientDashboardGameStats(rows);
+        try
+        {
+            var rows = LoadClientDashboardRows();
+            if (forceNetworkProbe && rows.Count > 0)
+            {
+                await ProbeClientReachabilityAsync(rows);
+                rows = rows
+                    .OrderByDescending(row => row.IsOnline)
+                    .ThenByDescending(row => row.IsPlaying)
+                    .ThenBy(row => row.MachineName)
+                    .ToList();
+            }
+
+            _clientStatusBinding.DataSource = rows;
+
+            var onlineCount = rows.Count(row => row.IsOnline);
+            var playingCount = rows.Count(row => row.IsPlaying);
+            _clientDashboardSummaryLabel.Text = $"Online: {onlineCount} / {rows.Count} máy • Đang chơi: {playingCount} • Cập nhật: {DateTime.Now:HH:mm:ss}";
+            _clientDashboardGameStatsLabel.Text = BuildClientDashboardGameStats(rows);
+        }
+        catch (Exception exception)
+        {
+            _clientStatusBinding.DataSource = new List<ClientDashboardRow>();
+            _clientDashboardSummaryLabel.Text = $"Không đọc được trạng thái máy trạm: {exception.Message}";
+            _clientDashboardGameStatsLabel.Text = "Game hot: - • Chơi nhiều nhất: - • Vừa cập nhật: -";
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _clientDashboardRefreshInProgress, 0);
+        }
+    }
+
+    private static async Task ProbeClientReachabilityAsync(IReadOnlyList<ClientDashboardRow> rows)
+    {
+        var tasks = rows.Select(async row =>
+        {
+            var target = row.ProbeTarget?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(target) ||
+                string.Equals(target, "Không rõ", StringComparison.OrdinalIgnoreCase))
+            {
+                row.ReachabilityOverride = null;
+                return;
+            }
+
+            try
+            {
+                using var ping = new Ping();
+                var reply = await ping.SendPingAsync(target, 900).ConfigureAwait(false);
+                row.ReachabilityOverride = reply.Status == IPStatus.Success;
+            }
+            catch
+            {
+                row.ReachabilityOverride = null;
+            }
+        });
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
     private string BuildClientDashboardGameStats(IReadOnlyCollection<ClientDashboardRow> rows)
@@ -281,6 +336,7 @@ public sealed partial class MainForm
             CafeDisplayName = _clientCafeDisplayName.Trim(),
             BannerMessage = _clientBannerMessage.Trim(),
             ThemeAccentColor = _clientThemeAccentColor.Trim(),
+            ThemeFontFamily = _clientThemeFontFamily.Trim(),
             ClientWindowsWallpaperPath = _clientWindowsWallpaperPath.Trim(),
             EnableFullscreenKioskMode = _enableClientFullscreenKioskMode,
             EnableCloseRunningApplicationHotKey = _enableClientCloseApplicationHotKey

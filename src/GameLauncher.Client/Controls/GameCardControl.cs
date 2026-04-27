@@ -19,7 +19,7 @@ public sealed class GameCardControl : UserControl
 
     public LauncherGameRow Row => _row;
 
-    public GameCardControl(LauncherGameRow row, Action<LauncherGameRow> playAction, bool isHotRow = false)
+    public GameCardControl(LauncherGameRow row, Action<LauncherGameRow> playAction, bool isHotRow, string fontFamily)
     {
         _row = row;
         _playAction = playAction;
@@ -29,7 +29,7 @@ public sealed class GameCardControl : UserControl
         _tileSize = _isHotRow ? 78 : 56;
         _cardWidth = _isHotRow ? 118 : 96;
         _cardHeight = _isHotRow ? 114 : 98;
-        _nameFont = new Font("Segoe UI Semibold", _isHotRow ? 8.5f : 8f, FontStyle.Bold);
+        _nameFont = new Font(string.IsNullOrWhiteSpace(fontFamily) ? "Segoe UI" : fontFamily, _isHotRow ? 8.5f : 8f, FontStyle.Bold);
 
         Width = _cardWidth;
         Height = _cardHeight;

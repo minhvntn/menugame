@@ -8,10 +8,12 @@ public sealed partial class MainForm : Form
     private const string StartupRegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string StartupRegistryValueName = "GameLauncher.Client";
     private const string CafeDisplayName = "Cyber Game";
+    public string ThemeFontFamily { get; set; } = "Segoe UI";
 
     private readonly SettingsService _settingsService;
     private readonly CatalogReaderService _catalogService;
     private readonly GameLaunchService _launchService;
+    private readonly GamePrewarmService _prewarmService;
 
     private bool _enableCloseAppHotKeyFromServer = true;
     private bool _isCloseAppHotKeyRegistered;
@@ -19,11 +21,13 @@ public sealed partial class MainForm : Form
     public MainForm(
         SettingsService settingsService,
         CatalogReaderService catalogService,
-        GameLaunchService launchService)
+        GameLaunchService launchService,
+        GamePrewarmService prewarmService)
     {
         _settingsService = settingsService;
         _catalogService = catalogService;
         _launchService = launchService;
+        _prewarmService = prewarmService;
 
         Text = "Menu trò chơi";
         Width = 1320;
@@ -65,6 +69,7 @@ public sealed partial class MainForm : Form
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         _statusHeartbeatTimer.Stop();
+        CancelBackgroundPrewarm();
         WriteClientStatusSafe(clearPlayingGame: true);
         _headerLogoImage?.Dispose();
         _headerLogoImage = null;

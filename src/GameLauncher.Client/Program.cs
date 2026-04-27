@@ -15,8 +15,8 @@ internal static class Program
         var settingsService = new SettingsService(AppContext.BaseDirectory);
         var catalogService = new CatalogReaderService();
         var launchService = new GameLaunchService();
+        var prewarmService = new GamePrewarmService();
 
-        Application.Run(new MainForm(settingsService, catalogService, launchService));
+        Application.Run(new MainForm(settingsService, catalogService, launchService, prewarmService));
     }
 }
-

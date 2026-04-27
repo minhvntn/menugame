@@ -249,7 +249,9 @@ public sealed class ResourceSyncService
         var sourceFiles = Directory
             .EnumerateFiles(sourceGamePath, "*", SearchOption.AllDirectories)
             .Select(path => new FileInfo(path))
-            .OrderBy(info => info.FullName, StringComparer.OrdinalIgnoreCase)
+            // Delta-friendly ordering: copy smaller files first so games become runnable sooner.
+            .OrderBy(info => info.Length)
+            .ThenBy(info => info.FullName, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (sourceFiles.Count == 0)

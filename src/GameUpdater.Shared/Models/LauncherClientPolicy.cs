@@ -13,4 +13,6 @@ public sealed class LauncherClientPolicy
     public bool EnableFullscreenKioskMode { get; set; }
 
     public string ThemeAccentColor { get; set; } = "#38BDF8";
+
+    public string ThemeFontFamily { get; set; } = "Segoe UI";
 }

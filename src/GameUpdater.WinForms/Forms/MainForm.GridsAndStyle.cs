@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
@@ -21,11 +21,11 @@ public sealed partial class MainForm
         _gamesGrid.ReadOnly = true;
         _gamesGrid.RowHeadersVisible = false;
         _gamesGrid.DataSource = _gamesBinding;
-        _gamesGrid.Columns.Add(CreateCheckBoxColumn("Hot", nameof(GameRecord.IsHot), 55));
+        _gamesGrid.Columns.Add(CreateCheckBoxColumn("Hot", nameof(GameRecord.IsHot), 65));
 
-        _gamesGrid.Columns.Add(CreateTextColumn("Ưu tiên", nameof(GameRecord.SortOrder), 70));
+        _gamesGrid.Columns.Add(CreateTextColumn("Ưu tiên", nameof(GameRecord.SortOrder), 95));
 
-        _gamesGrid.Columns.Add(CreateTextColumn("Tên trò chơi", nameof(GameRecord.Name), 180));
+        _gamesGrid.Columns.Add(CreateTextColumn("Tên trò chơi", nameof(GameRecord.Name), 230));
         _gamesGrid.Columns.Add(CreateTextColumn("Nhóm", nameof(GameRecord.Category), 120));
         _gamesGrid.Columns.Add(CreateTextColumn("Phiên bản", nameof(GameRecord.Version), 90));
         _gamesGrid.Columns.Add(CreateTextColumn("Tệp chạy", nameof(GameRecord.LaunchRelativePath), 220));
@@ -34,8 +34,15 @@ public sealed partial class MainForm
         _gamesGrid.Columns.Add(CreateTextColumn("Cập nhật gần nhất", nameof(GameRecord.LastUpdatedAt), 140, "yyyy-MM-dd HH:mm:ss"));
     }
 
+    private Image? _onlineIcon;
+    private Image? _offlineIcon;
+
     private void ConfigureClientStatusGrid()
     {
+        var asm = typeof(MainForm).Assembly;
+        try { _onlineIcon = Image.FromStream(asm.GetManifestResourceStream("GameUpdater.WinForms.Resources.online_icon.png")!); } catch {}
+        try { _offlineIcon = Image.FromStream(asm.GetManifestResourceStream("GameUpdater.WinForms.Resources.offline_icon.png")!); } catch {}
+
         _clientStatusGrid.Dock = DockStyle.Fill;
         _clientStatusGrid.AutoGenerateColumns = false;
         _clientStatusGrid.AllowUserToAddRows = false;
@@ -44,8 +51,18 @@ public sealed partial class MainForm
         _clientStatusGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
         _clientStatusGrid.ReadOnly = true;
         _clientStatusGrid.RowHeadersVisible = false;
+        _clientStatusGrid.RowTemplate.Height = 45; // Increased row height
         _clientStatusGrid.DataSource = _clientStatusBinding;
-        _clientStatusGrid.Columns.Add(CreateTextColumn("Trạng thái", nameof(ClientDashboardRow.StatusText), 110));
+
+        var statusCol = new DataGridViewImageColumn
+        {
+            Name = "StatusIcon",
+            HeaderText = "Trạng thái",
+            DataPropertyName = nameof(ClientDashboardRow.IsOnline),
+            Width = 115,
+            ImageLayout = DataGridViewImageCellLayout.Zoom
+        };
+        _clientStatusGrid.Columns.Add(statusCol);
         _clientStatusGrid.Columns.Add(CreateTextColumn("Máy", nameof(ClientDashboardRow.MachineName), 150));
         _clientStatusGrid.Columns.Add(CreateTextColumn("User", nameof(ClientDashboardRow.UserName), 120));
         _clientStatusGrid.Columns.Add(CreateTextColumn("Đang chơi", nameof(ClientDashboardRow.CurrentGameName), 200));
@@ -55,6 +72,18 @@ public sealed partial class MainForm
         _clientStatusGrid.Columns.Add(CreateTextColumn("File chạy", nameof(ClientDashboardRow.CurrentGameExecutablePath), 280));
         _clientStatusGrid.Columns.Add(CreateTextColumn("Cập nhật cuối", nameof(ClientDashboardRow.LastSeenLocalText), 160));
         _clientStatusGrid.Columns.Add(CreateTextColumn("File", nameof(ClientDashboardRow.SourceFileName), 150));
+        
+        _clientStatusGrid.CellFormatting += (s, e) =>
+        {
+            if (_clientStatusGrid.Columns[e.ColumnIndex].Name == "StatusIcon")
+            {
+                if (e.Value is bool isOnline)
+                {
+                    e.Value = isOnline ? _onlineIcon : _offlineIcon;
+                    e.FormattingApplied = true;
+                }
+            }
+        };
     }
 
     private void ConfigureGamesGridPanel()
@@ -436,16 +465,27 @@ public sealed partial class MainForm
     {
         _uiFontSizeMode = mode;
         var uiFontSize = GetUiFontSize(mode);
-        var uiFont = new Font("Segoe UI", uiFontSize, FontStyle.Regular);
+        var fontFamily = string.IsNullOrWhiteSpace(_clientThemeFontFamily) ? "Segoe UI" : _clientThemeFontFamily;
+        var uiFont = new Font(fontFamily, uiFontSize, FontStyle.Regular);
 
         SuspendLayout();
         try
         {
             Font = uiFont;
+            UpdateAllControlsFont(Controls, fontFamily);
+
             ApplyDataGridFont(_gamesGrid, uiFont);
             ApplyDataGridFont(_resourcesGrid, uiFont);
             ApplyDataGridFont(_downloadMonitorGrid, uiFont);
             ApplyDataGridFont(_logsGrid, uiFont);
+            ApplyDataGridFont(_clientStatusGrid, uiFont);
+
+            // Force taller row height for the client status grid to fit the icon
+            _clientStatusGrid.RowTemplate.Height = Math.Max(45, (int)Math.Ceiling(uiFont.Size * 3.4f));
+            foreach (DataGridViewRow row in _clientStatusGrid.Rows)
+            {
+                row.Height = _clientStatusGrid.RowTemplate.Height;
+            }
 
             _updateOutputTextBox.Font = new Font("Consolas", Math.Max(13f, uiFontSize), FontStyle.Regular);
             ApplyListItemSpacing(uiFontSize);
@@ -454,6 +494,25 @@ public sealed partial class MainForm
         finally
         {
             ResumeLayout(true);
+        }
+    }
+
+    private void UpdateAllControlsFont(Control.ControlCollection controls, string fontFamily)
+    {
+        foreach (Control c in controls)
+        {
+            if (c is Label || c is Button || c is TextBox || c is ComboBox || c is CheckBox)
+            {
+                if (c == _updateOutputTextBox) continue; // Keep consolas
+                
+                var currentStyle = c.Font.Style;
+                var currentSize = c.Font.Size;
+                c.Font = new Font(fontFamily, currentSize, currentStyle);
+            }
+            if (c.HasChildren)
+            {
+                UpdateAllControlsFont(c.Controls, fontFamily);
+            }
         }
     }
 
@@ -466,6 +525,42 @@ public sealed partial class MainForm
         grid.DefaultCellStyle.Padding = new Padding(0, 4, 0, 4);
         grid.RowTemplate.Height = Math.Max(34, (int)Math.Ceiling(uiFont.Size * 2.6f));
         grid.ColumnHeadersHeight = Math.Max(46, (int)Math.Ceiling(uiFont.Size * 3.4f)); // Increased header height
+        EnsureColumnHeadersFit(grid);
+    }
+
+    private static void EnsureColumnHeadersFit(DataGridView grid)
+    {
+        var headerFont = grid.ColumnHeadersDefaultCellStyle.Font ?? grid.Font;
+        foreach (DataGridViewColumn column in grid.Columns)
+        {
+            var headerText = column.HeaderText?.Trim();
+            if (string.IsNullOrWhiteSpace(headerText))
+            {
+                continue;
+            }
+
+            var measured = TextRenderer.MeasureText(
+                headerText + " ",
+                headerFont,
+                new Size(int.MaxValue, int.MaxValue),
+                TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix);
+
+            var requiredWidth = measured.Width + 18;
+            if (column.AutoSizeMode == DataGridViewAutoSizeColumnMode.Fill)
+            {
+                if (column.MinimumWidth < requiredWidth)
+                {
+                    column.MinimumWidth = requiredWidth;
+                }
+
+                continue;
+            }
+
+            if (column.Width < requiredWidth)
+            {
+                column.Width = requiredWidth;
+            }
+        }
     }
 
     private void ApplyListItemSpacing(float uiFontSize)
@@ -517,7 +612,7 @@ public sealed partial class MainForm
         button.FlatAppearance.MouseDownBackColor = primary ? AccentHoverColor : SecondaryButtonHoverColor;
         button.UseVisualStyleBackColor = false;
         button.Cursor = Cursors.Hand;
-        button.Margin = new Padding(5, 4, 7, 4);
+        button.Margin = new Padding(5, 1, 7, 1);
         button.Padding = new Padding(ButtonHorizontalPadding, ButtonVerticalPadding, ButtonHorizontalPadding, ButtonVerticalPadding);
         button.TextAlign = ContentAlignment.MiddleCenter;
         button.BackColor = primary ? AccentColor : SecondaryButtonColor;
@@ -540,12 +635,38 @@ public sealed partial class MainForm
 
     private static void ApplyButtonSizing(float uiFontSize)
     {
-        var height = Math.Max(42, (int)Math.Ceiling(uiFontSize * 3.2f));
+        var baseHeight = Math.Max(32, (int)Math.Ceiling(uiFontSize * 2.75f));
         foreach (var button in StyledButtons.Where(button => !button.IsDisposed))
         {
-            button.Height = height;
-            button.MinimumSize = new Size(0, height);
-            button.Width = Math.Max(button.Width, TextRenderer.MeasureText(button.Text, button.Font).Width + (ButtonHorizontalPadding * 2) + 8);
+            var measuredTextSize = TextRenderer.MeasureText(
+                button.Text + " ",
+                button.Font,
+                new Size(int.MaxValue, int.MaxValue),
+                TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix);
+
+            var requiredHeight = Math.Max(baseHeight, measuredTextSize.Height + button.Padding.Vertical + 10);
+            var requiredWidth = measuredTextSize.Width + button.Padding.Horizontal + 20;
+
+            var parentAvailableHeight = button.Parent is null
+                ? 0
+                : button.Parent.ClientSize.Height - button.Margin.Vertical;
+
+            if (parentAvailableHeight > 0)
+            {
+                requiredHeight = Math.Min(requiredHeight, parentAvailableHeight);
+            }
+
+            requiredHeight = Math.Max(28, requiredHeight);
+
+            button.Height = requiredHeight;
+            button.MinimumSize = button.Dock == DockStyle.None
+                ? new Size(requiredWidth, requiredHeight)
+                : new Size(0, 0);
+
+            if (button.Dock == DockStyle.None)
+            {
+                button.Width = Math.Max(button.Width, requiredWidth);
+            }
         }
     }
 
@@ -634,6 +755,8 @@ public sealed partial class MainForm
         };
     }
 }
+
+
 
 
 

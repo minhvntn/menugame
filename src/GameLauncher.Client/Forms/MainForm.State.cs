@@ -1,4 +1,4 @@
-using GameLauncher.Client.Controls;
+﻿using GameLauncher.Client.Controls;
 using GameLauncher.Client.Models;
 using GameLauncher.Client.Services;
 using GameUpdater.Shared.Models;
@@ -13,6 +13,7 @@ public sealed partial class MainForm
     private string _currentGameExecutablePath = string.Empty;
     private string _currentSearchQuery = string.Empty;
     private string _currentCategory = "Tất cả";
+    private CancellationTokenSource? _prewarmCts;
 
     private async Task LoadCatalogOnStartupAsync()
     {
@@ -38,6 +39,7 @@ public sealed partial class MainForm
         await SaveLauncherSettingsAsync();
         InitializeCards();
         ApplyFilter();
+        StartBackgroundPrewarm();
         WriteClientStatusSafe();
         _statusHeartbeatTimer.Start();
     }
@@ -54,7 +56,7 @@ public sealed partial class MainForm
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(c => c)
             .ToList();
-        
+
         categories.AddRange(uniqueCategories);
 
         foreach (var category in categories)
@@ -72,16 +74,19 @@ public sealed partial class MainForm
                 Margin = new Padding(0, 0, 8, 0)
             };
             btn.FlatAppearance.BorderSize = 0;
-            btn.Click += (s, e) => {
+            btn.Click += (_, _) =>
+            {
                 _currentCategory = category;
                 foreach (Button c in _categoriesPanel.Controls)
                 {
                     c.BackColor = c.Text == _currentCategory ? Color.FromArgb(59, 130, 246) : Color.FromArgb(30, 41, 59);
                 }
+
                 ApplyFilter();
             };
             _categoriesPanel.Controls.Add(btn);
         }
+
         _categoriesPanel.ResumeLayout();
     }
 
@@ -90,22 +95,35 @@ public sealed partial class MainForm
         _hotCardsPanel.SuspendLayout();
         _normalCardsPanel.SuspendLayout();
 
-        foreach (Control control in _hotCardsPanel.Controls) control.Dispose();
-        foreach (Control control in _normalCardsPanel.Controls) control.Dispose();
+        foreach (Control control in _hotCardsPanel.Controls)
+        {
+            control.Dispose();
+        }
+
+        foreach (Control control in _normalCardsPanel.Controls)
+        {
+            control.Dispose();
+        }
 
         _hotCardsPanel.Controls.Clear();
         _normalCardsPanel.Controls.Clear();
 
-        var hotRows = _allRows.Where(r => r.IsHot).OrderBy(r => r.SortOrder).ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase);
+        var hotRows = _allRows
+            .Where(r => r.IsHot)
+            .OrderBy(r => r.SortOrder)
+            .ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase);
         foreach (var row in hotRows)
         {
-            _hotCardsPanel.Controls.Add(new GameCardControl(row, PlayGame, isHotRow: true));
+            _hotCardsPanel.Controls.Add(new GameCardControl(row, PlayGame, isHotRow: true, ThemeFontFamily));
         }
 
-        var normalRows = _allRows.Where(r => !r.IsHot).OrderBy(r => r.SortOrder).ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase);
+        var normalRows = _allRows
+            .Where(r => !r.IsHot)
+            .OrderBy(r => r.SortOrder)
+            .ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase);
         foreach (var row in normalRows)
         {
-            _normalCardsPanel.Controls.Add(new GameCardControl(row, PlayGame, isHotRow: false));
+            _normalCardsPanel.Controls.Add(new GameCardControl(row, PlayGame, isHotRow: false, ThemeFontFamily));
         }
 
         _hotCardsPanel.ResumeLayout();
@@ -143,7 +161,9 @@ public sealed partial class MainForm
         {
             var process = _launchService.Launch(row);
             _currentGameName = row.Name;
-            _currentGameExecutablePath = row.ResolvedExecutablePath;
+            _currentGameExecutablePath = string.IsNullOrWhiteSpace(_launchService.LastLaunchedExecutablePath)
+                ? row.ResolvedExecutablePath
+                : _launchService.LastLaunchedExecutablePath;
             WriteClientStatusSafe();
             _ = Task.Run(() =>
             {
@@ -163,6 +183,52 @@ public sealed partial class MainForm
             SendLauncherToDesktop();
             await Task.CompletedTask;
         });
+    }
+
+    private void StartBackgroundPrewarm()
+    {
+        CancelBackgroundPrewarm();
+        if (_allRows.Count == 0)
+        {
+            return;
+        }
+
+        _prewarmCts = new CancellationTokenSource();
+        var rowsSnapshot = _allRows.ToList();
+        var cancellationToken = _prewarmCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _prewarmService.PrewarmHotGamesAsync(rowsSnapshot, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Ignore cancellation during shutdown/reload.
+            }
+            catch
+            {
+                // Prewarm is best-effort only.
+            }
+        }, cancellationToken);
+    }
+
+    private void CancelBackgroundPrewarm()
+    {
+        try
+        {
+            _prewarmCts?.Cancel();
+            _prewarmCts?.Dispose();
+        }
+        catch
+        {
+            // Ignore cancellation/dispose failures.
+        }
+        finally
+        {
+            _prewarmCts = null;
+        }
     }
 
     private async Task SaveLauncherSettingsAsync()

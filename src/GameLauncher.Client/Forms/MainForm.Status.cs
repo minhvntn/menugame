@@ -1,4 +1,5 @@
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using GameUpdater.Shared.Models;
 
@@ -33,7 +34,7 @@ public sealed partial class MainForm
                 {
                     MachineName = Environment.MachineName,
                     UserName = Environment.UserName,
-                    IpAddress = string.Empty,
+                    IpAddress = ResolvePreferredIpv4Address(),
                     CurrentGameName = currentGameName,
                     CurrentGameExecutablePath = currentExecutable,
                     LastSeenUtc = DateTime.UtcNow,
@@ -108,6 +109,50 @@ public sealed partial class MainForm
     private static double BytesToGb(ulong bytes) => bytes / 1024d / 1024d / 1024d;
 
     private static double BytesToGb(long bytes) => bytes / 1024d / 1024d / 1024d;
+
+    private static string ResolvePreferredIpv4Address()
+    {
+        try
+        {
+            foreach (var adapter in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (adapter.OperationalStatus != OperationalStatus.Up ||
+                    adapter.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                {
+                    continue;
+                }
+
+                var ipProperties = adapter.GetIPProperties();
+                foreach (var unicastAddress in ipProperties.UnicastAddresses)
+                {
+                    if (unicastAddress.Address.AddressFamily != AddressFamily.InterNetwork)
+                    {
+                        continue;
+                    }
+
+                    var address = unicastAddress.Address.ToString();
+                    if (string.IsNullOrWhiteSpace(address))
+                    {
+                        continue;
+                    }
+
+                    // Skip APIPA (169.254.x.x) which is usually not routable in LAN.
+                    if (address.StartsWith("169.254.", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    return address;
+                }
+            }
+        }
+        catch
+        {
+            // Ignore adapter inspection failures.
+        }
+
+        return string.Empty;
+    }
 
     private string ResolveClientStatusFolder()
     {

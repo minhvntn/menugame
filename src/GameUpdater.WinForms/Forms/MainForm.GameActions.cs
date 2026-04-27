@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
@@ -155,7 +155,12 @@ public sealed partial class MainForm
         {
             _clientWindowsWallpaperPath = _clientWallpaperPathTextBox.Text.Trim();
             _enableClientCloseApplicationHotKey = _enableClientCloseAppHotKeyCheckBox.Checked;
+            if (_clientThemeFontComboBox.SelectedItem != null)
+            {
+                _clientThemeFontFamily = _clientThemeFontComboBox.SelectedItem.ToString() ?? "Segoe UI";
+            }
             await SaveUiSettingsAsync();
+            ApplyUiFontSize(_uiFontSizeMode);
             await AutoExportCatalogAsync();
             ShowInfo("Đã lưu thiết lập và đồng bộ catalog cho client.");
         });

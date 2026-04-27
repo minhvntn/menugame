@@ -36,6 +36,9 @@ public sealed partial class MainForm
             ? "Chào mừng quý khách"
             : bannerMessage;
         _bannerMessageLabel.Visible = true;
+        ThemeFontFamily = string.IsNullOrWhiteSpace(policy.ThemeFontFamily)
+            ? "Segoe UI"
+            : policy.ThemeFontFamily.Trim();
 
         if (TryParseHtmlColor(policy.ThemeAccentColor, out var accentColor))
         {

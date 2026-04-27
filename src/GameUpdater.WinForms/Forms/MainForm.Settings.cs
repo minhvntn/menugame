@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
@@ -43,6 +43,7 @@ public sealed partial class MainForm
                 _clientCafeDisplayName = string.IsNullOrWhiteSpace(settings.ClientCafeDisplayName) ? _clientCafeDisplayName : settings.ClientCafeDisplayName.Trim();
                 _clientBannerMessage = settings.ClientBannerMessage?.Trim() ?? string.Empty;
                 _clientThemeAccentColor = string.IsNullOrWhiteSpace(settings.ClientThemeAccentColor) ? _clientThemeAccentColor : settings.ClientThemeAccentColor.Trim();
+                _clientThemeFontFamily = string.IsNullOrWhiteSpace(settings.ClientThemeFontFamily) ? _clientThemeFontFamily : settings.ClientThemeFontFamily.Trim();
                 _clientStatusFolderPath = settings.ClientStatusFolderPath?.Trim() ?? string.Empty;
                 _enableClientCloseApplicationHotKey = settings.EnableClientCloseApplicationHotKey;
                 _enableClientFullscreenKioskMode = settings.EnableClientFullscreenKioskMode;
@@ -61,6 +62,14 @@ public sealed partial class MainForm
             _clientCafeNameTextBox.Text = _clientCafeDisplayName;
             _clientBannerMessageTextBox.Text = _clientBannerMessage;
             _clientThemeAccentColorTextBox.Text = _clientThemeAccentColor;
+            if (_clientThemeFontComboBox.Items.Contains(_clientThemeFontFamily))
+            {
+                _clientThemeFontComboBox.SelectedItem = _clientThemeFontFamily;
+            }
+            else
+            {
+                _clientThemeFontComboBox.SelectedItem = "Segoe UI";
+            }
             _clientStatusFolderTextBox.Text = _clientStatusFolderPath;
             _enableClientCloseAppHotKeyCheckBox.Checked = _enableClientCloseApplicationHotKey;
             _enableClientFullscreenKioskCheckBox.Checked = _enableClientFullscreenKioskMode;
@@ -85,6 +94,7 @@ public sealed partial class MainForm
             ClientCafeDisplayName = _clientCafeDisplayName,
             ClientBannerMessage = _clientBannerMessage,
             ClientThemeAccentColor = _clientThemeAccentColor,
+            ClientThemeFontFamily = _clientThemeFontFamily,
             ClientStatusFolderPath = _clientStatusFolderPath,
             EnableClientCloseApplicationHotKey = _enableClientCloseApplicationHotKey,
             EnableClientFullscreenKioskMode = _enableClientFullscreenKioskMode,

@@ -131,7 +131,7 @@ public sealed partial class MainForm
         _clientDashboardSummaryLabel.Text = "Chưa có dữ liệu máy trạm.";
         _clientDashboardSummaryLabel.Margin = new Padding(0, 6, 18, 0);
         toolbar.Controls.Add(_clientDashboardSummaryLabel);
-        toolbar.Controls.Add(CreateButton("Làm mới", (_, _) => RefreshClientDashboard()));
+        toolbar.Controls.Add(CreateButton("Làm mới", async (_, _) => await RefreshClientDashboardAsync(forceNetworkProbe: true)));
         toolbar.Controls.Add(CreateButton("Mở thư mục trạng thái", OpenClientStatusFolderButton_Click));
 
         _clientDashboardGameStatsLabel.Dock = DockStyle.Fill;
@@ -336,7 +336,7 @@ public sealed partial class MainForm
         rightPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
         rightPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
         rightPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        rightPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+        rightPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
         rightPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
         rightPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
@@ -405,7 +405,7 @@ public sealed partial class MainForm
         var actionsRow = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
-            Padding = new Padding(0, 4, 0, 0),
+            Padding = new Padding(0, 2, 0, 0),
             WrapContents = false
         };
         _saveResourceSettingsButton.Text = "Lưu cấu hình";

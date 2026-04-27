@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using GameUpdater.Core.Abstractions;
 using GameUpdater.Shared.Models;
 
@@ -119,7 +119,10 @@ public sealed class UpdateService
 
         var sourceFiles = Directory
             .EnumerateFiles(sourceFolder, "*", SearchOption.AllDirectories)
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .Select(path => new FileInfo(path))
+            // Delta-friendly ordering: copy smaller files first.
+            .OrderBy(info => info.Length)
+            .ThenBy(info => info.FullName, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (sourceFiles.Count == 0)
@@ -131,12 +134,23 @@ public sealed class UpdateService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var sourceFile = sourceFiles[index];
+            var sourceInfo = sourceFiles[index];
+            var sourceFile = sourceInfo.FullName;
             var relativePath = Path.GetRelativePath(sourceFolder, sourceFile);
             var targetPath = ResolveSafePath(game.InstallPath, relativePath);
+            var targetInfo = new FileInfo(targetPath);
+
+            if (targetInfo.Exists && IsUpToDate(targetInfo, sourceInfo.Length, sourceInfo.LastWriteTimeUtc))
+            {
+                var skipPercent = 10 + (int)Math.Round(((index + 1d) / sourceFiles.Count) * 70d);
+                progress?.Report(UpdateProgressInfo.Create(skipPercent, $"Bỏ qua {relativePath} (không thay đổi)"));
+                continue;
+            }
+
             Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
             EnsureWritable(targetPath);
             File.Copy(sourceFile, targetPath, overwrite: true);
+            File.SetLastWriteTimeUtc(targetPath, sourceInfo.LastWriteTimeUtc);
 
             var percent = 10 + (int)Math.Round(((index + 1d) / sourceFiles.Count) * 70d);
             progress?.Report(UpdateProgressInfo.Create(percent, $"Đã chép {relativePath}"));
@@ -159,6 +173,9 @@ public sealed class UpdateService
         using var archive = ZipFile.OpenRead(zipPath);
         var fileEntries = archive.Entries
             .Where(entry => !string.IsNullOrWhiteSpace(entry.Name))
+            // Delta-friendly ordering: extract smaller files first.
+            .OrderBy(entry => entry.Length)
+            .ThenBy(entry => entry.FullName, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (fileEntries.Count == 0)
@@ -173,6 +190,15 @@ public sealed class UpdateService
             var entry = fileEntries[index];
             var relativePath = entry.FullName.Replace('/', Path.DirectorySeparatorChar);
             var targetPath = ResolveSafePath(game.InstallPath, relativePath);
+            var targetInfo = new FileInfo(targetPath);
+            var sourceLastWriteUtc = TryGetZipLastWriteTimeUtc(entry);
+
+            if (targetInfo.Exists && IsUpToDate(targetInfo, entry.Length, sourceLastWriteUtc))
+            {
+                var skipPercent = 10 + (int)Math.Round(((index + 1d) / fileEntries.Count) * 70d);
+                progress?.Report(UpdateProgressInfo.Create(skipPercent, $"Bỏ qua {relativePath} (không thay đổi)"));
+                continue;
+            }
 
             Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
             EnsureWritable(targetPath);
@@ -181,9 +207,37 @@ public sealed class UpdateService
             await using var targetStream = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None);
             await sourceStream.CopyToAsync(targetStream, cancellationToken);
 
+            if (sourceLastWriteUtc.HasValue)
+            {
+                File.SetLastWriteTimeUtc(targetPath, sourceLastWriteUtc.Value);
+            }
+
             var percent = 10 + (int)Math.Round(((index + 1d) / fileEntries.Count) * 70d);
             progress?.Report(UpdateProgressInfo.Create(percent, $"Đã giải nén {relativePath}"));
         }
+    }
+
+    private static DateTime? TryGetZipLastWriteTimeUtc(ZipArchiveEntry entry)
+    {
+        var utc = entry.LastWriteTime.UtcDateTime;
+        return utc.Year < 1980 ? null : utc;
+    }
+
+    private static bool IsUpToDate(FileInfo targetInfo, long sourceLength, DateTime? sourceLastWriteUtc)
+    {
+        if (!targetInfo.Exists || targetInfo.Length != sourceLength)
+        {
+            return false;
+        }
+
+        if (!sourceLastWriteUtc.HasValue)
+        {
+            return true;
+        }
+
+        // Zip entries can have 2-second timestamp precision.
+        var delta = (targetInfo.LastWriteTimeUtc - sourceLastWriteUtc.Value).Duration();
+        return delta <= TimeSpan.FromSeconds(2);
     }
 
     private static void ValidateRequest(UpdateRequest request)

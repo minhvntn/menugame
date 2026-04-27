@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
@@ -162,10 +162,10 @@ public sealed partial class MainForm
         var settingsPanel = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            RowCount = 9,
+            RowCount = 10,
             ColumnCount = 1
         };
-        for (var i = 0; i < 8; i++)
+        for (var i = 0; i < 9; i++)
         {
             settingsPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
         }
@@ -203,6 +203,19 @@ public sealed partial class MainForm
         _clientThemeAccentColorTextBox.Text = _clientThemeAccentColor;
         _clientThemeAccentColorTextBox.TextChanged += (_, _) => _clientThemeAccentColor = _clientThemeAccentColorTextBox.Text.Trim();
 
+        _clientThemeFontComboBox.Dock = DockStyle.Fill;
+        _clientThemeFontComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
+        _clientThemeFontComboBox.Items.AddRange(new object[] { "Segoe UI", "Cambria", "sans-serif", "Tahoma", "Roboto", "Helvetica", "Arial", "Calibri", "Open Sans", "Quicksand", "Peace Sans" });
+        if (_clientThemeFontComboBox.Items.Contains(_clientThemeFontFamily))
+        {
+            _clientThemeFontComboBox.SelectedItem = _clientThemeFontFamily;
+        }
+        else
+        {
+            _clientThemeFontComboBox.SelectedItem = "Segoe UI";
+        }
+        _clientThemeFontComboBox.SelectedIndexChanged += (_, _) => _clientThemeFontFamily = _clientThemeFontComboBox.Text;
+
         _clientStatusFolderTextBox.Dock = DockStyle.Fill;
         _clientStatusFolderTextBox.Text = _clientStatusFolderPath;
         _clientStatusFolderTextBox.TextChanged += (_, _) => _clientStatusFolderPath = _clientStatusFolderTextBox.Text.Trim();
@@ -224,6 +237,17 @@ public sealed partial class MainForm
         var cafeNameRow = CreateTextSettingRow("Tên quán trên client", _clientCafeNameTextBox);
         var bannerRow = CreateTextSettingRow("Banner/thông báo", _clientBannerMessageTextBox);
         var themeRow = CreateTextSettingRow("Màu theme client", _clientThemeAccentColorTextBox);
+
+        var fontRow = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2
+        };
+        fontRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
+        fontRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        fontRow.Controls.Add(CreateFieldLabel("Font chữ giao diện"), 0, 0);
+        fontRow.Controls.Add(_clientThemeFontComboBox, 1, 0);
+
         var statusFolderRow = CreateTextSettingRow("Thư mục trạng thái client", _clientStatusFolderTextBox);
 
         _enableClientCloseAppHotKeyCheckBox.Dock = DockStyle.Fill;
@@ -247,11 +271,12 @@ public sealed partial class MainForm
         settingsPanel.Controls.Add(cafeNameRow, 0, 1);
         settingsPanel.Controls.Add(bannerRow, 0, 2);
         settingsPanel.Controls.Add(themeRow, 0, 3);
-        settingsPanel.Controls.Add(wallpaperRow, 0, 4);
-        settingsPanel.Controls.Add(statusFolderRow, 0, 5);
-        settingsPanel.Controls.Add(_enableClientCloseAppHotKeyCheckBox, 0, 6);
-        settingsPanel.Controls.Add(_enableClientFullscreenKioskCheckBox, 0, 7);
-        settingsPanel.Controls.Add(hintLabel, 0, 8);
+        settingsPanel.Controls.Add(fontRow, 0, 4);
+        settingsPanel.Controls.Add(wallpaperRow, 0, 5);
+        settingsPanel.Controls.Add(statusFolderRow, 0, 6);
+        settingsPanel.Controls.Add(_enableClientCloseAppHotKeyCheckBox, 0, 7);
+        settingsPanel.Controls.Add(_enableClientFullscreenKioskCheckBox, 0, 8);
+        settingsPanel.Controls.Add(hintLabel, 0, 9);
 
         var actionsPanel = new FlowLayoutPanel
         {

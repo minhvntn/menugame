@@ -20,7 +20,7 @@ public sealed partial class MainForm : Form
     private static readonly Color SecondaryButtonTextColor = Color.FromArgb(226, 232, 240);
     private static readonly Color ButtonBorderColor = Color.FromArgb(51, 65, 85);
     private const int ButtonHorizontalPadding = 8;
-    private const int ButtonVerticalPadding = 0;
+    private const int ButtonVerticalPadding = 2;
     private static readonly List<Button> StyledButtons = new();
     private static readonly Dictionary<Button, bool> StyledButtonPrimaryStates = new();
     private static readonly Dictionary<Button, Color> StyledButtonTargetColors = new();
@@ -77,6 +77,7 @@ public sealed partial class MainForm : Form
     private readonly TextBox _clientCafeNameTextBox = new();
     private readonly TextBox _clientBannerMessageTextBox = new();
     private readonly TextBox _clientThemeAccentColorTextBox = new();
+    private readonly ComboBox _clientThemeFontComboBox = new();
     private readonly TextBox _clientStatusFolderTextBox = new();
     private readonly CheckBox _enableClientCloseAppHotKeyCheckBox = new();
     private readonly CheckBox _enableClientFullscreenKioskCheckBox = new();
@@ -142,6 +143,7 @@ public sealed partial class MainForm : Form
     private string _clientCafeDisplayName = "Cyber Game";
     private string _clientBannerMessage = string.Empty;
     private string _clientThemeAccentColor = "#38BDF8";
+    private string _clientThemeFontFamily = "Segoe UI";
     private string _clientStatusFolderPath = string.Empty;
     private bool _enableClientCloseApplicationHotKey = true;
     private bool _enableClientFullscreenKioskMode;
@@ -155,6 +157,7 @@ public sealed partial class MainForm : Form
     private long _lastServerNetworkBytesSent;
     private long _lastServerNetworkBytesReceived;
     private DateTime _lastServerNetworkSampleUtc = DateTime.UtcNow;
+    private int _clientDashboardRefreshInProgress;
 
     public MainForm(
         GameService gameService,
@@ -185,7 +188,7 @@ public sealed partial class MainForm : Form
         _gamesBinding.CurrentChanged += GamesBinding_CurrentChanged;
         _downloadMonitorBinding.DataSource = _downloadMonitorRows;
         _clientDashboardRefreshTimer.Interval = 15_000;
-        _clientDashboardRefreshTimer.Tick += (_, _) => RefreshClientDashboard();
+        _clientDashboardRefreshTimer.Tick += async (_, _) => await RefreshClientDashboardAsync();
         _serverDashboardRefreshTimer.Interval = 15_000;
         _serverDashboardRefreshTimer.Tick += (_, _) => RefreshServerDashboard();
 
@@ -200,7 +203,7 @@ public sealed partial class MainForm : Form
         await LoadUiSettingsAsync();
         await ReloadAllAsync();
         ApplyResourcesSplitDistance();
-        RefreshClientDashboard();
+        await RefreshClientDashboardAsync(forceNetworkProbe: true);
         RefreshServerDashboard();
         _clientDashboardRefreshTimer.Start();
         _serverDashboardRefreshTimer.Start();

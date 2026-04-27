@@ -25,6 +25,8 @@ public sealed partial class MainForm
 
         public string SourceKey { get; init; } = string.Empty;
 
+        public string SourceRoot { get; init; } = string.Empty;
+
         public string SourceStatus { get; init; } = string.Empty;
 
         public string SourcePath { get; init; } = string.Empty;
@@ -61,6 +63,8 @@ public sealed partial class MainForm
     private sealed class SourceFolderEntry
     {
         public string Key { get; init; } = string.Empty;
+
+        public string SourceRoot { get; init; } = string.Empty;
 
         public string Name { get; init; } = string.Empty;
 
@@ -200,6 +204,8 @@ public sealed partial class MainForm
 
         public string CurrentGameExecutablePath { get; init; } = string.Empty;
 
+        public string IpAddress { get; init; } = string.Empty;
+
         public DateTime LastSeenUtc { get; init; }
 
         public string SourceFileName { get; init; } = string.Empty;
@@ -218,7 +224,15 @@ public sealed partial class MainForm
 
         public double NetworkReceivedKbps { get; init; }
 
-        public bool IsOnline => DateTime.UtcNow - LastSeenUtc <= OnlineThreshold;
+        public bool? ReachabilityOverride { get; set; }
+
+        public string ProbeTarget => string.IsNullOrWhiteSpace(IpAddress)
+            ? MachineName
+            : IpAddress;
+
+        private bool IsOnlineByHeartbeat => DateTime.UtcNow - LastSeenUtc <= OnlineThreshold;
+
+        public bool IsOnline => ReachabilityOverride ?? IsOnlineByHeartbeat;
 
         public bool IsSlowHeartbeat => DateTime.UtcNow - LastSeenUtc > OnlineThreshold && DateTime.UtcNow - LastSeenUtc <= SlowHeartbeatThreshold;
 
@@ -250,6 +264,7 @@ public sealed partial class MainForm
                 UserName = status.UserName,
                 CurrentGameName = status.CurrentGameName,
                 CurrentGameExecutablePath = status.CurrentGameExecutablePath,
+                IpAddress = status.IpAddress?.Trim() ?? string.Empty,
                 LastSeenUtc = status.LastSeenUtc,
                 SourceFileName = sourceFileName,
                 TotalMemoryGb = status.TotalMemoryGb,
@@ -280,6 +295,8 @@ public sealed partial class MainForm
         public string ClientBannerMessage { get; set; } = string.Empty;
 
         public string ClientThemeAccentColor { get; set; } = string.Empty;
+
+        public string ClientThemeFontFamily { get; set; } = string.Empty;
 
         public string ClientStatusFolderPath { get; set; } = string.Empty;
 
