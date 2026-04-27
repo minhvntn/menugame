@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
@@ -28,6 +28,7 @@ public sealed partial class MainForm
         tabs.TabPages.Add(BuildUpdateTab());
         tabs.TabPages.Add(BuildLogsTab());
         tabs.TabPages.Add(BuildSettingsTab());
+        ConfigureTabIcons(tabs);
 
         Controls.Add(tabs);
     }
@@ -83,8 +84,8 @@ public sealed partial class MainForm
         _moveDownButton.Click += async (_, _) => await ReorderSelectedGameAsync(15);
         StyleButton(_moveDownButton);
         toolbar.Controls.Add(_moveDownButton);
-        toolbar.Controls.Add(CreateButton("Danh dau Hot", async (_, _) => await SetSelectedGameHotAsync(true)));
-        toolbar.Controls.Add(CreateButton("Bo Hot", async (_, _) => await SetSelectedGameHotAsync(false)));
+        toolbar.Controls.Add(CreateButton("Đánh dấu Hot", async (_, _) => await SetSelectedGameHotAsync(true)));
+        toolbar.Controls.Add(CreateButton("Bỏ Hot", async (_, _) => await SetSelectedGameHotAsync(false)));
 
         toolbar.Controls.Add(CreateButton("Xuất Danh Mục Client", ExportCatalogButton_Click));
         toolbar.Controls.Add(CreateButton("Làm mới", RefreshButton_Click));
@@ -108,7 +109,7 @@ public sealed partial class MainForm
 
     private TabPage BuildClientDashboardTab()
     {
-        var page = new TabPage("Dashboard máy trạm");
+        var page = new TabPage("Client");
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -148,7 +149,7 @@ public sealed partial class MainForm
         return page;
     }
 
-    // Dashboard card color palette – modern elevated dark theme.
+    // Dashboard card color palette - modern elevated dark theme.
     private static readonly Color DashboardCardBackground = Color.FromArgb(24, 30, 50);
     private static readonly Color DashboardCardBorder = Color.FromArgb(45, 55, 80);
     private static readonly Color DashboardTitleColor = Color.FromArgb(0, 200, 255);      // Vivid cyan
@@ -159,7 +160,7 @@ public sealed partial class MainForm
     private static readonly Color DashboardWarnColor = Color.FromArgb(250, 204, 21);      // Amber
     private static readonly Color DashboardDangerColor = Color.FromArgb(239, 68, 68);     // Red
 
-    /// <summary>Returns a color based on usage percent: green → amber → red.</summary>
+    /// <summary>Returns a color based on usage percent: green -> amber -> red.</summary>
     private static Color GetUsageColor(double percent)
     {
         if (percent >= 85) return DashboardDangerColor;
@@ -169,7 +170,7 @@ public sealed partial class MainForm
 
     private TabPage BuildServerDashboardTab()
     {
-        var page = new TabPage("Dashboard máy server");
+        var page = new TabPage("Server");
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -458,7 +459,179 @@ public sealed partial class MainForm
         return page;
     }
 
+    private void ConfigureTabIcons(TabControl tabs)
+    {
+        if (tabs.TabPages.Count == 0)
+        {
+            return;
+        }
+
+        var imageList = BuildTabIconImageList();
+        if (imageList.Images.Count == 0)
+        {
+            return;
+        }
+
+        tabs.ImageList = imageList;
+        tabs.Appearance = TabAppearance.Normal;
+        tabs.SizeMode = TabSizeMode.Fixed;
+        tabs.DrawMode = TabDrawMode.OwnerDrawFixed;
+        tabs.ItemSize = new Size(120, 84);
+        tabs.Padding = new Point(0, 0);
+        tabs.BackColor = Color.White;
+        tabs.Paint += (_, e) => PaintTabHeaderChrome(tabs, e.Graphics);
+        tabs.DrawItem += Tabs_DrawItem;
+
+        var iconKeys = new[]
+        {
+            "tro-choi.png",
+            "dashboard-client.png",
+            "dashboard-server.png",
+            "tai-nguyen.png",
+            "cap-nhap.png",
+            "lich-su.png",
+            "setting.png"
+        };
+
+        for (var index = 0; index < Math.Min(tabs.TabPages.Count, iconKeys.Length); index++)
+        {
+            var iconKey = iconKeys[index];
+            if (imageList.Images.ContainsKey(iconKey))
+            {
+                tabs.TabPages[index].ImageKey = iconKey;
+            }
+        }
+    }
+
+    private static ImageList BuildTabIconImageList()
+    {
+        var imageList = new ImageList
+        {
+            ColorDepth = ColorDepth.Depth32Bit,
+            ImageSize = new Size(40, 40)
+        };
+
+        var iconFiles = new[]
+        {
+            "tro-choi.png",
+            "dashboard-client.png",
+            "dashboard-server.png",
+            "tai-nguyen.png",
+            "cap-nhap.png",
+            "lich-su.png",
+            "setting.png"
+        };
+
+        foreach (var iconFile in iconFiles)
+        {
+            var image = TryLoadEmbeddedTabIcon(iconFile, imageList.ImageSize);
+            if (image is not null)
+            {
+                imageList.Images.Add(iconFile, image);
+            }
+        }
+
+        return imageList;
+    }
+
+    private static Image? TryLoadEmbeddedTabIcon(string fileName, Size imageSize)
+    {
+        var resourceName = $"GameUpdater.WinForms.Resources.{fileName}";
+        var assembly = typeof(MainForm).Assembly;
+        using var stream = assembly.GetManifestResourceStream(resourceName);
+        if (stream is null)
+        {
+            return null;
+        }
+
+        using var sourceImage = Image.FromStream(stream);
+        var bitmap = new Bitmap(imageSize.Width, imageSize.Height);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+        graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+        graphics.Clear(Color.Transparent);
+        graphics.DrawImage(sourceImage, 0, 0, imageSize.Width, imageSize.Height);
+        return bitmap;
+    }
+
+    private static void Tabs_DrawItem(object? sender, DrawItemEventArgs e)
+    {
+        if (sender is not TabControl tabs ||
+            e.Index < 0 ||
+            e.Index >= tabs.TabPages.Count)
+        {
+            return;
+        }
+
+        var tabPage = tabs.TabPages[e.Index];
+        var bounds = e.Bounds;
+        var isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+        var backgroundColor = Color.White;
+        var textColor = isSelected ? Color.FromArgb(17, 24, 39) : Color.FromArgb(71, 85, 105);
+
+        var paintBounds = Rectangle.Inflate(bounds, 2, 2);
+        using var backgroundBrush = new SolidBrush(backgroundColor);
+        e.Graphics.FillRectangle(backgroundBrush, paintBounds);
+
+        var iconSize = tabs.ImageList?.ImageSize.Width ?? 40;
+        var iconTop = bounds.Top + 6;
+        if (!string.IsNullOrWhiteSpace(tabPage.ImageKey) &&
+            tabs.ImageList?.Images[tabPage.ImageKey] is Image icon)
+        {
+            var iconLeft = bounds.Left + (bounds.Width - iconSize) / 2;
+            e.Graphics.DrawImage(icon, new Rectangle(iconLeft, iconTop, iconSize, iconSize));
+        }
+
+        var textTop = iconTop + iconSize + 2;
+        using var tabTextFont = new Font(
+            "Segoe UI",
+            Math.Max(6f, tabs.Font.Size - 2f),
+            tabs.Font.Style);
+        var textRect = new Rectangle(
+            bounds.Left + 4,
+            textTop,
+            bounds.Width - 8,
+            Math.Max(1, bounds.Bottom - textTop - 2));
+        TextRenderer.DrawText(
+            e.Graphics,
+            tabPage.Text,
+            tabTextFont,
+            textRect,
+            textColor,
+            TextFormatFlags.HorizontalCenter |
+            TextFormatFlags.VerticalCenter |
+            TextFormatFlags.EndEllipsis |
+            TextFormatFlags.NoPrefix);
+
+        // Intentionally skip focus rectangle to keep tabs visually borderless.
+    }
+
+    private static void PaintTabHeaderChrome(TabControl tabs, Graphics graphics)
+    {
+        if (tabs.TabCount == 0)
+        {
+            return;
+        }
+
+        using var erasePen = new Pen(Color.White, 2f);
+
+        foreach (TabPage page in tabs.TabPages)
+        {
+            var tabRect = tabs.GetTabRect(tabs.TabPages.IndexOf(page));
+            graphics.DrawRectangle(erasePen, tabRect);
+        }
+
+        var firstRect = tabs.GetTabRect(0);
+        var stripBottomY = firstRect.Bottom + 1;
+        graphics.DrawLine(erasePen, 0, stripBottomY, tabs.Width, stripBottomY);
+        graphics.DrawLine(erasePen, 0, 0, tabs.Width, 0);
+    }
+
 }
+
+
+
 
 
 

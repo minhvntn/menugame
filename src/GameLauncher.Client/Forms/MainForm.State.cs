@@ -8,11 +8,13 @@ namespace GameLauncher.Client.Forms;
 public sealed partial class MainForm
 {
     private List<LauncherGameRow> _allRows = new();
+    private readonly List<GameCardControl> _hotCards = new();
+    private readonly List<GameCardControl> _normalCards = new();
     private string _catalogPath = string.Empty;
     private string _currentGameName = string.Empty;
     private string _currentGameExecutablePath = string.Empty;
-    private string _currentSearchQuery = string.Empty;
     private string _currentCategory = "Tất cả";
+    private string _lastAppliedCategory = string.Empty;
     private CancellationTokenSource? _prewarmCts;
 
     private async Task LoadCatalogOnStartupAsync()
@@ -38,7 +40,7 @@ public sealed partial class MainForm
         await ApplyServerPolicyAsync(catalog.ClientPolicy);
         await SaveLauncherSettingsAsync();
         InitializeCards();
-        ApplyFilter();
+        ApplyFilter(force: true);
         StartBackgroundPrewarm();
         WriteClientStatusSafe();
         _statusHeartbeatTimer.Start();
@@ -76,13 +78,18 @@ public sealed partial class MainForm
             btn.FlatAppearance.BorderSize = 0;
             btn.Click += (_, _) =>
             {
+                if (string.Equals(_currentCategory, category, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
                 _currentCategory = category;
                 foreach (Button c in _categoriesPanel.Controls)
                 {
                     c.BackColor = c.Text == _currentCategory ? Color.FromArgb(59, 130, 246) : Color.FromArgb(30, 41, 59);
                 }
 
-                ApplyFilter();
+                ApplyFilter(force: true);
             };
             _categoriesPanel.Controls.Add(btn);
         }
@@ -107,24 +114,32 @@ public sealed partial class MainForm
 
         _hotCardsPanel.Controls.Clear();
         _normalCardsPanel.Controls.Clear();
+        _hotCards.Clear();
+        _normalCards.Clear();
 
         var hotRows = _allRows
             .Where(r => r.IsHot)
             .OrderBy(r => r.SortOrder)
-            .ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase);
-        foreach (var row in hotRows)
-        {
-            _hotCardsPanel.Controls.Add(new GameCardControl(row, PlayGame, isHotRow: true, ThemeFontFamily));
-        }
+            .ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var hotControls = hotRows
+            .Select(row => new GameCardControl(row, PlayGame, isHotRow: true, ThemeFontFamily))
+            .ToArray();
+        _hotCards.AddRange(hotControls);
+        _hotCardsPanel.Controls.AddRange(hotControls);
 
         var normalRows = _allRows
             .Where(r => !r.IsHot)
             .OrderBy(r => r.SortOrder)
-            .ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase);
-        foreach (var row in normalRows)
-        {
-            _normalCardsPanel.Controls.Add(new GameCardControl(row, PlayGame, isHotRow: false, ThemeFontFamily));
-        }
+            .ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var normalControls = normalRows
+            .Select(row => new GameCardControl(row, PlayGame, isHotRow: false, ThemeFontFamily))
+            .ToArray();
+        _normalCards.AddRange(normalControls);
+        _normalCardsPanel.Controls.AddRange(normalControls);
+
+        _lastAppliedCategory = string.Empty;
 
         _hotCardsPanel.ResumeLayout();
         _normalCardsPanel.ResumeLayout();
@@ -132,17 +147,38 @@ public sealed partial class MainForm
 
     private void ApplyFilter()
     {
+        ApplyFilter(force: false);
+    }
+
+    private void ApplyFilter(bool force)
+    {
+        if (!force &&
+            string.Equals(_lastAppliedCategory, _currentCategory, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _lastAppliedCategory = _currentCategory;
+
         _hotCardsPanel.SuspendLayout();
         _normalCardsPanel.SuspendLayout();
 
-        foreach (GameCardControl card in _hotCardsPanel.Controls.OfType<GameCardControl>())
+        foreach (var card in _hotCards)
         {
-            card.Visible = IsRowVisible(card.Row);
+            var isVisible = IsRowVisible(card.Row);
+            if (card.Visible != isVisible)
+            {
+                card.Visible = isVisible;
+            }
         }
 
-        foreach (GameCardControl card in _normalCardsPanel.Controls.OfType<GameCardControl>())
+        foreach (var card in _normalCards)
         {
-            card.Visible = IsRowVisible(card.Row);
+            var isVisible = IsRowVisible(card.Row);
+            if (card.Visible != isVisible)
+            {
+                card.Visible = isVisible;
+            }
         }
 
         _hotCardsPanel.ResumeLayout();
@@ -151,8 +187,8 @@ public sealed partial class MainForm
 
     private bool IsRowVisible(LauncherGameRow row)
     {
-        return (string.IsNullOrWhiteSpace(_currentSearchQuery) || row.Name.Contains(_currentSearchQuery, StringComparison.OrdinalIgnoreCase)) &&
-               (_currentCategory == "Tất cả" || string.Equals(row.Category, _currentCategory, StringComparison.OrdinalIgnoreCase));
+        return _currentCategory == "Tất cả" ||
+               string.Equals(row.Category, _currentCategory, StringComparison.OrdinalIgnoreCase);
     }
 
     private void PlayGame(LauncherGameRow row)

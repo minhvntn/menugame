@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using GameLauncher.Client.Models;
 
 namespace GameLauncher.Client.Controls;
@@ -7,6 +7,11 @@ public sealed class GameCardControl : UserControl
 {
     private static readonly object IconCacheSyncRoot = new();
     private static readonly Dictionary<string, Image> IconCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly HashSet<string> IconLoadsInFlight = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<int, Image> PlaceholderCache = new();
+
+    private static readonly object TextCacheSyncRoot = new();
+    private static readonly Dictionary<string, string> TwoLineTextCache = new(StringComparer.Ordinal);
 
     private readonly LauncherGameRow _row;
     private readonly Action<LauncherGameRow> _playAction;
@@ -16,6 +21,9 @@ public sealed class GameCardControl : UserControl
     private readonly int _cardHeight;
     private readonly int _tileSize;
     private readonly Font _nameFont;
+    private readonly PictureBox _iconBox = new();
+    private readonly string _resolvedExecutablePath;
+    private readonly string _iconCacheKey;
 
     public LauncherGameRow Row => _row;
 
@@ -31,6 +39,9 @@ public sealed class GameCardControl : UserControl
         _cardHeight = _isHotRow ? 114 : 98;
         _nameFont = new Font(string.IsNullOrWhiteSpace(fontFamily) ? "Segoe UI" : fontFamily, _isHotRow ? 8.5f : 8f, FontStyle.Bold);
 
+        _resolvedExecutablePath = NormalizeExecutablePath(_row.ResolvedExecutablePath);
+        _iconCacheKey = BuildIconCacheKey(_resolvedExecutablePath, _iconSize);
+
         Width = _cardWidth;
         Height = _cardHeight;
         Margin = _isHotRow ? new Padding(9, 0, 9, 0) : new Padding(8, 8, 8, 8);
@@ -40,6 +51,7 @@ public sealed class GameCardControl : UserControl
         DoubleBuffered = true;
 
         BuildLayout();
+        QueueIconLoadIfNeeded();
         WireCardClick(this);
     }
 
@@ -79,18 +91,15 @@ public sealed class GameCardControl : UserControl
             BackColor = Color.FromArgb(30, 41, 59)
         };
 
-        var iconBox = new PictureBox
-        {
-            Width = _iconSize,
-            Height = _iconSize,
-            SizeMode = PictureBoxSizeMode.Zoom,
-            Image = LoadGameImage(_row, _iconSize),
-            BackColor = Color.Transparent
-        };
+        _iconBox.Width = _iconSize;
+        _iconBox.Height = _iconSize;
+        _iconBox.SizeMode = PictureBoxSizeMode.Zoom;
+        _iconBox.Image = GetCachedImageOrPlaceholder(_iconCacheKey, _iconSize);
+        _iconBox.BackColor = Color.Transparent;
 
-        iconTile.Controls.Add(iconBox);
-        CenterControl(iconTile, iconBox);
-        iconTile.Resize += (_, _) => CenterControl(iconTile, iconBox);
+        iconTile.Controls.Add(_iconBox);
+        CenterControl(iconTile, _iconBox);
+        iconTile.Resize += (_, _) => CenterControl(iconTile, _iconBox);
 
         hostPanel.Controls.Add(iconTile);
         CenterControl(hostPanel, iconTile);
@@ -98,7 +107,7 @@ public sealed class GameCardControl : UserControl
 
         var nameLabel = new Label
         {
-            Text = BuildTwoLineText(_row.Name, _nameFont, _cardWidth - 10),
+            Text = BuildTwoLineTextCached(_row.Name, _nameFont, _cardWidth - 10),
             Dock = DockStyle.Fill,
             Font = _nameFont,
             TextAlign = ContentAlignment.TopCenter,
@@ -106,7 +115,6 @@ public sealed class GameCardControl : UserControl
             ForeColor = Color.FromArgb(241, 245, 249),
             Padding = new Padding(2, 1, 2, 0)
         };
-        nameLabel.UseCompatibleTextRendering = true;
 
         root.Controls.Add(hostPanel, 0, 0);
         root.Controls.Add(nameLabel, 0, 1);
@@ -116,8 +124,103 @@ public sealed class GameCardControl : UserControl
         WireCardClick(root);
         WireCardClick(hostPanel);
         WireCardClick(iconTile);
-        WireCardClick(iconBox);
+        WireCardClick(_iconBox);
         WireCardClick(nameLabel);
+    }
+
+    private void QueueIconLoadIfNeeded()
+    {
+        if (string.IsNullOrWhiteSpace(_resolvedExecutablePath))
+        {
+            return;
+        }
+
+        lock (IconCacheSyncRoot)
+        {
+            if (IconCache.TryGetValue(_iconCacheKey, out var cachedImage))
+            {
+                ApplyLoadedIcon(cachedImage);
+                return;
+            }
+
+            if (!IconLoadsInFlight.Add(_iconCacheKey))
+            {
+                return;
+            }
+        }
+
+        _ = Task.Run(() =>
+        {
+            Image? createdImage = null;
+            Image? targetImage = null;
+
+            try
+            {
+                createdImage = CreateGameImage(_resolvedExecutablePath, _iconSize);
+
+                lock (IconCacheSyncRoot)
+                {
+                    if (IconCache.TryGetValue(_iconCacheKey, out var existingImage))
+                    {
+                        targetImage = existingImage;
+                    }
+                    else
+                    {
+                        IconCache[_iconCacheKey] = createdImage;
+                        targetImage = createdImage;
+                        createdImage = null;
+                    }
+
+                    IconLoadsInFlight.Remove(_iconCacheKey);
+                }
+
+                if (targetImage is not null)
+                {
+                    ApplyLoadedIcon(targetImage);
+                }
+            }
+            catch
+            {
+                lock (IconCacheSyncRoot)
+                {
+                    IconLoadsInFlight.Remove(_iconCacheKey);
+                }
+            }
+            finally
+            {
+                createdImage?.Dispose();
+            }
+        });
+    }
+
+    private void ApplyLoadedIcon(Image image)
+    {
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        if (InvokeRequired)
+        {
+            try
+            {
+                BeginInvoke(new Action(() => ApplyLoadedIcon(image)));
+            }
+            catch
+            {
+                // Ignore cross-thread update failures during form disposal.
+            }
+
+            return;
+        }
+
+        if (IsDisposed || _iconBox.IsDisposed)
+        {
+            return;
+        }
+
+        _iconBox.Image = image;
+        _iconBox.Invalidate();
     }
 
     private void WireCardClick(Control control)
@@ -126,39 +229,32 @@ public sealed class GameCardControl : UserControl
         control.DoubleClick += (_, _) => _playAction(_row);
     }
 
-    private static Image LoadGameImage(LauncherGameRow row, int iconSize)
+    private static Image GetCachedImageOrPlaceholder(string cacheKey, int iconSize)
     {
-        var cacheKey = BuildIconCacheKey(row.ResolvedExecutablePath, iconSize);
-
         lock (IconCacheSyncRoot)
         {
             if (IconCache.TryGetValue(cacheKey, out var cachedImage))
             {
                 return cachedImage;
             }
-        }
 
-        var image = CreateGameImage(row, iconSize);
-        lock (IconCacheSyncRoot)
-        {
-            if (IconCache.TryGetValue(cacheKey, out var existingImage))
+            if (!PlaceholderCache.TryGetValue(iconSize, out var placeholder))
             {
-                image.Dispose();
-                return existingImage;
+                placeholder = CreateFallbackImage(iconSize);
+                PlaceholderCache[iconSize] = placeholder;
             }
 
-            IconCache[cacheKey] = image;
-            return image;
+            return placeholder;
         }
     }
 
-    private static Image CreateGameImage(LauncherGameRow row, int iconSize)
+    private static Image CreateGameImage(string executablePath, int iconSize)
     {
         try
         {
-            if (!string.IsNullOrWhiteSpace(row.ResolvedExecutablePath) && File.Exists(row.ResolvedExecutablePath))
+            if (!string.IsNullOrWhiteSpace(executablePath) && File.Exists(executablePath))
             {
-                using var icon = Icon.ExtractAssociatedIcon(row.ResolvedExecutablePath);
+                using var icon = Icon.ExtractAssociatedIcon(executablePath);
                 if (icon is not null)
                 {
                     using var iconBitmap = icon.ToBitmap();
@@ -168,11 +264,33 @@ public sealed class GameCardControl : UserControl
         }
         catch
         {
-            // Fallback to default icon.
+            // Fall back to default icon.
         }
 
+        return CreateFallbackImage(iconSize);
+    }
+
+    private static Image CreateFallbackImage(int iconSize)
+    {
         using var fallbackBitmap = SystemIcons.Application.ToBitmap();
         return CreatePlainIcon(fallbackBitmap, iconSize);
+    }
+
+    private static string NormalizeExecutablePath(string executablePath)
+    {
+        if (string.IsNullOrWhiteSpace(executablePath))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return Path.GetFullPath(executablePath);
+        }
+        catch
+        {
+            return executablePath.Trim();
+        }
     }
 
     private static string BuildIconCacheKey(string executablePath, int iconSize)
@@ -182,14 +300,7 @@ public sealed class GameCardControl : UserControl
             return $"__default__:{iconSize}";
         }
 
-        try
-        {
-            return $"{Path.GetFullPath(executablePath)}:{iconSize}";
-        }
-        catch
-        {
-            return $"{executablePath.Trim()}:{iconSize}";
-        }
+        return $"{executablePath}:{iconSize}";
     }
 
     private static Image CreatePlainIcon(Image source, int iconSize)
@@ -207,6 +318,33 @@ public sealed class GameCardControl : UserControl
     {
         childControl.Left = Math.Max(0, (hostPanel.ClientSize.Width - childControl.Width) / 2);
         childControl.Top = Math.Max(0, (hostPanel.ClientSize.Height - childControl.Height) / 2);
+    }
+
+    private static string BuildTwoLineTextCached(string text, Font font, int maxWidth)
+    {
+        var cacheKey = $"{font.Name}|{font.SizeInPoints:F2}|{(int)font.Style}|{maxWidth}|{text}";
+
+        lock (TextCacheSyncRoot)
+        {
+            if (TwoLineTextCache.TryGetValue(cacheKey, out var cached))
+            {
+                return cached;
+            }
+        }
+
+        var value = BuildTwoLineText(text, font, maxWidth);
+
+        lock (TextCacheSyncRoot)
+        {
+            if (TwoLineTextCache.Count > 4096)
+            {
+                TwoLineTextCache.Clear();
+            }
+
+            TwoLineTextCache[cacheKey] = value;
+        }
+
+        return value;
     }
 
     private static string BuildTwoLineText(string text, Font font, int maxWidth)
@@ -230,13 +368,14 @@ public sealed class GameCardControl : UserControl
             var currentLine = new StringBuilder();
             while (index < normalized.Length)
             {
-                var candidate = currentLine.ToString() + normalized[index];
-                if (currentLine.Length > 0 && MeasureSingleLineWidth(candidate, font) > maxWidth)
+                currentLine.Append(normalized[index]);
+                var candidate = currentLine.ToString();
+                if (currentLine.Length > 1 && MeasureSingleLineWidth(candidate, font) > maxWidth)
                 {
+                    currentLine.Length -= 1;
                     break;
                 }
 
-                currentLine.Append(normalized[index]);
                 index++;
             }
 

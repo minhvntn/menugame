@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using GameLauncher.Client.Models;
 
 namespace GameLauncher.Client.Forms;
@@ -13,12 +14,13 @@ public sealed partial class MainForm
     private readonly Label _bannerMessageLabel = new();
     private readonly FlowLayoutPanel _hotCardsPanel = new();
     private readonly FlowLayoutPanel _normalCardsPanel = new();
-    private readonly TextBox _searchTextBox = new();
     private readonly FlowLayoutPanel _categoriesPanel = new();
     private Image? _headerLogoImage;
 
     private void BuildLayout()
     {
+        EnableDoubleBuffering(this);
+
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -162,27 +164,17 @@ public sealed partial class MainForm
         var topToolbar = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 2,
+            ColumnCount = 1,
             RowCount = 1,
             Margin = new Padding(0, 0, 0, 8)
         };
         topToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        topToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 300));
         
         _categoriesPanel.Dock = DockStyle.Fill;
         _categoriesPanel.FlowDirection = FlowDirection.LeftToRight;
         _categoriesPanel.WrapContents = false;
-        
-        _searchTextBox.Dock = DockStyle.Fill;
-        _searchTextBox.Font = new Font("Segoe UI", 12f);
-        _searchTextBox.PlaceholderText = "Tìm kiếm trò chơi...";
-        _searchTextBox.TextChanged += (s, e) => {
-            _currentSearchQuery = _searchTextBox.Text.Trim();
-            ApplyFilter();
-        };
 
         topToolbar.Controls.Add(_categoriesPanel, 0, 0);
-        topToolbar.Controls.Add(_searchTextBox, 1, 0);
 
         _hotCardsPanel.Dock = DockStyle.Fill;
         _hotCardsPanel.AutoScroll = true;
@@ -191,13 +183,15 @@ public sealed partial class MainForm
         _hotCardsPanel.Padding = new Padding(8, 8, 8, 8);
         _hotCardsPanel.Margin = new Padding(0, 0, 0, 8);
         _hotCardsPanel.BackColor = Color.FromArgb(17, 24, 39);
+        EnableDoubleBuffering(_hotCardsPanel);
 
         _normalCardsPanel.Dock = DockStyle.Fill;
-        _normalCardsPanel.AutoScroll = true;
+        _normalCardsPanel.AutoScroll = false;
         _normalCardsPanel.WrapContents = true;
         _normalCardsPanel.FlowDirection = FlowDirection.LeftToRight;
         _normalCardsPanel.Padding = new Padding(8, 8, 8, 8);
         _normalCardsPanel.BackColor = BodyBackColor;
+        EnableDoubleBuffering(_normalCardsPanel);
 
         layout.Controls.Add(topToolbar, 0, 0);
         layout.Controls.Add(_hotCardsPanel, 0, 1);
@@ -288,5 +282,25 @@ public sealed partial class MainForm
         btn.FlatAppearance.BorderSize = 0;
         btn.Click += (s, e) => onClick();
         return btn;
+    }
+
+    private static void EnableDoubleBuffering(Control control)
+    {
+        if (SystemInformation.TerminalServerSession)
+        {
+            return;
+        }
+
+        try
+        {
+            var property = typeof(Control).GetProperty(
+                "DoubleBuffered",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            property?.SetValue(control, true, null);
+        }
+        catch
+        {
+            // Keep default buffering if reflection is blocked.
+        }
     }
 }

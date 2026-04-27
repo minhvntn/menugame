@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
@@ -311,6 +311,7 @@ public sealed partial class MainForm
     }
 
 }
+
 
 
 
