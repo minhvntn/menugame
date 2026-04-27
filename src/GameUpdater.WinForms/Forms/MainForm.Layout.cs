@@ -567,12 +567,20 @@ public sealed partial class MainForm
         var tabPage = tabs.TabPages[e.Index];
         var bounds = e.Bounds;
         var isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-        var backgroundColor = Color.White;
-        var textColor = isSelected ? Color.FromArgb(17, 24, 39) : Color.FromArgb(71, 85, 105);
 
+        var backgroundColor = tabs.Parent?.BackColor ?? Color.White;
+        var textColor = isSelected ? Color.Red : Color.FromArgb(71, 85, 105);
+
+        // Tô đè nền để che border/separator mặc định của TabControl
         var paintBounds = Rectangle.Inflate(bounds, 2, 2);
         using var backgroundBrush = new SolidBrush(backgroundColor);
         e.Graphics.FillRectangle(backgroundBrush, paintBounds);
+        e.Graphics.FillRectangle(
+            backgroundBrush,
+            bounds.Right - 1,
+            bounds.Top,
+            2,
+            bounds.Height);
 
         var iconSize = tabs.ImageList?.ImageSize.Width ?? 40;
         var iconTop = bounds.Top + 6;
@@ -629,9 +637,3 @@ public sealed partial class MainForm
     }
 
 }
-
-
-
-
-
-
