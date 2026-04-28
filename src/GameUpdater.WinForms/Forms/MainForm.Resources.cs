@@ -11,6 +11,9 @@ namespace GameUpdater.WinForms.Forms;
 
 public sealed partial class MainForm
 {
+    private Image? _resourceStatusActiveIcon;
+    private Image? _resourceStatusInactiveIcon;
+
     private void BuildResourceTree()
     {
         _resourceTree.AfterSelect -= ResourceTree_AfterSelect;
@@ -50,6 +53,10 @@ public sealed partial class MainForm
     {
         if (e.Node?.Tag is ResourceFilterKind filterKind)
         {
+            if (_resourceWorkspaceTabControl.TabPages.Count > 0 && _resourceWorkspaceTabControl.SelectedIndex != 0)
+            {
+                _resourceWorkspaceTabControl.SelectedIndex = 0;
+            }
             ApplyResourceFilter(filterKind);
         }
     }
@@ -737,6 +744,7 @@ public sealed partial class MainForm
 
     private void ConfigureResourcesGrid()
     {
+        EnsureResourceStatusIconsLoaded();
         _resourcesGrid.AutoGenerateColumns = false;
         _resourcesGrid.AllowUserToAddRows = false;
         _resourcesGrid.AllowUserToDeleteRows = false;
@@ -745,12 +753,20 @@ public sealed partial class MainForm
         _resourcesGrid.ReadOnly = true;
         _resourcesGrid.RowHeadersVisible = false;
         _resourcesGrid.DataSource = _resourcesBinding;
+        _resourcesGrid.CellFormatting -= ResourcesGrid_CellFormatting;
+        _resourcesGrid.CellFormatting += ResourcesGrid_CellFormatting;
 
-        _resourcesGrid.Columns.Add(CreateTextColumn("ID", nameof(ResourceGameRow.Id), 70));
+        _resourcesGrid.Columns.Add(new DataGridViewImageColumn
+        {
+            Name = "ResourceStatusIcon",
+            HeaderText = "Tình trạng",
+            DataPropertyName = nameof(ResourceGameRow.HealthStatus),
+            Width = 84,
+            ImageLayout = DataGridViewImageCellLayout.Zoom
+        });
         _resourcesGrid.Columns.Add(CreateTextColumn("Tên trò chơi", nameof(ResourceGameRow.Name), 180));
         _resourcesGrid.Columns.Add(CreateTextColumn("Nhóm", nameof(ResourceGameRow.Category), 120));
         _resourcesGrid.Columns.Add(CreateTextColumn("Nguồn IDC", nameof(ResourceGameRow.SourceStatus), 110));
-        _resourcesGrid.Columns.Add(CreateTextColumn("Tình trạng", nameof(ResourceGameRow.HealthStatus), 140));
         _resourcesGrid.Columns.Add(CreateTextColumn("Trạng thái tải", nameof(ResourceGameRow.DownloadStatus), 160));
         _resourcesGrid.Columns.Add(CreateTextColumn("Tốc độ", nameof(ResourceGameRow.DownloadSpeedDisplay), 100));
         _resourcesGrid.Columns.Add(CreateTextColumn("Trạng thái chạy", nameof(ResourceGameRow.RunStatus), 130));
@@ -760,6 +776,48 @@ public sealed partial class MainForm
         _resourcesGrid.Columns.Add(CreateTextColumn("Cập nhật gần nhất", nameof(ResourceGameRow.LastUpdatedAt), 150, "yyyy-MM-dd HH:mm:ss"));
         _resourcesGrid.Columns.Add(CreateTextColumn("Đường dẫn nguồn", nameof(ResourceGameRow.SourcePath), 260));
         _resourcesGrid.Columns.Add(CreateTextColumn("Đường dẫn cài đặt", nameof(ResourceGameRow.InstallPath), 400, fill: true));
+    }
+
+    private void EnsureResourceStatusIconsLoaded()
+    {
+        if (_resourceStatusActiveIcon is not null && _resourceStatusInactiveIcon is not null)
+        {
+            return;
+        }
+
+        var assembly = typeof(MainForm).Assembly;
+        _resourceStatusActiveIcon ??= TryLoadEmbeddedImage(assembly, "GameUpdater.WinForms.Resources.active.png")
+            ?? TryLoadEmbeddedImage(assembly, "GameUpdater.WinForms.Resources.online_icon.png");
+        _resourceStatusInactiveIcon ??= TryLoadEmbeddedImage(assembly, "GameUpdater.WinForms.Resources.inactive.png")
+            ?? TryLoadEmbeddedImage(assembly, "GameUpdater.WinForms.Resources.offline_icon.png");
+    }
+
+    private static Image? TryLoadEmbeddedImage(System.Reflection.Assembly assembly, string resourceName)
+    {
+        try
+        {
+            using var stream = assembly.GetManifestResourceStream(resourceName);
+            return stream is null ? null : Image.FromStream(stream);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private void ResourcesGrid_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
+    {
+        if (e.RowIndex < 0 ||
+            e.ColumnIndex < 0 ||
+            _resourcesGrid.Columns[e.ColumnIndex].Name != "ResourceStatusIcon")
+        {
+            return;
+        }
+
+        var status = e.Value?.ToString()?.Trim();
+        var isActive = string.Equals(status, "OK", StringComparison.OrdinalIgnoreCase);
+        e.Value = isActive ? _resourceStatusActiveIcon : _resourceStatusInactiveIcon;
+        e.FormattingApplied = e.Value is not null;
     }
 
     private void EnsureResourcesContextMenu()

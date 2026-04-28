@@ -60,9 +60,9 @@ public sealed partial class MainForm
         _headerLogoImage = BuildHeaderLogoImage();
         var logoBox = new PictureBox
         {
-            Width = 42,
-            Height = 42,
-            Margin = new Padding(0),
+            Width = 44,
+            Height = 44,
+            Margin = new Padding(0, 1, 0, 0),
             Image = _headerLogoImage,
             SizeMode = PictureBoxSizeMode.Zoom
         };
@@ -222,17 +222,35 @@ public sealed partial class MainForm
 
     private static Image BuildHeaderLogoImage()
     {
-        using var source = SystemIcons.Shield.ToBitmap();
-        var size = 36;
-        var bitmap = new Bitmap(size, size);
-        using var graphics = Graphics.FromImage(bitmap);
-        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        graphics.Clear(Color.Transparent);
+        const int size = 40;
+        var assembly = typeof(MainForm).Assembly;
+        using var stream = assembly.GetManifestResourceStream("GameLauncher.Client.Resources.game-logo.png");
+        if (stream is not null)
+        {
+            using var source = Image.FromStream(stream);
+            var bitmap = new Bitmap(size, size);
+            using var graphics = Graphics.FromImage(bitmap);
+            graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+            graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+            graphics.Clear(Color.Transparent);
+            // Keep extra bottom inset so the logo does not appear clipped.
+            const int leftRightInset = 2;
+            const int topInset = 1;
+            const int bottomInset = 6;
+            graphics.DrawImage(source, leftRightInset, topInset, size - (leftRightInset * 2), size - topInset - bottomInset);
+            return bitmap;
+        }
 
+        using var fallback = SystemIcons.Shield.ToBitmap();
+        var fallbackBitmap = new Bitmap(size, size);
+        using var fallbackGraphics = Graphics.FromImage(fallbackBitmap);
+        fallbackGraphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        fallbackGraphics.Clear(Color.Transparent);
         using var circleBrush = new SolidBrush(Color.FromArgb(34, 211, 238));
-        graphics.FillEllipse(circleBrush, 0, 0, size - 1, size - 1);
-        graphics.DrawImage(source, 6, 6, size - 12, size - 12);
-        return bitmap;
+        fallbackGraphics.FillEllipse(circleBrush, 0, 0, size - 1, size - 1);
+        fallbackGraphics.DrawImage(fallback, 6, 6, size - 12, size - 12);
+        return fallbackBitmap;
     }
 
     private static Button CreateHeaderLinkButton(string text, string tooltip, string url)

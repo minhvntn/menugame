@@ -279,7 +279,10 @@ public sealed partial class MainForm
                     continue;
                 }
 
-                rows.Add(ClientDashboardRow.FromStatus(status, Path.GetFileName(file)));
+                rows.Add(ClientDashboardRow.FromStatus(
+                    status,
+                    Path.GetFileName(file),
+                    _clientHeartbeatIntervalSeconds));
             }
             catch
             {
@@ -338,6 +341,7 @@ public sealed partial class MainForm
             ThemeAccentColor = _clientThemeAccentColor.Trim(),
             ThemeFontFamily = _clientThemeFontFamily.Trim(),
             ClientWindowsWallpaperPath = _clientWindowsWallpaperPath.Trim(),
+            HeartbeatIntervalSeconds = NormalizeClientHeartbeatIntervalSeconds(_clientHeartbeatIntervalSeconds),
             EnableFullscreenKioskMode = _enableClientFullscreenKioskMode,
             EnableCloseRunningApplicationHotKey = _enableClientCloseApplicationHotKey
         };

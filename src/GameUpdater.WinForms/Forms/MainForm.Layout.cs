@@ -25,7 +25,7 @@ public sealed partial class MainForm
         tabs.TabPages.Add(BuildClientDashboardTab());
         tabs.TabPages.Add(BuildServerDashboardTab());
         tabs.TabPages.Add(BuildResourcesTab());
-        tabs.TabPages.Add(BuildUpdateTab());
+        // Temporarily hide the "Cập nhật" tab on server app.
         tabs.TabPages.Add(BuildLogsTab());
         tabs.TabPages.Add(BuildSettingsTab());
         ConfigureTabIcons(tabs);
@@ -58,34 +58,11 @@ public sealed partial class MainForm
             WrapContents = false
         };
 
-
-        _scanManifestButton.Text = "Quét manifest";
-        _scanManifestButton.Click += ScanManifestButton_Click;
-        StyleButton(_scanManifestButton);
-        toolbar.Controls.Add(_scanManifestButton);
-
         _gamesViewModeComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
         _gamesViewModeComboBox.Items.AddRange(new object[] { "Dạng bảng", "Dạng lưới" });
         _gamesViewModeComboBox.SelectedIndex = 0;
         _gamesViewModeComboBox.SelectedIndexChanged += GamesViewModeComboBox_SelectedIndexChanged;
         toolbar.Controls.Add(_gamesViewModeComboBox);
-
-        _moveTopButton.Text = "Lên đầu";
-        _moveTopButton.Click += async (_, _) => await ReorderSelectedGameAsync(-99999);
-        StyleButton(_moveTopButton);
-        toolbar.Controls.Add(_moveTopButton);
-
-        _moveUpButton.Text = "Lên trên";
-        _moveUpButton.Click += async (_, _) => await ReorderSelectedGameAsync(-15);
-        StyleButton(_moveUpButton);
-        toolbar.Controls.Add(_moveUpButton);
-
-        _moveDownButton.Text = "Xuống dưới";
-        _moveDownButton.Click += async (_, _) => await ReorderSelectedGameAsync(15);
-        StyleButton(_moveDownButton);
-        toolbar.Controls.Add(_moveDownButton);
-        toolbar.Controls.Add(CreateButton("Đánh dấu Hot", async (_, _) => await SetSelectedGameHotAsync(true)));
-        toolbar.Controls.Add(CreateButton("Bỏ Hot", async (_, _) => await SetSelectedGameHotAsync(false)));
 
         toolbar.Controls.Add(CreateButton("Xuất Danh Mục Client", ExportCatalogButton_Click));
         toolbar.Controls.Add(CreateButton("Làm mới", RefreshButton_Click));
@@ -329,18 +306,6 @@ public sealed partial class MainForm
         leftPanel.Controls.Add(_resourceTree, 0, 1);
         split.Panel1.Controls.Add(leftPanel);
 
-        var rightPanel = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            RowCount = 6
-        };
-        rightPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        rightPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        rightPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        rightPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
-        rightPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-        rightPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
         _resourceSourceRootTextBox.Dock = DockStyle.Fill;
         _resourceSourceRootTextBox.Text = _resourceSourceRootPath;
         _resourceSourceRootTextBox.TextChanged += (_, _) => _resourceSourceRootPath = _resourceSourceRootTextBox.Text.Trim();
@@ -447,13 +412,55 @@ public sealed partial class MainForm
         contentPanel.Controls.Add(_downloadMonitorGrid);
         contentPanel.Controls.Add(_resourcesGrid);
 
-        rightPanel.Controls.Add(sourceRow, 0, 0);
-        rightPanel.Controls.Add(targetRow, 0, 1);
-        rightPanel.Controls.Add(bandwidthRow, 0, 2);
-        rightPanel.Controls.Add(actionsRow, 0, 3);
-        rightPanel.Controls.Add(_resourceSummaryLabel, 0, 4);
-        rightPanel.Controls.Add(contentPanel, 0, 5);
-        split.Panel2.Controls.Add(rightPanel);
+        var listWorkspaceLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            RowCount = 2,
+            Padding = new Padding(6, 8, 6, 6)
+        };
+        listWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        listWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        listWorkspaceLayout.Controls.Add(_resourceSummaryLabel, 0, 0);
+        listWorkspaceLayout.Controls.Add(contentPanel, 0, 1);
+
+        var configWorkspaceLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            RowCount = 5,
+            Padding = new Padding(8)
+        };
+        configWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        configWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        configWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        configWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
+        configWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        configWorkspaceLayout.Controls.Add(sourceRow, 0, 0);
+        configWorkspaceLayout.Controls.Add(targetRow, 0, 1);
+        configWorkspaceLayout.Controls.Add(bandwidthRow, 0, 2);
+        configWorkspaceLayout.Controls.Add(actionsRow, 0, 3);
+        configWorkspaceLayout.Controls.Add(
+            new Label
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                Text = "Cấu hình nguồn/đích và giới hạn băng thông tải tài nguyên."
+            },
+            0,
+            4);
+
+        var listTab = new TabPage("Danh sách trò chơi");
+        listTab.Controls.Add(listWorkspaceLayout);
+
+        var configTab = new TabPage("Cấu hình nguồn");
+        configTab.Controls.Add(configWorkspaceLayout);
+
+        _resourceWorkspaceTabControl.Dock = DockStyle.Fill;
+        _resourceWorkspaceTabControl.Padding = new Point(12, 6);
+        _resourceWorkspaceTabControl.TabPages.Clear();
+        _resourceWorkspaceTabControl.TabPages.Add(listTab);
+        _resourceWorkspaceTabControl.TabPages.Add(configTab);
+        _resourceWorkspaceTabControl.SelectedIndex = 0;
+        split.Panel2.Controls.Add(_resourceWorkspaceTabControl);
 
         page.Controls.Add(split);
         return page;
@@ -488,7 +495,6 @@ public sealed partial class MainForm
             "dashboard-client.png",
             "dashboard-server.png",
             "tai-nguyen.png",
-            "cap-nhap.png",
             "lich-su.png",
             "setting.png"
         };

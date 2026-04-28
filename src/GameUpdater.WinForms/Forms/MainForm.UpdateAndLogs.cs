@@ -162,10 +162,10 @@ public sealed partial class MainForm
         var settingsPanel = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            RowCount = 10,
+            RowCount = 12,
             ColumnCount = 1
         };
-        for (var i = 0; i < 9; i++)
+        for (var i = 0; i < 11; i++)
         {
             settingsPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
         }
@@ -220,6 +220,24 @@ public sealed partial class MainForm
         _clientStatusFolderTextBox.Text = _clientStatusFolderPath;
         _clientStatusFolderTextBox.TextChanged += (_, _) => _clientStatusFolderPath = _clientStatusFolderTextBox.Text.Trim();
 
+        _clientHeartbeatIntervalNumeric.Dock = DockStyle.Left;
+        _clientHeartbeatIntervalNumeric.Width = 120;
+        _clientHeartbeatIntervalNumeric.Minimum = 5;
+        _clientHeartbeatIntervalNumeric.Maximum = 300;
+        _clientHeartbeatIntervalNumeric.DecimalPlaces = 0;
+        _clientHeartbeatIntervalNumeric.Value = _clientHeartbeatIntervalSeconds;
+        _clientHeartbeatIntervalNumeric.ValueChanged += (_, _) =>
+            _clientHeartbeatIntervalSeconds = NormalizeClientHeartbeatIntervalSeconds(Decimal.ToInt32(_clientHeartbeatIntervalNumeric.Value));
+
+        _dashboardRefreshIntervalNumeric.Dock = DockStyle.Left;
+        _dashboardRefreshIntervalNumeric.Width = 120;
+        _dashboardRefreshIntervalNumeric.Minimum = 3;
+        _dashboardRefreshIntervalNumeric.Maximum = 300;
+        _dashboardRefreshIntervalNumeric.DecimalPlaces = 0;
+        _dashboardRefreshIntervalNumeric.Value = _dashboardRefreshIntervalSeconds;
+        _dashboardRefreshIntervalNumeric.ValueChanged += (_, _) =>
+            _dashboardRefreshIntervalSeconds = NormalizeDashboardRefreshIntervalSeconds(Decimal.ToInt32(_dashboardRefreshIntervalNumeric.Value));
+
         var wallpaperRow = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -249,6 +267,8 @@ public sealed partial class MainForm
         fontRow.Controls.Add(_clientThemeFontComboBox, 1, 0);
 
         var statusFolderRow = CreateTextSettingRow("Thư mục trạng thái client", _clientStatusFolderTextBox);
+        var heartbeatRow = CreateNumericSettingRow("Heartbeat client (giây)", _clientHeartbeatIntervalNumeric);
+        var dashboardRefreshRow = CreateNumericSettingRow("Dashboard refresh (giây)", _dashboardRefreshIntervalNumeric);
 
         _enableClientCloseAppHotKeyCheckBox.Dock = DockStyle.Fill;
         _enableClientCloseAppHotKeyCheckBox.Text = "Cho phép máy trạm đóng ứng dụng bằng Ctrl + Alt + K";
@@ -274,9 +294,11 @@ public sealed partial class MainForm
         settingsPanel.Controls.Add(fontRow, 0, 4);
         settingsPanel.Controls.Add(wallpaperRow, 0, 5);
         settingsPanel.Controls.Add(statusFolderRow, 0, 6);
-        settingsPanel.Controls.Add(_enableClientCloseAppHotKeyCheckBox, 0, 7);
-        settingsPanel.Controls.Add(_enableClientFullscreenKioskCheckBox, 0, 8);
-        settingsPanel.Controls.Add(hintLabel, 0, 9);
+        settingsPanel.Controls.Add(heartbeatRow, 0, 7);
+        settingsPanel.Controls.Add(dashboardRefreshRow, 0, 8);
+        settingsPanel.Controls.Add(_enableClientCloseAppHotKeyCheckBox, 0, 9);
+        settingsPanel.Controls.Add(_enableClientFullscreenKioskCheckBox, 0, 10);
+        settingsPanel.Controls.Add(hintLabel, 0, 11);
 
         var actionsPanel = new FlowLayoutPanel
         {
@@ -307,6 +329,20 @@ public sealed partial class MainForm
         row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         row.Controls.Add(CreateFieldLabel(labelText), 0, 0);
         row.Controls.Add(textBox, 1, 0);
+        return row;
+    }
+
+    private static TableLayoutPanel CreateNumericSettingRow(string labelText, NumericUpDown input)
+    {
+        var row = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2
+        };
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        row.Controls.Add(CreateFieldLabel(labelText), 0, 0);
+        row.Controls.Add(input, 1, 0);
         return row;
     }
 

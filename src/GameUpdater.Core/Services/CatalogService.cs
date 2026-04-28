@@ -173,7 +173,8 @@ public sealed class CatalogService
             BannerMessage = clientPolicy?.BannerMessage?.Trim() ?? string.Empty,
             EnableFullscreenKioskMode = clientPolicy?.EnableFullscreenKioskMode ?? false,
             ThemeAccentColor = string.IsNullOrWhiteSpace(clientPolicy?.ThemeAccentColor) ? "#38BDF8" : clientPolicy.ThemeAccentColor.Trim(),
-            ThemeFontFamily = string.IsNullOrWhiteSpace(clientPolicy?.ThemeFontFamily) ? "Segoe UI" : clientPolicy.ThemeFontFamily.Trim()
+            ThemeFontFamily = string.IsNullOrWhiteSpace(clientPolicy?.ThemeFontFamily) ? "Segoe UI" : clientPolicy.ThemeFontFamily.Trim(),
+            HeartbeatIntervalSeconds = Math.Clamp(clientPolicy?.HeartbeatIntervalSeconds ?? 45, 5, 300)
         };
     }
 }

@@ -45,9 +45,6 @@ public sealed partial class MainForm : Form
     private readonly DataGridView _gamesGrid = new();
     private readonly FlowLayoutPanel _gamesGridPanel = new();
     private readonly ComboBox _gamesViewModeComboBox = new();
-    private readonly Button _moveTopButton = new();
-    private readonly Button _moveUpButton = new();
-    private readonly Button _moveDownButton = new();
     private readonly DataGridView _resourcesGrid = new();
     private readonly DataGridView _downloadMonitorGrid = new();
     private readonly DataGridView _logsGrid = new();
@@ -79,6 +76,8 @@ public sealed partial class MainForm : Form
     private readonly TextBox _clientThemeAccentColorTextBox = new();
     private readonly ComboBox _clientThemeFontComboBox = new();
     private readonly TextBox _clientStatusFolderTextBox = new();
+    private readonly NumericUpDown _clientHeartbeatIntervalNumeric = new();
+    private readonly NumericUpDown _dashboardRefreshIntervalNumeric = new();
     private readonly CheckBox _enableClientCloseAppHotKeyCheckBox = new();
     private readonly CheckBox _enableClientFullscreenKioskCheckBox = new();
     private readonly Button _browseClientWallpaperButton = new();
@@ -92,8 +91,8 @@ public sealed partial class MainForm : Form
     private readonly ProgressBar _updateProgressBar = new();
     private readonly Button _applyUpdateButton = new();
     private readonly Button _browseSourceButton = new();
-    private readonly Button _scanManifestButton = new();
     private readonly TreeView _resourceTree = new();
+    private readonly TabControl _resourceWorkspaceTabControl = new();
     private SplitContainer? _resourcesSplitContainer;
     private readonly Button _browseResourceSourceButton = new();
     private readonly Button _browseResourceTargetButton = new();
@@ -103,6 +102,7 @@ public sealed partial class MainForm : Form
 
     private readonly BindingList<DownloadMonitorRow> _downloadMonitorRows = new();
     private readonly List<ResourceGameRow> _allResourceRows = new();
+    private readonly Dictionary<string, string> _gameSizeDisplayCache = new(StringComparer.Ordinal);
     private readonly Dictionary<DownloadMonitorRow, ResourceSyncTaskControl> _activeResourceSyncControls = new();
     private readonly ContextMenuStrip _resourcesContextMenu = new();
     private readonly ToolStripMenuItem _downloadSelectedResourcesMenuItem = new("Tải mục đã chọn");
@@ -118,6 +118,10 @@ public sealed partial class MainForm : Form
     private readonly ToolStripMenuItem _editGameMenuItem = new("Sửa");
     private readonly ToolStripMenuItem _deleteGameMenuItem = new("Xóa");
     private readonly ToolStripMenuItem _viewManifestMenuItem = new("Xem manifest");
+    private readonly ToolStripMenuItem _scanManifestGameMenuItem = new("Quét manifest");
+    private readonly ToolStripMenuItem _moveTopGameMenuItem = new("Lên đầu");
+    private readonly ToolStripMenuItem _moveUpGameMenuItem = new("Lên trên");
+    private readonly ToolStripMenuItem _moveDownGameMenuItem = new("Xuống dưới");
     private readonly ToolStripMenuItem _markHotGameMenuItem = new("Danh dau Hot game");
     private readonly ToolStripMenuItem _unmarkHotGameMenuItem = new("Bo Hot game");
     private readonly ContextMenuStrip _downloadMonitorContextMenu = new();
@@ -145,6 +149,8 @@ public sealed partial class MainForm : Form
     private string _clientThemeAccentColor = "#38BDF8";
     private string _clientThemeFontFamily = "Segoe UI";
     private string _clientStatusFolderPath = string.Empty;
+    private int _clientHeartbeatIntervalSeconds = 45;
+    private int _dashboardRefreshIntervalSeconds = 15;
     private bool _enableClientCloseApplicationHotKey = true;
     private bool _enableClientFullscreenKioskMode;
     private UiFontSizeMode _uiFontSizeMode = UiFontSizeMode.Normal;
@@ -187,13 +193,37 @@ public sealed partial class MainForm : Form
 
         _gamesBinding.CurrentChanged += GamesBinding_CurrentChanged;
         _downloadMonitorBinding.DataSource = _downloadMonitorRows;
-        _clientDashboardRefreshTimer.Interval = 15_000;
+        _clientDashboardRefreshTimer.Interval = ToTimerIntervalMilliseconds(_dashboardRefreshIntervalSeconds, 15);
         _clientDashboardRefreshTimer.Tick += async (_, _) => await RefreshClientDashboardAsync();
-        _serverDashboardRefreshTimer.Interval = 15_000;
+        _serverDashboardRefreshTimer.Interval = ToTimerIntervalMilliseconds(_dashboardRefreshIntervalSeconds, 15);
         _serverDashboardRefreshTimer.Tick += (_, _) => RefreshServerDashboard();
 
         BuildLayout();
         ApplyUiFontSize(_uiFontSizeMode);
+    }
+
+    private void ApplyRuntimeIntervals()
+    {
+        _clientHeartbeatIntervalSeconds = NormalizeClientHeartbeatIntervalSeconds(_clientHeartbeatIntervalSeconds);
+        _dashboardRefreshIntervalSeconds = NormalizeDashboardRefreshIntervalSeconds(_dashboardRefreshIntervalSeconds);
+        _clientDashboardRefreshTimer.Interval = ToTimerIntervalMilliseconds(_dashboardRefreshIntervalSeconds, 15);
+        _serverDashboardRefreshTimer.Interval = ToTimerIntervalMilliseconds(_dashboardRefreshIntervalSeconds, 15);
+    }
+
+    private static int NormalizeClientHeartbeatIntervalSeconds(int seconds)
+    {
+        return Math.Clamp(seconds, 5, 300);
+    }
+
+    private static int NormalizeDashboardRefreshIntervalSeconds(int seconds)
+    {
+        return Math.Clamp(seconds, 3, 300);
+    }
+
+    private static int ToTimerIntervalMilliseconds(int seconds, int fallbackSeconds)
+    {
+        var normalizedSeconds = Math.Clamp(seconds > 0 ? seconds : fallbackSeconds, 1, 3600);
+        return normalizedSeconds * 1000;
     }
 
     protected override async void OnShown(EventArgs e)
@@ -225,6 +255,7 @@ public sealed partial class MainForm : Form
     private async Task LoadGamesAsync(int? selectedGameId = null)
     {
         var games = (await _gameService.GetGamesAsync()).ToList();
+        _gameSizeDisplayCache.Clear();
         _gamesBinding.DataSource = games;
         await RebuildResourceRowsAsync(games);
 
@@ -283,7 +314,12 @@ public sealed partial class MainForm : Form
 
     private void ToggleGameControls(bool enabled)
     {
-        _scanManifestButton.Enabled = enabled;
+        _scanManifestGameMenuItem.Enabled = enabled;
+        _moveTopGameMenuItem.Enabled = enabled;
+        _moveUpGameMenuItem.Enabled = enabled;
+        _moveDownGameMenuItem.Enabled = enabled;
+        _markHotGameMenuItem.Enabled = enabled;
+        _unmarkHotGameMenuItem.Enabled = enabled;
         _gamesGrid.Enabled = enabled;
     }
 
@@ -346,6 +382,7 @@ public sealed partial class MainForm : Form
 
 
 }
+
 
 
 

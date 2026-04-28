@@ -10,7 +10,10 @@ using GameUpdater.Shared.Models;
 namespace GameUpdater.WinForms.Forms;
 
 public sealed partial class MainForm
-{    private void ConfigureGamesGrid()
+{
+    private const string GameSizeDisplayColumnName = "GameSizeDisplayColumn";
+
+    private void ConfigureGamesGrid()
     {
         _gamesGrid.Dock = DockStyle.Fill;
         _gamesGrid.AutoGenerateColumns = false;
@@ -21,17 +24,74 @@ public sealed partial class MainForm
         _gamesGrid.ReadOnly = true;
         _gamesGrid.RowHeadersVisible = false;
         _gamesGrid.DataSource = _gamesBinding;
+        _gamesGrid.CellFormatting -= GamesGrid_CellFormatting;
+        _gamesGrid.CellFormatting += GamesGrid_CellFormatting;
         _gamesGrid.Columns.Add(CreateCheckBoxColumn("Hot", nameof(GameRecord.IsHot), 65));
-
-        _gamesGrid.Columns.Add(CreateTextColumn("Ưu tiên", nameof(GameRecord.SortOrder), 95));
 
         _gamesGrid.Columns.Add(CreateTextColumn("Tên trò chơi", nameof(GameRecord.Name), 230));
         _gamesGrid.Columns.Add(CreateTextColumn("Nhóm", nameof(GameRecord.Category), 120));
-        _gamesGrid.Columns.Add(CreateTextColumn("Phiên bản", nameof(GameRecord.Version), 90));
         _gamesGrid.Columns.Add(CreateTextColumn("Tệp chạy", nameof(GameRecord.LaunchRelativePath), 220));
+        _gamesGrid.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            Name = GameSizeDisplayColumnName,
+            HeaderText = "Dung lượng (GB)",
+            Width = 110,
+            AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
+            ReadOnly = true,
+            SortMode = DataGridViewColumnSortMode.NotSortable,
+            DefaultCellStyle = new DataGridViewCellStyle
+            {
+                Alignment = DataGridViewContentAlignment.MiddleRight
+            }
+        });
         _gamesGrid.Columns.Add(CreateTextColumn("Đường dẫn cài đặt", nameof(GameRecord.InstallPath), 320));
         _gamesGrid.Columns.Add(CreateTextColumn("Quét gần nhất", nameof(GameRecord.LastScannedAt), 140, "yyyy-MM-dd HH:mm:ss"));
         _gamesGrid.Columns.Add(CreateTextColumn("Cập nhật gần nhất", nameof(GameRecord.LastUpdatedAt), 140, "yyyy-MM-dd HH:mm:ss"));
+    }
+
+    private void GamesGrid_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
+    {
+        if (e.RowIndex < 0 ||
+            e.ColumnIndex < 0 ||
+            _gamesGrid.Columns[e.ColumnIndex].Name != GameSizeDisplayColumnName)
+        {
+            return;
+        }
+
+        if (_gamesGrid.Rows[e.RowIndex].DataBoundItem is not GameRecord game)
+        {
+            e.Value = "-";
+            e.FormattingApplied = true;
+            return;
+        }
+
+        e.Value = GetGameSizeDisplay(game);
+        e.FormattingApplied = true;
+    }
+
+    private string GetGameSizeDisplay(GameRecord game)
+    {
+        var key = $"{game.Id}|{game.Name}|{game.InstallPath}";
+        if (_gameSizeDisplayCache.TryGetValue(key, out var cached))
+        {
+            return cached;
+        }
+
+        var manifest = TryLoadManifest(game);
+        if (manifest?.Files is null || manifest.Files.Count == 0)
+        {
+            _gameSizeDisplayCache[key] = "-";
+            return "-";
+        }
+
+        var totalBytes = manifest.Files
+            .Where(file => file.Size > 0)
+            .Sum(file => file.Size);
+        var display = totalBytes <= 0
+            ? "-"
+            : (totalBytes / 1024d / 1024d / 1024d).ToString("N2");
+        _gameSizeDisplayCache[key] = display;
+        return display;
     }
 
     private Image? _onlineIcon;
@@ -192,6 +252,11 @@ public sealed partial class MainForm
         _gamesContextMenu.Items.Add(_deleteGameMenuItem);
         _gamesContextMenu.Items.Add(_editGameMenuItem);
         _gamesContextMenu.Items.Add(new ToolStripSeparator());
+        _gamesContextMenu.Items.Add(_scanManifestGameMenuItem);
+        _gamesContextMenu.Items.Add(_moveTopGameMenuItem);
+        _gamesContextMenu.Items.Add(_moveUpGameMenuItem);
+        _gamesContextMenu.Items.Add(_moveDownGameMenuItem);
+        _gamesContextMenu.Items.Add(new ToolStripSeparator());
         _gamesContextMenu.Items.Add(_markHotGameMenuItem);
         _gamesContextMenu.Items.Add(_unmarkHotGameMenuItem);
         _gamesContextMenu.Items.Add(new ToolStripSeparator());
@@ -200,6 +265,10 @@ public sealed partial class MainForm
         _addGameMenuItem.Click += AddGameButton_Click;
         _editGameMenuItem.Click += EditGameButton_Click;
         _deleteGameMenuItem.Click += DeleteGameButton_Click;
+        _scanManifestGameMenuItem.Click += ScanManifestButton_Click;
+        _moveTopGameMenuItem.Click += async (_, _) => await ReorderSelectedGameAsync(-99999);
+        _moveUpGameMenuItem.Click += async (_, _) => await ReorderSelectedGameAsync(-15);
+        _moveDownGameMenuItem.Click += async (_, _) => await ReorderSelectedGameAsync(15);
         _markHotGameMenuItem.Click += MarkHotGameMenuItem_Click;
         _unmarkHotGameMenuItem.Click += UnmarkHotGameMenuItem_Click;
         _viewManifestMenuItem.Click += ViewManifestMenuItem_Click;
@@ -231,9 +300,15 @@ public sealed partial class MainForm
     private void GamesContextMenu_Opening(object? sender, CancelEventArgs e)
     {
         var hasSelectedGame = SelectedGame is not null;
+        var hasMultipleGames = _gamesBinding.Count > 1;
+        var position = _gamesBinding.Position;
         _addGameMenuItem.Enabled = true;
         _editGameMenuItem.Enabled = hasSelectedGame;
         _deleteGameMenuItem.Enabled = hasSelectedGame;
+        _scanManifestGameMenuItem.Enabled = hasSelectedGame;
+        _moveTopGameMenuItem.Enabled = hasSelectedGame && hasMultipleGames && position > 0;
+        _moveUpGameMenuItem.Enabled = hasSelectedGame && hasMultipleGames && position > 0;
+        _moveDownGameMenuItem.Enabled = hasSelectedGame && hasMultipleGames && position >= 0 && position < _gamesBinding.Count - 1;
         _markHotGameMenuItem.Enabled = hasSelectedGame && SelectedGame is { IsHot: false };
         _unmarkHotGameMenuItem.Enabled = hasSelectedGame && SelectedGame is { IsHot: true };
         _viewManifestMenuItem.Enabled = hasSelectedGame;
@@ -501,7 +576,7 @@ public sealed partial class MainForm
     {
         foreach (Control c in controls)
         {
-            if (c is Label || c is Button || c is TextBox || c is ComboBox || c is CheckBox)
+            if (c is Label || c is Button || c is TextBox || c is ComboBox || c is CheckBox || c is NumericUpDown)
             {
                 if (c == _updateOutputTextBox) continue; // Keep consolas
                 

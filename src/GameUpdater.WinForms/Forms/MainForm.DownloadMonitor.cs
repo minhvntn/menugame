@@ -102,9 +102,8 @@ public sealed partial class MainForm
             row.ProcessedBytes = row.TotalBytes.Value;
         }
 
-        var precisePercent = row.TotalBytes.HasValue && row.TotalBytes.Value > 0
-            ? (row.ProcessedBytes * 100d) / row.TotalBytes.Value
-            : row.ProgressPercent;
+        var precisePercent = GetDownloadProgressPercent(row);
+        row.ProgressPercent = (int)Math.Round(Math.Clamp(precisePercent, 0d, 100d));
         row.ProgressDisplay = $"{Math.Clamp(precisePercent, 0d, 100d):N1}%";
 
         row.TotalSizeGbDisplay = row.TotalBytes.HasValue && row.TotalBytes.Value > 0
@@ -405,7 +404,7 @@ public sealed partial class MainForm
         }
 
         var row = _downloadMonitorGrid.Rows[e.RowIndex].DataBoundItem as DownloadMonitorRow;
-        var percent = Math.Clamp(row?.ProgressPercent ?? 0, 0, 100);
+        var percent = Math.Clamp(GetDownloadProgressPercent(row), 0d, 100d);
         var progressText = row?.ProgressDisplay ?? $"{percent:0.0}%";
 
         var barBounds = new Rectangle(
@@ -446,6 +445,21 @@ public sealed partial class MainForm
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
 
         e.Paint(e.CellBounds, DataGridViewPaintParts.Border);
+    }
+
+    private static double GetDownloadProgressPercent(DownloadMonitorRow? row)
+    {
+        if (row is null)
+        {
+            return 0d;
+        }
+
+        if (row.TotalBytes.HasValue && row.TotalBytes.Value > 0)
+        {
+            return (row.ProcessedBytes * 100d) / row.TotalBytes.Value;
+        }
+
+        return row.ProgressPercent;
     }
 
     private void DownloadMonitorGrid_MouseDown(object? sender, MouseEventArgs e)

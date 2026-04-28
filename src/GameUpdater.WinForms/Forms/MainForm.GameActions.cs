@@ -155,6 +155,9 @@ public sealed partial class MainForm
         {
             _clientWindowsWallpaperPath = _clientWallpaperPathTextBox.Text.Trim();
             _enableClientCloseApplicationHotKey = _enableClientCloseAppHotKeyCheckBox.Checked;
+            _clientHeartbeatIntervalSeconds = NormalizeClientHeartbeatIntervalSeconds(Decimal.ToInt32(_clientHeartbeatIntervalNumeric.Value));
+            _dashboardRefreshIntervalSeconds = NormalizeDashboardRefreshIntervalSeconds(Decimal.ToInt32(_dashboardRefreshIntervalNumeric.Value));
+            ApplyRuntimeIntervals();
             if (_clientThemeFontComboBox.SelectedItem != null)
             {
                 _clientThemeFontFamily = _clientThemeFontComboBox.SelectedItem.ToString() ?? "Segoe UI";

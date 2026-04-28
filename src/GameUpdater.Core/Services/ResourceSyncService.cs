@@ -396,6 +396,7 @@ public sealed class ResourceSyncService
         var copied = 0;
         var skipped = 0;
         var downloadedBytes = 0L;
+        var processedProgressBytes = 0L;
         var transferStopwatch = Stopwatch.StartNew();
         var lastProgressReport = TimeSpan.Zero;
         var limiter = maxBytesPerSecond.GetValueOrDefault() > 0 || getMaxBytesPerSecond is not null
@@ -418,6 +419,10 @@ public sealed class ResourceSyncService
             {
                 skipped++;
                 RegisterKnownFileSize(targetInfo.Length);
+                if (targetInfo.Length > 0)
+                {
+                    processedProgressBytes += targetInfo.Length;
+                }
                 TryReportProgress(sourceFile.RelativePath, index + 1, currentFileProgress: 1d, force: true);
                 continue;
             }
@@ -442,6 +447,7 @@ public sealed class ResourceSyncService
                     {
                         currentFileDownloadedBytes += bytesCopied;
                         downloadedBytes += bytesCopied;
+                        processedProgressBytes += bytesCopied;
                         if (totalBytes.HasValue && totalBytes.Value > 0)
                         {
                             currentFileTotalBytes = totalBytes.Value;
@@ -461,7 +467,14 @@ public sealed class ResourceSyncService
             if (downloadResult.Outcome == HttpDownloadOutcome.NotModified)
             {
                 skipped++;
-                RegisterKnownFileSize(targetInfo.Exists ? targetInfo.Length : downloadResult.TotalBytes);
+                var notModifiedSize = targetInfo.Exists
+                    ? targetInfo.Length
+                    : downloadResult.TotalBytes.GetValueOrDefault();
+                RegisterKnownFileSize(notModifiedSize > 0 ? notModifiedSize : null);
+                if (notModifiedSize > 0)
+                {
+                    processedProgressBytes += notModifiedSize;
+                }
                 TryReportProgress(sourceFile.RelativePath, index + 1, currentFileProgress: 1d, force: true);
                 continue;
             }
@@ -478,6 +491,11 @@ public sealed class ResourceSyncService
             }
 
             RegisterKnownFileSize(downloadedFileSize);
+            var completedSize = downloadedFileSize.GetValueOrDefault(currentFileDownloadedBytes);
+            if (completedSize > currentFileDownloadedBytes)
+            {
+                processedProgressBytes += completedSize - currentFileDownloadedBytes;
+            }
             copied++;
             TryReportProgress(sourceFile.RelativePath, index + 1, currentFileProgress: 1d, force: true);
         }
@@ -491,7 +509,7 @@ public sealed class ResourceSyncService
             100,
             "Hoàn tất đồng bộ tài nguyên.",
             totalBytes: EstimateTotalBytes(),
-            processedBytes: downloadedBytes,
+            processedBytes: processedProgressBytes,
             speedMbps: finalSpeedMbPerSecond));
 
         return new ResourceSyncResult
@@ -519,14 +537,27 @@ public sealed class ResourceSyncService
             lastProgressReport = elapsed;
 
             var normalizedCompleted = Math.Clamp(completedFiles, 0, totalFiles);
-            var fileShare = totalFiles <= 0 ? 1d : 1d / totalFiles;
-            var progressValue = normalizedCompleted * fileShare;
-            if (normalizedCompleted < totalFiles)
+            var estimatedTotalBytes = EstimateTotalBytes(currentFileTotalBytesHint);
+            int percent;
+            if (estimatedTotalBytes.HasValue && estimatedTotalBytes.Value > 0)
             {
-                progressValue += Math.Clamp(currentFileProgress, 0d, 1d) * fileShare;
+                percent = (int)Math.Round(
+                    Math.Clamp(
+                        (processedProgressBytes * 100d) / estimatedTotalBytes.Value,
+                        0d,
+                        100d));
             }
+            else
+            {
+                var fileShare = totalFiles <= 0 ? 1d : 1d / totalFiles;
+                var progressValue = normalizedCompleted * fileShare;
+                if (normalizedCompleted < totalFiles)
+                {
+                    progressValue += Math.Clamp(currentFileProgress, 0d, 1d) * fileShare;
+                }
 
-            var percent = (int)Math.Round(Math.Clamp(progressValue * 100d, 0d, 100d));
+                percent = (int)Math.Round(Math.Clamp(progressValue * 100d, 0d, 100d));
+            }
             var downloadedMb = downloadedBytes / 1024d / 1024d;
             var speedMbPerSecond = elapsed.TotalSeconds <= 0
                 ? 0
@@ -536,8 +567,8 @@ public sealed class ResourceSyncService
             progress?.Report(UpdateProgressInfo.Create(
                 percent,
                 message,
-                totalBytes: EstimateTotalBytes(currentFileTotalBytesHint),
-                processedBytes: downloadedBytes,
+                totalBytes: estimatedTotalBytes,
+                processedBytes: processedProgressBytes,
                 speedMbps: speedMbPerSecond));
         }
 
@@ -1069,3 +1100,4 @@ public sealed class ResourceSyncResult
 
     public int SkippedFiles { get; init; }
 }
+

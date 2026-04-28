@@ -11,6 +11,11 @@ public sealed partial class MainForm
     {
         var effectivePolicy = policy ?? new LauncherClientPolicy();
         _enableCloseAppHotKeyFromServer = effectivePolicy.EnableCloseRunningApplicationHotKey;
+        var heartbeatIntervalSeconds = Math.Clamp(
+            effectivePolicy.HeartbeatIntervalSeconds > 0 ? effectivePolicy.HeartbeatIntervalSeconds : 45,
+            5,
+            300);
+        _statusHeartbeatTimer.Interval = heartbeatIntervalSeconds * 1000;
         UpdateCloseAppHotKeyRegistration();
         ApplyBrandingPolicy(effectivePolicy);
         ApplyKioskPolicy(effectivePolicy.EnableFullscreenKioskMode);

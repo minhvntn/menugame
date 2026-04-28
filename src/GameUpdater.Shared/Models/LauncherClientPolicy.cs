@@ -15,4 +15,6 @@ public sealed class LauncherClientPolicy
     public string ThemeAccentColor { get; set; } = "#38BDF8";
 
     public string ThemeFontFamily { get; set; } = "Segoe UI";
+
+    public int HeartbeatIntervalSeconds { get; set; } = 45;
 }

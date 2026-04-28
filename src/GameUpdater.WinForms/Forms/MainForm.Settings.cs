@@ -47,6 +47,8 @@ public sealed partial class MainForm
                 _clientStatusFolderPath = settings.ClientStatusFolderPath?.Trim() ?? string.Empty;
                 _enableClientCloseApplicationHotKey = settings.EnableClientCloseApplicationHotKey;
                 _enableClientFullscreenKioskMode = settings.EnableClientFullscreenKioskMode;
+                _clientHeartbeatIntervalSeconds = NormalizeClientHeartbeatIntervalSeconds(settings.ClientHeartbeatIntervalSeconds);
+                _dashboardRefreshIntervalSeconds = NormalizeDashboardRefreshIntervalSeconds(settings.DashboardRefreshIntervalSeconds);
 
                 if (!string.IsNullOrWhiteSpace(settings.UiFontSizeMode) &&
                     Enum.TryParse<UiFontSizeMode>(settings.UiFontSizeMode, true, out var parsedFontSizeMode))
@@ -73,6 +75,15 @@ public sealed partial class MainForm
             _clientStatusFolderTextBox.Text = _clientStatusFolderPath;
             _enableClientCloseAppHotKeyCheckBox.Checked = _enableClientCloseApplicationHotKey;
             _enableClientFullscreenKioskCheckBox.Checked = _enableClientFullscreenKioskMode;
+            _clientHeartbeatIntervalNumeric.Value = Math.Clamp(
+                _clientHeartbeatIntervalSeconds,
+                (int)_clientHeartbeatIntervalNumeric.Minimum,
+                (int)_clientHeartbeatIntervalNumeric.Maximum);
+            _dashboardRefreshIntervalNumeric.Value = Math.Clamp(
+                _dashboardRefreshIntervalSeconds,
+                (int)_dashboardRefreshIntervalNumeric.Minimum,
+                (int)_dashboardRefreshIntervalNumeric.Maximum);
+            ApplyRuntimeIntervals();
             SetFontSizeSelection(_uiFontSizeMode);
             ApplyUiFontSize(_uiFontSizeMode);
         }
@@ -98,7 +109,9 @@ public sealed partial class MainForm
             ClientStatusFolderPath = _clientStatusFolderPath,
             EnableClientCloseApplicationHotKey = _enableClientCloseApplicationHotKey,
             EnableClientFullscreenKioskMode = _enableClientFullscreenKioskMode,
-            UiFontSizeMode = _uiFontSizeMode.ToString()
+            UiFontSizeMode = _uiFontSizeMode.ToString(),
+            ClientHeartbeatIntervalSeconds = NormalizeClientHeartbeatIntervalSeconds(_clientHeartbeatIntervalSeconds),
+            DashboardRefreshIntervalSeconds = NormalizeDashboardRefreshIntervalSeconds(_dashboardRefreshIntervalSeconds)
         };
 
         Directory.CreateDirectory(Path.GetDirectoryName(_settingsFilePath)!);

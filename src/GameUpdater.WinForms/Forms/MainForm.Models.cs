@@ -193,8 +193,13 @@ public sealed partial class MainForm
 
     private sealed class ClientDashboardRow
     {
-        private static readonly TimeSpan OnlineThreshold = TimeSpan.FromSeconds(120);
-        private static readonly TimeSpan SlowHeartbeatThreshold = TimeSpan.FromMinutes(5);
+        private TimeSpan OnlineThreshold => TimeSpan.FromSeconds(Math.Max(30, (HeartbeatIntervalSeconds * 2) + 30));
+        private TimeSpan SlowHeartbeatThreshold => TimeSpan.FromSeconds(
+            Math.Max(
+                OnlineThreshold.TotalSeconds + 60,
+                OnlineThreshold.TotalSeconds + (HeartbeatIntervalSeconds * 4)));
+
+        public int HeartbeatIntervalSeconds { get; init; } = 45;
 
         public string MachineName { get; init; } = string.Empty;
 
@@ -256,10 +261,14 @@ public sealed partial class MainForm
             ? "-"
             : $"↓{NetworkReceivedKbps:0.#} KB/s ↑{NetworkSentKbps:0.#} KB/s";
 
-        public static ClientDashboardRow FromStatus(LauncherClientStatus status, string sourceFileName)
+        public static ClientDashboardRow FromStatus(
+            LauncherClientStatus status,
+            string sourceFileName,
+            int heartbeatIntervalSeconds = 45)
         {
             return new ClientDashboardRow
             {
+                HeartbeatIntervalSeconds = Math.Clamp(heartbeatIntervalSeconds, 5, 300),
                 MachineName = string.IsNullOrWhiteSpace(status.MachineName) ? "Không rõ" : status.MachineName,
                 UserName = status.UserName,
                 CurrentGameName = status.CurrentGameName,
@@ -305,6 +314,10 @@ public sealed partial class MainForm
         public bool EnableClientFullscreenKioskMode { get; set; }
 
         public string UiFontSizeMode { get; set; } = string.Empty;
+
+        public int ClientHeartbeatIntervalSeconds { get; set; } = 45;
+
+        public int DashboardRefreshIntervalSeconds { get; set; } = 15;
     }
 
     [DllImport("kernel32.dll", SetLastError = true)]
