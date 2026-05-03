@@ -1,5 +1,6 @@
 using System.Drawing.Drawing2D;
 using System.Text;
+using GameUpdater.Shared.Localization;
 using GameUpdater.Shared.Models;
 
 namespace GameUpdater.WinForms.Controls;
@@ -84,7 +85,7 @@ public sealed class ServerGameCardControl : UserControl
         {
             var hotBadge = new Label
             {
-                Text = "HOT",
+                Text = I18n.Server.MenuHotBadge,
                 AutoSize = false,
                 Width = 32,
                 Height = 16,

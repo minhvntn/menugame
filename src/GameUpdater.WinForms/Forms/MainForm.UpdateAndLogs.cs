@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using GameUpdater.Core.Abstractions;
 using GameUpdater.Core.Services;
+using GameUpdater.Shared.Localization;
 using GameUpdater.Shared.Models;
 
 namespace GameUpdater.WinForms.Forms;
@@ -12,7 +13,7 @@ namespace GameUpdater.WinForms.Forms;
 public sealed partial class MainForm
 {    private TabPage BuildUpdateTab()
     {
-        var page = new TabPage("Cập nhật");
+        var page = new TabPage(I18n.Server.UpdateTab);
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -40,8 +41,8 @@ public sealed partial class MainForm
         _updateSourceKindComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
         var sourceOptions = new List<UpdateSourceOption>
         {
-            new() { Kind = UpdateSourceKind.Folder, Name = "Thư mục" },
-            new() { Kind = UpdateSourceKind.Zip, Name = "Tệp ZIP" }
+            new() { Kind = UpdateSourceKind.Folder, Name = I18n.Server.UpdateSourceFolder },
+            new() { Kind = UpdateSourceKind.Zip, Name = I18n.Server.UpdateSourceZip }
         };
         _updateSourceKindComboBox.DataSource = sourceOptions;
         _updateSourceKindComboBox.DisplayMember = nameof(UpdateSourceOption.Name);
@@ -49,19 +50,19 @@ public sealed partial class MainForm
 
         _updateSourceTextBox.Dock = DockStyle.Fill;
 
-        _browseSourceButton.Text = "Chọn";
+        _browseSourceButton.Text = I18n.Common.SelectButton;
         _browseSourceButton.Dock = DockStyle.Fill;
         _browseSourceButton.Click += BrowseSourceButton_Click;
 
         _updateVersionTextBox.Dock = DockStyle.Fill;
 
-        _backupCheckBox.Text = "Sao lưu trước khi cập nhật";
+        _backupCheckBox.Text = I18n.Server.BackupBeforeUpdate;
         _backupCheckBox.Checked = true;
         _backupCheckBox.Dock = DockStyle.Fill;
 
         _updateProgressBar.Dock = DockStyle.Fill;
 
-        _applyUpdateButton.Text = "Bắt đầu cập nhật";
+        _applyUpdateButton.Text = I18n.Server.StartUpdateButton;
         _applyUpdateButton.Dock = DockStyle.Fill;
         _applyUpdateButton.Click += ApplyUpdateButton_Click;
 
@@ -71,35 +72,35 @@ public sealed partial class MainForm
         _updateOutputTextBox.Font = new Font("Consolas", 10);
         _updateOutputTextBox.ReadOnly = true;
 
-        root.Controls.Add(CreateFieldLabel("Trò chơi"), 0, 0);
+        root.Controls.Add(CreateFieldLabel(I18n.Server.FieldGame), 0, 0);
         root.Controls.Add(_updateGameComboBox, 1, 0);
         root.SetColumnSpan(_updateGameComboBox, 2);
 
-        root.Controls.Add(CreateFieldLabel("Loại nguồn"), 0, 1);
+        root.Controls.Add(CreateFieldLabel(I18n.Server.FieldSourceType), 0, 1);
         root.Controls.Add(_updateSourceKindComboBox, 1, 1);
         root.SetColumnSpan(_updateSourceKindComboBox, 2);
 
-        root.Controls.Add(CreateFieldLabel("Nguồn cập nhật"), 0, 2);
+        root.Controls.Add(CreateFieldLabel(I18n.Server.FieldUpdateSource), 0, 2);
         root.Controls.Add(_updateSourceTextBox, 1, 2);
         root.Controls.Add(_browseSourceButton, 2, 2);
 
-        root.Controls.Add(CreateFieldLabel("Phiên bản"), 0, 3);
+        root.Controls.Add(CreateFieldLabel(I18n.Server.FieldVersion), 0, 3);
         root.Controls.Add(_updateVersionTextBox, 1, 3);
         root.SetColumnSpan(_updateVersionTextBox, 2);
 
-        root.Controls.Add(CreateFieldLabel("Tùy chọn"), 0, 4);
+        root.Controls.Add(CreateFieldLabel(I18n.Server.FieldOptions), 0, 4);
         root.Controls.Add(_backupCheckBox, 1, 4);
         root.SetColumnSpan(_backupCheckBox, 2);
 
-        root.Controls.Add(CreateFieldLabel("Tiến trình"), 0, 5);
+        root.Controls.Add(CreateFieldLabel(I18n.Server.FieldProgress), 0, 5);
         root.Controls.Add(_updateProgressBar, 1, 5);
         root.SetColumnSpan(_updateProgressBar, 2);
 
-        root.Controls.Add(CreateFieldLabel("Thao tác"), 0, 6);
+        root.Controls.Add(CreateFieldLabel(I18n.Server.FieldActions), 0, 6);
         root.Controls.Add(_applyUpdateButton, 1, 6);
         root.SetColumnSpan(_applyUpdateButton, 2);
 
-        root.Controls.Add(CreateFieldLabel("Nhật ký"), 0, 7);
+        root.Controls.Add(CreateFieldLabel(I18n.Server.FieldLogs), 0, 7);
         root.Controls.Add(_updateOutputTextBox, 1, 7);
         root.SetColumnSpan(_updateOutputTextBox, 2);
 
@@ -109,7 +110,7 @@ public sealed partial class MainForm
 
     private TabPage BuildLogsTab()
     {
-        var page = new TabPage("Lịch sử");
+        var page = new TabPage(I18n.Server.LogsTab);
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -124,9 +125,9 @@ public sealed partial class MainForm
             Padding = new Padding(8),
             WrapContents = false
         };
-        toolbar.Controls.Add(CreateButton("Làm mới lịch sử", RefreshLogsButton_Click));
-        toolbar.Controls.Add(CreateButton("Xuất CSV", ExportLogsCsvButton_Click));
-        toolbar.Controls.Add(CreateButton("Xóa lịch sử", ClearLogsButton_Click));
+        toolbar.Controls.Add(CreateButton(I18n.Server.LogsRefresh, RefreshLogsButton_Click));
+        toolbar.Controls.Add(CreateButton(I18n.Common.CsvButton, ExportLogsCsvButton_Click));
+        toolbar.Controls.Add(CreateButton(I18n.Server.LogsDelete, ClearLogsButton_Click));
 
         ConfigureLogsGrid();
         root.Controls.Add(toolbar, 0, 0);
@@ -138,18 +139,18 @@ public sealed partial class MainForm
 
     private async void ClearLogsButton_Click(object? sender, EventArgs e)
     {
-        var confirm = MessageBox.Show(this, "Bạn có chắc chắn muốn xóa toàn bộ lịch sử không?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+        var confirm = MessageBox.Show(this, I18n.Server.LogsDeleteConfirm, I18n.Common.ConfirmTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
         if (confirm == DialogResult.Yes)
         {
             await _logRepository.ClearAllAsync();
             await LoadLogsAsync();
-            MessageBox.Show(this, "Đã xóa lịch sử thành công.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, I18n.Server.LogsDeleteSuccess, I18n.Common.InfoTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
 
     private TabPage BuildSettingsTab()
     {
-        var page = new TabPage("Setting");
+        var page = new TabPage(I18n.Server.SettingsTab);
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -179,11 +180,11 @@ public sealed partial class MainForm
         };
         InitializeFontSizeSelector(fontSizeRow);
 
-        _browseClientWallpaperButton.Text = "Chọn";
+        _browseClientWallpaperButton.Text = I18n.Common.SelectButton;
         _browseClientWallpaperButton.Width = 80;
         _browseClientWallpaperButton.Click += BrowseClientWallpaperButton_Click;
 
-        _clearClientWallpaperButton.Text = "Xóa";
+        _clearClientWallpaperButton.Text = I18n.Common.DeleteButton;
         _clearClientWallpaperButton.Width = 70;
         _clearClientWallpaperButton.Click += ClearClientWallpaperButton_Click;
 
@@ -212,7 +213,7 @@ public sealed partial class MainForm
         }
         else
         {
-            _clientThemeFontComboBox.SelectedItem = "Segoe UI";
+            _clientThemeFontComboBox.SelectedItem = I18n.Server.DefaultThemeFontFamily;
         }
         _clientThemeFontComboBox.SelectedIndexChanged += (_, _) => _clientThemeFontFamily = _clientThemeFontComboBox.Text;
 
@@ -247,14 +248,14 @@ public sealed partial class MainForm
         wallpaperRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         wallpaperRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
         wallpaperRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80));
-        wallpaperRow.Controls.Add(CreateFieldLabel("Hình nền Windows máy trạm"), 0, 0);
+        wallpaperRow.Controls.Add(CreateFieldLabel(I18n.Server.SettingWallpaper), 0, 0);
         wallpaperRow.Controls.Add(_clientWallpaperPathTextBox, 1, 0);
         wallpaperRow.Controls.Add(_browseClientWallpaperButton, 2, 0);
         wallpaperRow.Controls.Add(_clearClientWallpaperButton, 3, 0);
 
-        var cafeNameRow = CreateTextSettingRow("Tên quán trên client", _clientCafeNameTextBox);
-        var bannerRow = CreateTextSettingRow("Banner/thông báo", _clientBannerMessageTextBox);
-        var themeRow = CreateTextSettingRow("Màu theme client", _clientThemeAccentColorTextBox);
+        var cafeNameRow = CreateTextSettingRow(I18n.Server.SettingCafeName, _clientCafeNameTextBox);
+        var bannerRow = CreateTextSettingRow(I18n.Server.SettingBanner, _clientBannerMessageTextBox);
+        var themeRow = CreateTextSettingRow(I18n.Server.SettingThemeColor, _clientThemeAccentColorTextBox);
 
         var fontRow = new TableLayoutPanel
         {
@@ -263,27 +264,27 @@ public sealed partial class MainForm
         };
         fontRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
         fontRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        fontRow.Controls.Add(CreateFieldLabel("Font chữ giao diện"), 0, 0);
+        fontRow.Controls.Add(CreateFieldLabel(I18n.Server.SettingThemeFont), 0, 0);
         fontRow.Controls.Add(_clientThemeFontComboBox, 1, 0);
 
-        var statusFolderRow = CreateTextSettingRow("Thư mục trạng thái client", _clientStatusFolderTextBox);
-        var heartbeatRow = CreateNumericSettingRow("Heartbeat client (giây)", _clientHeartbeatIntervalNumeric);
-        var dashboardRefreshRow = CreateNumericSettingRow("Dashboard refresh (giây)", _dashboardRefreshIntervalNumeric);
+        var statusFolderRow = CreateTextSettingRow(I18n.Server.SettingStatusFolder, _clientStatusFolderTextBox);
+        var heartbeatRow = CreateNumericSettingRow(I18n.Server.SettingHeartbeat, _clientHeartbeatIntervalNumeric);
+        var dashboardRefreshRow = CreateNumericSettingRow(I18n.Server.SettingDashboardRefresh, _dashboardRefreshIntervalNumeric);
 
         _enableClientCloseAppHotKeyCheckBox.Dock = DockStyle.Fill;
-        _enableClientCloseAppHotKeyCheckBox.Text = "Cho phép máy trạm đóng ứng dụng bằng Ctrl + Alt + K";
+        _enableClientCloseAppHotKeyCheckBox.Text = I18n.Server.SettingAllowCloseHotkey;
         _enableClientCloseAppHotKeyCheckBox.Checked = _enableClientCloseApplicationHotKey;
         _enableClientCloseAppHotKeyCheckBox.CheckedChanged += (_, _) => _enableClientCloseApplicationHotKey = _enableClientCloseAppHotKeyCheckBox.Checked;
 
         _enableClientFullscreenKioskCheckBox.Dock = DockStyle.Fill;
-        _enableClientFullscreenKioskCheckBox.Text = "Bật fullscreen/kiosk mode cho client";
+        _enableClientFullscreenKioskCheckBox.Text = I18n.Server.SettingEnableKiosk;
         _enableClientFullscreenKioskCheckBox.Checked = _enableClientFullscreenKioskMode;
         _enableClientFullscreenKioskCheckBox.CheckedChanged += (_, _) => _enableClientFullscreenKioskMode = _enableClientFullscreenKioskCheckBox.Checked;
 
         var hintLabel = new Label
         {
             Dock = DockStyle.Fill,
-            Text = "Lưu ý: client ghi trạng thái vào thư mục client-status cạnh games.catalog.json. Có thể nhập thư mục trạng thái riêng nếu dùng shared path.",
+            Text = I18n.Server.SettingHint,
             TextAlign = ContentAlignment.TopLeft
         };
 
@@ -306,7 +307,7 @@ public sealed partial class MainForm
             FlowDirection = FlowDirection.RightToLeft,
             WrapContents = false
         };
-        _saveSettingsButton.Text = "Lưu thiết lập";
+        _saveSettingsButton.Text = I18n.Server.SaveSettingsButton;
         _saveSettingsButton.AutoSize = true;
         _saveSettingsButton.Click += SaveSettingsButton_Click;
         actionsPanel.Controls.Add(_saveSettingsButton);

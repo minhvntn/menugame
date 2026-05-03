@@ -1,6 +1,7 @@
 ﻿using GameLauncher.Client.Controls;
 using GameLauncher.Client.Models;
 using GameLauncher.Client.Services;
+using GameUpdater.Shared.Localization;
 using GameUpdater.Shared.Models;
 
 namespace GameLauncher.Client.Forms;
@@ -13,9 +14,6 @@ public sealed partial class MainForm
     private string _catalogPath = string.Empty;
     private string _currentGameName = string.Empty;
     private string _currentGameExecutablePath = string.Empty;
-    private string _currentCategory = "Tất cả";
-    private string _lastAppliedCategory = string.Empty;
-    private CancellationTokenSource? _prewarmCts;
 
     private async Task LoadCatalogOnStartupAsync()
     {
@@ -31,70 +29,16 @@ public sealed partial class MainForm
     {
         if (string.IsNullOrWhiteSpace(_catalogPath))
         {
-            throw new InvalidOperationException("Chưa cấu hình đường dẫn danh mục trò chơi.");
+            throw new InvalidOperationException(I18n.Launcher.MissingCatalogPath);
         }
 
         var catalog = await _catalogService.LoadCatalogAsync(_catalogPath);
         _allRows = CatalogReaderService.BuildRows(catalog).ToList();
-        PopulateCategories();
         await ApplyServerPolicyAsync(catalog.ClientPolicy);
         await SaveLauncherSettingsAsync();
         InitializeCards();
-        ApplyFilter(force: true);
-        StartBackgroundPrewarm();
         WriteClientStatusSafe();
         _statusHeartbeatTimer.Start();
-    }
-
-    private void PopulateCategories()
-    {
-        _categoriesPanel.SuspendLayout();
-        _categoriesPanel.Controls.Clear();
-
-        var categories = new List<string> { "Tất cả" };
-        var uniqueCategories = _allRows
-            .Select(r => r.Category)
-            .Where(c => !string.IsNullOrWhiteSpace(c))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(c => c)
-            .ToList();
-
-        categories.AddRange(uniqueCategories);
-
-        foreach (var category in categories)
-        {
-            var btn = new Button
-            {
-                Text = category,
-                AutoSize = true,
-                FlatStyle = FlatStyle.Flat,
-                ForeColor = Color.White,
-                BackColor = category == _currentCategory ? Color.FromArgb(59, 130, 246) : Color.FromArgb(30, 41, 59),
-                Cursor = Cursors.Hand,
-                Font = new Font("Segoe UI Semibold", 10f),
-                Padding = new Padding(8, 4, 8, 4),
-                Margin = new Padding(0, 0, 8, 0)
-            };
-            btn.FlatAppearance.BorderSize = 0;
-            btn.Click += (_, _) =>
-            {
-                if (string.Equals(_currentCategory, category, StringComparison.OrdinalIgnoreCase))
-                {
-                    return;
-                }
-
-                _currentCategory = category;
-                foreach (Button c in _categoriesPanel.Controls)
-                {
-                    c.BackColor = c.Text == _currentCategory ? Color.FromArgb(59, 130, 246) : Color.FromArgb(30, 41, 59);
-                }
-
-                ApplyFilter(force: true);
-            };
-            _categoriesPanel.Controls.Add(btn);
-        }
-
-        _categoriesPanel.ResumeLayout();
     }
 
     private void InitializeCards()
@@ -139,56 +83,8 @@ public sealed partial class MainForm
         _normalCards.AddRange(normalControls);
         _normalCardsPanel.Controls.AddRange(normalControls);
 
-        _lastAppliedCategory = string.Empty;
-
         _hotCardsPanel.ResumeLayout();
         _normalCardsPanel.ResumeLayout();
-    }
-
-    private void ApplyFilter()
-    {
-        ApplyFilter(force: false);
-    }
-
-    private void ApplyFilter(bool force)
-    {
-        if (!force &&
-            string.Equals(_lastAppliedCategory, _currentCategory, StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        _lastAppliedCategory = _currentCategory;
-
-        _hotCardsPanel.SuspendLayout();
-        _normalCardsPanel.SuspendLayout();
-
-        foreach (var card in _hotCards)
-        {
-            var isVisible = IsRowVisible(card.Row);
-            if (card.Visible != isVisible)
-            {
-                card.Visible = isVisible;
-            }
-        }
-
-        foreach (var card in _normalCards)
-        {
-            var isVisible = IsRowVisible(card.Row);
-            if (card.Visible != isVisible)
-            {
-                card.Visible = isVisible;
-            }
-        }
-
-        _hotCardsPanel.ResumeLayout();
-        _normalCardsPanel.ResumeLayout();
-    }
-
-    private bool IsRowVisible(LauncherGameRow row)
-    {
-        return _currentCategory == "Tất cả" ||
-               string.Equals(row.Category, _currentCategory, StringComparison.OrdinalIgnoreCase);
     }
 
     private void PlayGame(LauncherGameRow row)
@@ -219,52 +115,6 @@ public sealed partial class MainForm
             SendLauncherToDesktop();
             await Task.CompletedTask;
         });
-    }
-
-    private void StartBackgroundPrewarm()
-    {
-        CancelBackgroundPrewarm();
-        if (_allRows.Count == 0)
-        {
-            return;
-        }
-
-        _prewarmCts = new CancellationTokenSource();
-        var rowsSnapshot = _allRows.ToList();
-        var cancellationToken = _prewarmCts.Token;
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await _prewarmService.PrewarmHotGamesAsync(rowsSnapshot, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                // Ignore cancellation during shutdown/reload.
-            }
-            catch
-            {
-                // Prewarm is best-effort only.
-            }
-        }, cancellationToken);
-    }
-
-    private void CancelBackgroundPrewarm()
-    {
-        try
-        {
-            _prewarmCts?.Cancel();
-            _prewarmCts?.Dispose();
-        }
-        catch
-        {
-            // Ignore cancellation/dispose failures.
-        }
-        finally
-        {
-            _prewarmCts = null;
-        }
     }
 
     private async Task SaveLauncherSettingsAsync()
@@ -327,3 +177,5 @@ public sealed partial class MainForm
         return Path.GetFullPath(sameFolderJson);
     }
 }
+
+

@@ -1,10 +1,11 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
 using System.Text.Json;
 using GameUpdater.Core.Abstractions;
 using GameUpdater.Core.Services;
+using GameUpdater.Shared.Localization;
 using GameUpdater.Shared.Models;
 
 namespace GameUpdater.WinForms.Forms;
@@ -30,7 +31,7 @@ public sealed partial class MainForm
     {
         if (SelectedGame is null)
         {
-            ShowInfo("Vui lòng chọn trò chơi trước.");
+            ShowInfo(I18n.Server.NeedSelectGameFirst);
             return;
         }
 
@@ -52,15 +53,15 @@ public sealed partial class MainForm
     {
         if (SelectedGame is null)
         {
-            ShowInfo("Vui lòng chọn trò chơi trước.");
+            ShowInfo(I18n.Server.NeedSelectGameFirst);
             return;
         }
 
         var game = SelectedGame;
         var result = MessageBox.Show(
             this,
-            $"Bạn có chắc muốn xóa {game.Name} khỏi danh sách quản lý? Dữ liệu trò chơi trên ổ đĩa sẽ không bị xóa.",
-            "Xác nhận xóa",
+            I18n.Server.DeleteGameConfirm(game.Name),
+            I18n.Common.ConfirmTitle,
             MessageBoxButtons.YesNo,
             MessageBoxIcon.Question);
 
@@ -81,7 +82,7 @@ public sealed partial class MainForm
     {
         if (SelectedGame is null)
         {
-            ShowInfo("Vui lòng chọn trò chơi trước.");
+            ShowInfo(I18n.Server.NeedSelectGameFirst);
             return;
         }
 
@@ -104,8 +105,8 @@ public sealed partial class MainForm
     {
         using var dialog = new SaveFileDialog
         {
-            Filter = "Tệp JSON (*.json)|*.json",
-            Title = "Xuất danh mục trò chơi cho client",
+            Filter = I18n.Server.JsonFileFilter,
+            Title = I18n.Server.ExportClientCatalogButton,
             FileName = Path.GetFileName(_autoCatalogPath)
         };
 
@@ -125,7 +126,7 @@ public sealed partial class MainForm
             _autoCatalogPath = dialog.FileName;
             await _catalogService.ExportToFileAsync(_autoCatalogPath, BuildClientPolicy());
             await SaveUiSettingsAsync();
-            MessageBox.Show(this, $"Đã xuất danh mục:{Environment.NewLine}{_autoCatalogPath}", "Hoàn tất", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, I18n.Server.ExportCatalogDone(_autoCatalogPath), I18n.Common.InfoTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
         });
     }
 
@@ -133,9 +134,9 @@ public sealed partial class MainForm
     {
         using var openDialog = new OpenFileDialog
         {
-            Filter = "Ảnh (*.jpg;*.jpeg;*.png;*.bmp;*.webp)|*.jpg;*.jpeg;*.png;*.bmp;*.webp|Tất cả tệp (*.*)|*.*",
+            Filter = I18n.Server.ImageFileFilter,
             CheckFileExists = true,
-            Title = "Chọn hình nền Windows cho client"
+            Title = I18n.Server.SettingWallpaper
         };
 
         if (openDialog.ShowDialog(this) == DialogResult.OK)
@@ -160,12 +161,12 @@ public sealed partial class MainForm
             ApplyRuntimeIntervals();
             if (_clientThemeFontComboBox.SelectedItem != null)
             {
-                _clientThemeFontFamily = _clientThemeFontComboBox.SelectedItem.ToString() ?? "Segoe UI";
+                _clientThemeFontFamily = _clientThemeFontComboBox.SelectedItem.ToString() ?? I18n.Server.DefaultThemeFontFamily;
             }
             await SaveUiSettingsAsync();
             ApplyUiFontSize(_uiFontSizeMode);
             await AutoExportCatalogAsync();
-            ShowInfo("Đã lưu thiết lập và đồng bộ catalog cho client.");
+            ShowInfo(I18n.Server.SettingsSavedAndCatalogSynced);
         });
     }
 
@@ -178,8 +179,8 @@ public sealed partial class MainForm
     {
         using var dialog = new SaveFileDialog
         {
-            Filter = "Tệp CSV (*.csv)|*.csv",
-            Title = "Xuất lịch sử cập nhật",
+            Filter = I18n.Server.CsvFileFilter,
+            Title = I18n.Common.CsvButton,
             FileName = $"update-logs-{DateTime.Now:yyyyMMdd-HHmmss}.csv"
         };
 
@@ -195,7 +196,7 @@ public sealed partial class MainForm
                 .ToList();
 
             var builder = new StringBuilder();
-            builder.AppendLine("Thời gian,Trò chơi,Hành động,Trạng thái,Nội dung");
+            builder.AppendLine(I18n.Server.LogsCsvHeader);
             foreach (var log in logs)
             {
                 builder.AppendLine(string.Join(",",
@@ -207,11 +208,13 @@ public sealed partial class MainForm
             }
 
             await File.WriteAllTextAsync(dialog.FileName, builder.ToString(), new UTF8Encoding(true));
-            ShowInfo($"Đã xuất CSV: {dialog.FileName}");
+            ShowInfo(I18n.Server.CsvExportDone(dialog.FileName));
         });
     }
 
 }
+
+
 
 
 

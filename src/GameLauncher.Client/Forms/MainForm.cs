@@ -1,5 +1,6 @@
 using Microsoft.Win32;
 using GameLauncher.Client.Services;
+using GameUpdater.Shared.Localization;
 
 namespace GameLauncher.Client.Forms;
 
@@ -7,13 +8,12 @@ public sealed partial class MainForm : Form
 {
     private const string StartupRegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string StartupRegistryValueName = "GameLauncher.Client";
-    private const string CafeDisplayName = "Cyber Game";
-    public string ThemeFontFamily { get; set; } = "Segoe UI";
+    private const string CafeDisplayName = I18n.Launcher.DefaultCafeName;
+    public string ThemeFontFamily { get; set; } = I18n.Launcher.DefaultFontFamily;
 
     private readonly SettingsService _settingsService;
     private readonly CatalogReaderService _catalogService;
     private readonly GameLaunchService _launchService;
-    private readonly GamePrewarmService _prewarmService;
 
     private bool _enableCloseAppHotKeyFromServer = true;
     private bool _isCloseAppHotKeyRegistered;
@@ -21,15 +21,13 @@ public sealed partial class MainForm : Form
     public MainForm(
         SettingsService settingsService,
         CatalogReaderService catalogService,
-        GameLaunchService launchService,
-        GamePrewarmService prewarmService)
+        GameLaunchService launchService)
     {
         _settingsService = settingsService;
         _catalogService = catalogService;
         _launchService = launchService;
-        _prewarmService = prewarmService;
 
-        Text = "Menu trò chơi";
+        Text = I18n.Launcher.WindowTitle;
         Width = 1320;
         Height = 860;
         StartPosition = FormStartPosition.CenterScreen;
@@ -69,7 +67,6 @@ public sealed partial class MainForm : Form
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         _statusHeartbeatTimer.Stop();
-        CancelBackgroundPrewarm();
         WriteClientStatusSafe(clearPlayingGame: true);
         _headerLogoImage?.Dispose();
         _headerLogoImage = null;
@@ -105,7 +102,7 @@ public sealed partial class MainForm : Form
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, exception.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this, exception.Message, I18n.Common.ErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 

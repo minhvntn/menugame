@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using GameLauncher.Client.Models;
+using GameUpdater.Shared.Localization;
 
 namespace GameLauncher.Client.Forms;
 
@@ -14,7 +15,6 @@ public sealed partial class MainForm
     private readonly Label _bannerMessageLabel = new();
     private readonly FlowLayoutPanel _hotCardsPanel = new();
     private readonly FlowLayoutPanel _normalCardsPanel = new();
-    private readonly FlowLayoutPanel _categoriesPanel = new();
     private Image? _headerLogoImage;
 
     private void BuildLayout()
@@ -96,7 +96,7 @@ public sealed partial class MainForm
         _headerSectionLabel.TextAlign = ContentAlignment.MiddleCenter;
         _headerSectionLabel.ForeColor = Color.White;
         _headerSectionLabel.Font = new Font("Segoe UI Semibold", 14f, FontStyle.Bold);
-        _headerSectionLabel.Text = "Menu Trò Chơi";
+        _headerSectionLabel.Text = I18n.Launcher.HeaderSectionTitle;
 
         var systemTools = new FlowLayoutPanel
         {
@@ -106,14 +106,9 @@ public sealed partial class MainForm
             Padding = new Padding(0, 4, 0, 0),
             AutoSize = true
         };
-        systemTools.Controls.Add(CreateSystemToolButton("Dọn RAM", () => {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            MessageBox.Show(this, "Đã dọn dẹp bộ nhớ RAM thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }));
-        systemTools.Controls.Add(CreateSystemToolButton("Chuột", () => {
+        systemTools.Controls.Add(CreateSystemToolButton(I18n.Launcher.MouseButton, () => {
             try { Process.Start(new ProcessStartInfo("main.cpl") { UseShellExecute = true }); } 
-            catch (Exception ex) { MessageBox.Show(this, "Không thể mở bảng điều khiển chuột: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            catch (Exception ex) { MessageBox.Show(this, I18n.Launcher.OpenMouseControlErrorPrefix + ex.Message, I18n.Common.ErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error); }
         }));
 
         var headerCenterPanel = new TableLayoutPanel
@@ -134,9 +129,9 @@ public sealed partial class MainForm
             WrapContents = false,
             Padding = new Padding(0, 4, 0, 0)
         };
-        quickActions.Controls.Add(CreateHeaderLinkButton("YT", "YouTube", "https://www.youtube.com"));
-        quickActions.Controls.Add(CreateHeaderLinkButton("FB", "Facebook", "https://www.facebook.com"));
-        quickActions.Controls.Add(CreateHeaderLinkButton("Web", "Website", "https://www.google.com"));
+        quickActions.Controls.Add(CreateHeaderLinkButton(I18n.Launcher.QuickLinkYoutubeText, I18n.Launcher.QuickLinkYoutubeTooltip, I18n.Launcher.QuickLinkYoutubeUrl));
+        quickActions.Controls.Add(CreateHeaderLinkButton(I18n.Launcher.QuickLinkFacebookText, I18n.Launcher.QuickLinkFacebookTooltip, I18n.Launcher.QuickLinkFacebookUrl));
+        quickActions.Controls.Add(CreateHeaderLinkButton(I18n.Launcher.QuickLinkWebText, I18n.Launcher.QuickLinkWebTooltip, I18n.Launcher.QuickLinkWebUrl));
 
         headerLayout.Controls.Add(leftPanel, 0, 0);
         headerLayout.Controls.Add(headerCenterPanel, 1, 0);
@@ -152,29 +147,13 @@ public sealed partial class MainForm
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 3,
+            RowCount = 2,
             Padding = new Padding(10, 10, 10, 10),
             BackColor = BodyBackColor
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 132));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-
-        var topToolbar = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 1,
-            Margin = new Padding(0, 0, 0, 8)
-        };
-        topToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        
-        _categoriesPanel.Dock = DockStyle.Fill;
-        _categoriesPanel.FlowDirection = FlowDirection.LeftToRight;
-        _categoriesPanel.WrapContents = false;
-
-        topToolbar.Controls.Add(_categoriesPanel, 0, 0);
 
         _hotCardsPanel.Dock = DockStyle.Fill;
         _hotCardsPanel.AutoScroll = true;
@@ -193,9 +172,8 @@ public sealed partial class MainForm
         _normalCardsPanel.BackColor = BodyBackColor;
         EnableDoubleBuffering(_normalCardsPanel);
 
-        layout.Controls.Add(topToolbar, 0, 0);
-        layout.Controls.Add(_hotCardsPanel, 0, 1);
-        layout.Controls.Add(_normalCardsPanel, 0, 2);
+        layout.Controls.Add(_hotCardsPanel, 0, 0);
+        layout.Controls.Add(_normalCardsPanel, 0, 1);
         return layout;
     }
 
@@ -213,7 +191,7 @@ public sealed partial class MainForm
         _bannerMessageLabel.Font = new Font("Segoe UI Semibold", 12f, FontStyle.Bold);
         _bannerMessageLabel.ForeColor = Color.White;
         _bannerMessageLabel.BackColor = Color.Transparent;
-        _bannerMessageLabel.Text = "Chào mừng quý khách";
+        _bannerMessageLabel.Text = I18n.Launcher.DefaultBannerMessage;
         _bannerMessageLabel.Visible = true;
 
         panel.Controls.Add(_bannerMessageLabel);

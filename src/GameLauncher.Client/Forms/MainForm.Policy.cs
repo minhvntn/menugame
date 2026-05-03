@@ -1,4 +1,5 @@
 using System.Net.Http;
+using GameUpdater.Shared.Localization;
 using GameUpdater.Shared.Models;
 
 namespace GameLauncher.Client.Forms;
@@ -7,7 +8,7 @@ public sealed partial class MainForm
 {
     private static readonly HttpClient WallpaperHttpClient = new();
 
-    private async Task ApplyServerPolicyAsync(LauncherClientPolicy? policy)
+    private Task ApplyServerPolicyAsync(LauncherClientPolicy? policy)
     {
         var effectivePolicy = policy ?? new LauncherClientPolicy();
         _enableCloseAppHotKeyFromServer = effectivePolicy.EnableCloseRunningApplicationHotKey;
@@ -23,11 +24,13 @@ public sealed partial class MainForm
         var wallpaperPath = effectivePolicy.ClientWindowsWallpaperPath?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(wallpaperPath))
         {
-            return;
+            return Task.CompletedTask;
         }
 
         var resolvedWallpaperPath = ResolvePolicyWallpaperPath(wallpaperPath, _catalogPath);
-        await TrySetWindowsWallpaperAsync(resolvedWallpaperPath);
+        // Keep startup fast: apply wallpaper in background so UI is not blocked by IO/network.
+        _ = Task.Run(() => TrySetWindowsWallpaperAsync(resolvedWallpaperPath));
+        return Task.CompletedTask;
     }
 
     private void ApplyBrandingPolicy(LauncherClientPolicy policy)
@@ -38,11 +41,11 @@ public sealed partial class MainForm
 
         var bannerMessage = policy.BannerMessage?.Trim() ?? string.Empty;
         _bannerMessageLabel.Text = string.IsNullOrWhiteSpace(bannerMessage)
-            ? "Chào mừng quý khách"
+            ? I18n.Launcher.DefaultBannerMessage
             : bannerMessage;
         _bannerMessageLabel.Visible = true;
         ThemeFontFamily = string.IsNullOrWhiteSpace(policy.ThemeFontFamily)
-            ? "Segoe UI"
+            ? I18n.Launcher.DefaultFontFamily
             : policy.ThemeFontFamily.Trim();
 
         if (TryParseHtmlColor(policy.ThemeAccentColor, out var accentColor))

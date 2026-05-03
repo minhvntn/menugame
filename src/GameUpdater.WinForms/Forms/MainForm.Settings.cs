@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using GameUpdater.Core.Abstractions;
 using GameUpdater.Core.Services;
+using GameUpdater.Shared.Localization;
 using GameUpdater.Shared.Models;
 
 namespace GameUpdater.WinForms.Forms;
@@ -70,7 +71,7 @@ public sealed partial class MainForm
             }
             else
             {
-                _clientThemeFontComboBox.SelectedItem = "Segoe UI";
+                _clientThemeFontComboBox.SelectedItem = I18n.Server.DefaultThemeFontFamily;
             }
             _clientStatusFolderTextBox.Text = _clientStatusFolderPath;
             _enableClientCloseAppHotKeyCheckBox.Checked = _enableClientCloseApplicationHotKey;

@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using GameUpdater.Core.Abstractions;
 using GameUpdater.Core.Services;
+using GameUpdater.Shared.Localization;
 using GameUpdater.Shared.Models;
 
 namespace GameUpdater.WinForms.Forms;
@@ -105,35 +106,35 @@ public sealed partial class MainForm : Form
     private readonly Dictionary<string, string> _gameSizeDisplayCache = new(StringComparer.Ordinal);
     private readonly Dictionary<DownloadMonitorRow, ResourceSyncTaskControl> _activeResourceSyncControls = new();
     private readonly ContextMenuStrip _resourcesContextMenu = new();
-    private readonly ToolStripMenuItem _downloadSelectedResourcesMenuItem = new("Tải mục đã chọn");
-    private readonly ToolStripMenuItem _pauseSelectedResourcesMenuItem = new("Tạm dừng tải");
-    private readonly ToolStripMenuItem _resumeSelectedResourcesMenuItem = new("Tiếp tục tải");
-    private readonly ToolStripMenuItem _stopSelectedResourcesMenuItem = new("Dừng tải");
-    private readonly ToolStripMenuItem _setResourceBandwidthMenuItem = new("Giới hạn băng thông");
-    private readonly ToolStripMenuItem _retrySelectedResourcesMenuItem = new("Tải lại từ IDC");
+    private readonly ToolStripMenuItem _downloadSelectedResourcesMenuItem = new(I18n.Server.ResourceContextDownloadSelected);
+    private readonly ToolStripMenuItem _pauseSelectedResourcesMenuItem = new(I18n.Server.ResourceContextPauseSelected);
+    private readonly ToolStripMenuItem _resumeSelectedResourcesMenuItem = new(I18n.Server.ResourceContextResumeSelected);
+    private readonly ToolStripMenuItem _stopSelectedResourcesMenuItem = new(I18n.Server.ResourceContextStopSelected);
+    private readonly ToolStripMenuItem _setResourceBandwidthMenuItem = new(I18n.Server.ResourceContextSetBandwidth);
+    private readonly ToolStripMenuItem _retrySelectedResourcesMenuItem = new(I18n.Server.ResourceContextRetryFromIdc);
     private readonly List<ToolStripMenuItem> _resourceBandwidthPresetMenuItems = new();
-    private readonly ToolStripMenuItem _syncMissingFromIdcMenuItem = new("Đồng bộ file thiếu từ IDC");
+    private readonly ToolStripMenuItem _syncMissingFromIdcMenuItem = new(I18n.Server.ResourceContextSyncMissingFromIdc);
     private readonly ContextMenuStrip _gamesContextMenu = new();
-    private readonly ToolStripMenuItem _addGameMenuItem = new("Thêm");
-    private readonly ToolStripMenuItem _editGameMenuItem = new("Sửa");
-    private readonly ToolStripMenuItem _deleteGameMenuItem = new("Xóa");
-    private readonly ToolStripMenuItem _viewManifestMenuItem = new("Xem manifest");
-    private readonly ToolStripMenuItem _scanManifestGameMenuItem = new("Quét manifest");
-    private readonly ToolStripMenuItem _moveTopGameMenuItem = new("Lên đầu");
-    private readonly ToolStripMenuItem _moveUpGameMenuItem = new("Lên trên");
-    private readonly ToolStripMenuItem _moveDownGameMenuItem = new("Xuống dưới");
-    private readonly ToolStripMenuItem _markHotGameMenuItem = new("Danh dau Hot game");
-    private readonly ToolStripMenuItem _unmarkHotGameMenuItem = new("Bo Hot game");
+    private readonly ToolStripMenuItem _addGameMenuItem = new(I18n.Server.GamesContextAdd);
+    private readonly ToolStripMenuItem _editGameMenuItem = new(I18n.Server.GamesContextEdit);
+    private readonly ToolStripMenuItem _deleteGameMenuItem = new(I18n.Server.GamesContextDelete);
+    private readonly ToolStripMenuItem _viewManifestMenuItem = new(I18n.Server.GamesContextViewManifest);
+    private readonly ToolStripMenuItem _scanManifestGameMenuItem = new(I18n.Server.GamesContextScanManifest);
+    private readonly ToolStripMenuItem _moveTopGameMenuItem = new(I18n.Server.GamesContextMoveTop);
+    private readonly ToolStripMenuItem _moveUpGameMenuItem = new(I18n.Server.GamesContextMoveUp);
+    private readonly ToolStripMenuItem _moveDownGameMenuItem = new(I18n.Server.GamesContextMoveDown);
+    private readonly ToolStripMenuItem _markHotGameMenuItem = new(I18n.Server.GamesContextMarkHot);
+    private readonly ToolStripMenuItem _unmarkHotGameMenuItem = new(I18n.Server.GamesContextUnmarkHot);
     private readonly ContextMenuStrip _downloadMonitorContextMenu = new();
-    private readonly ToolStripMenuItem _pauseDownloadMenuItem = new("Tạm dừng");
-    private readonly ToolStripMenuItem _resumeDownloadMenuItem = new("Tiếp tục");
-    private readonly ToolStripMenuItem _pauseAllDownloadsMenuItem = new("Tạm dừng tất cả");
-    private readonly ToolStripMenuItem _resumeAllDownloadsMenuItem = new("Tiếp tục tất cả");
-    private readonly ToolStripMenuItem _stopDownloadMenuItem = new("Dừng tải");
-    private readonly ToolStripMenuItem _setDownloadBandwidthMenuItem = new("Giới hạn băng thông");
-    private readonly ToolStripMenuItem _retryDownloadFromIdcMenuItem = new("Tải lại từ IDC");
-    private readonly ToolStripMenuItem _removeDownloadMenuItem = new("Xóa dòng");
-    private readonly ToolStripMenuItem _removeFinishedDownloadsMenuItem = new("Xóa tác vụ đã xong");
+    private readonly ToolStripMenuItem _pauseDownloadMenuItem = new(I18n.Server.DownloadContextPause);
+    private readonly ToolStripMenuItem _resumeDownloadMenuItem = new(I18n.Server.DownloadContextResume);
+    private readonly ToolStripMenuItem _pauseAllDownloadsMenuItem = new(I18n.Server.DownloadContextPauseAll);
+    private readonly ToolStripMenuItem _resumeAllDownloadsMenuItem = new(I18n.Server.DownloadContextResumeAll);
+    private readonly ToolStripMenuItem _stopDownloadMenuItem = new(I18n.Server.DownloadContextStop);
+    private readonly ToolStripMenuItem _setDownloadBandwidthMenuItem = new(I18n.Server.DownloadContextSetBandwidth);
+    private readonly ToolStripMenuItem _retryDownloadFromIdcMenuItem = new(I18n.Server.DownloadContextRetryFromIdc);
+    private readonly ToolStripMenuItem _removeDownloadMenuItem = new(I18n.Server.DownloadContextRemoveRow);
+    private readonly ToolStripMenuItem _removeFinishedDownloadsMenuItem = new(I18n.Server.DownloadContextRemoveFinished);
     private readonly List<ToolStripMenuItem> _downloadBandwidthPresetMenuItems = new();
     private bool _downloadMonitorContextMenuInitialized;
     private bool _resourcesContextMenuInitialized;
@@ -144,10 +145,10 @@ public sealed partial class MainForm : Form
     private string _resourceTargetRootPath = @"E:\GameOnline";
     private int _resourceBandwidthLimitMbps;
     private string _clientWindowsWallpaperPath = string.Empty;
-    private string _clientCafeDisplayName = "Cyber Game";
+    private string _clientCafeDisplayName = I18n.Server.DefaultClientCafeName;
     private string _clientBannerMessage = string.Empty;
-    private string _clientThemeAccentColor = "#38BDF8";
-    private string _clientThemeFontFamily = "Segoe UI";
+    private string _clientThemeAccentColor = I18n.Server.DefaultThemeAccent;
+    private string _clientThemeFontFamily = I18n.Server.DefaultThemeFontFamily;
     private string _clientStatusFolderPath = string.Empty;
     private int _clientHeartbeatIntervalSeconds = 45;
     private int _dashboardRefreshIntervalSeconds = 15;
@@ -181,7 +182,7 @@ public sealed partial class MainForm : Form
         _settingsFilePath = Path.Combine(AppContext.BaseDirectory, "data", "server.ui.settings.json");
         _autoCatalogPath = Path.Combine(AppContext.BaseDirectory, "games.catalog.json");
 
-        Text = "Quản lý cập nhật trò chơi";
+        Text = I18n.Server.MainWindowTitle;
         Width = 1280;
         Height = 820;
         StartPosition = FormStartPosition.CenterScreen;
@@ -304,7 +305,7 @@ public sealed partial class MainForm : Form
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, exception.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this, exception.Message, I18n.Common.ErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -360,7 +361,7 @@ public sealed partial class MainForm : Form
 
     private void ShowInfo(string message)
     {
-        MessageBox.Show(this, message, "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        MessageBox.Show(this, message, I18n.Common.InfoTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private async Task AutoExportCatalogAsync()

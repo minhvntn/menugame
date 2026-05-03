@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using GameUpdater.Core.Abstractions;
 using GameUpdater.Core.Services;
+using GameUpdater.Shared.Localization;
 using GameUpdater.Shared.Models;
 
 namespace GameUpdater.WinForms.Forms;
@@ -22,8 +23,8 @@ public sealed partial class MainForm
             ResourceKey = resourceKey ?? string.Empty,
             ProgressPercent = 0,
             ProgressDisplay = "0.0%",
-            Status = "Đang tải",
-            Message = "Khởi tạo tác vụ cập nhật.",
+            Status = I18n.Server.UpdateRunningStatus,
+            Message = I18n.Server.DownloadTaskInitMessage,
             TotalSizeGbDisplay = "-",
             RemainingMbDisplay = "-",
             RemainingTimeDisplay = "-",
@@ -92,7 +93,7 @@ public sealed partial class MainForm
         {
             row.SpeedMbps = speedMbps;
         }
-        else if (!string.Equals(row.Status, "Đang tải", StringComparison.OrdinalIgnoreCase))
+        else if (!string.Equals(row.Status, I18n.Server.UpdateRunningStatus, StringComparison.OrdinalIgnoreCase))
         {
             row.SpeedMbps = null;
         }
@@ -198,10 +199,7 @@ public sealed partial class MainForm
 
     private static bool IsAutoRemovableCompletedStatus(string status)
     {
-        return string.Equals(status, "Hoàn tất", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(status, "Thành công", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(status, "Hoàn tất", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(status, "Thành công", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(status, I18n.Server.UpdateSuccessStatus, StringComparison.OrdinalIgnoreCase);
     }
 
     private void SyncResourceRowFromMonitor(DownloadMonitorRow monitorRow)
@@ -214,36 +212,36 @@ public sealed partial class MainForm
 
         var previousDownloaded = resourceRow.IsDownloaded;
 
-        if (string.Equals(monitorRow.Status, "Đang tải", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(monitorRow.Status, I18n.Server.UpdateRunningStatus, StringComparison.OrdinalIgnoreCase))
         {
-            resourceRow.DownloadStatus = $"Đang tải {monitorRow.ProgressPercent}%";
+            resourceRow.DownloadStatus = $"{I18n.Server.UpdateRunningStatus} {monitorRow.ProgressPercent}%";
             resourceRow.DownloadSpeedDisplay = ExtractDownloadSpeedDisplay(monitorRow.Message);
         }
-        else if (string.Equals(monitorRow.Status, "Tạm dừng", StringComparison.OrdinalIgnoreCase))
+        else if (string.Equals(monitorRow.Status, I18n.Server.UpdatePausedStatus, StringComparison.OrdinalIgnoreCase))
         {
-            resourceRow.DownloadStatus = $"Tạm dừng {monitorRow.ProgressPercent}%";
+            resourceRow.DownloadStatus = $"{I18n.Server.UpdatePausedStatus} {monitorRow.ProgressPercent}%";
             resourceRow.DownloadSpeedDisplay = "-";
         }
-        else if (string.Equals(monitorRow.Status, "Đang dừng", StringComparison.OrdinalIgnoreCase))
+        else if (string.Equals(monitorRow.Status, I18n.Server.UpdateStoppingStatus, StringComparison.OrdinalIgnoreCase))
         {
-            resourceRow.DownloadStatus = $"Đang dừng {monitorRow.ProgressPercent}%";
+            resourceRow.DownloadStatus = $"{I18n.Server.UpdateStoppingStatus} {monitorRow.ProgressPercent}%";
             resourceRow.DownloadSpeedDisplay = "-";
         }
         else if (IsAutoRemovableCompletedStatus(monitorRow.Status))
         {
             resourceRow.IsDownloaded = true;
-            resourceRow.DownloadStatus = "Đã tải";
+            resourceRow.DownloadStatus = I18n.Server.DownloadStatusDownloaded;
             resourceRow.DownloadSpeedDisplay = "-";
             resourceRow.RunStatus = GetRunStatusAfterSync(resourceRow);
         }
-        else if (string.Equals(monitorRow.Status, "Đã dừng", StringComparison.OrdinalIgnoreCase))
+        else if (string.Equals(monitorRow.Status, I18n.Server.UpdateStoppedStatus, StringComparison.OrdinalIgnoreCase))
         {
-            resourceRow.DownloadStatus = resourceRow.IsDownloaded ? "Đã tải" : "Chưa tải";
+            resourceRow.DownloadStatus = resourceRow.IsDownloaded ? I18n.Server.DownloadStatusDownloaded : I18n.Server.DownloadStatusMissing;
             resourceRow.DownloadSpeedDisplay = "-";
         }
-        else if (string.Equals(monitorRow.Status, "Thất bại", StringComparison.OrdinalIgnoreCase))
+        else if (string.Equals(monitorRow.Status, I18n.Server.UpdateFailedStatus, StringComparison.OrdinalIgnoreCase))
         {
-            resourceRow.DownloadStatus = resourceRow.IsDownloaded ? "Đã tải" : "Lỗi tải";
+            resourceRow.DownloadStatus = resourceRow.IsDownloaded ? I18n.Server.DownloadStatusDownloaded : I18n.Server.DownloadStatusError;
             resourceRow.DownloadSpeedDisplay = "-";
         }
 
@@ -320,10 +318,10 @@ public sealed partial class MainForm
         var runReady = !string.IsNullOrWhiteSpace(launchPath) && File.Exists(launchPath);
         if (runReady)
         {
-            return "Sẵn sàng chạy";
+            return I18n.Server.RunStatusReady;
         }
 
-        return row.IsManaged ? "Thiếu tệp chạy" : "Chưa cấu hình tệp chạy";
+        return row.IsManaged ? I18n.Server.RunStatusMissingExe : I18n.Server.RunStatusNotConfiguredExe;
     }
 
     private void EnsureDownloadMonitorContextMenu()
@@ -506,7 +504,7 @@ public sealed partial class MainForm
         var isPaused = IsResourceSyncPaused(selected);
         var selectedControl = TryGetResourceSyncToken(selected, out var syncControl) ? syncControl : null;
         var retryCandidate = !isRunning &&
-                             string.Equals(selected.Status, "Thất bại", StringComparison.OrdinalIgnoreCase) &&
+                             string.Equals(selected.Status, I18n.Server.UpdateFailedStatus, StringComparison.OrdinalIgnoreCase) &&
                              FindResourceRowForMonitor(selected) is { HasSource: true };
         _pauseDownloadMenuItem.Enabled = isRunning && !isPaused;
         _resumeDownloadMenuItem.Enabled = isRunning && isPaused;
@@ -528,12 +526,12 @@ public sealed partial class MainForm
 
         if (!TryGetResourceSyncToken(row, out var syncControl))
         {
-            ShowInfo("Tác vụ này không còn chạy.");
+            ShowInfo(I18n.Server.TaskNoLongerRunning);
             return;
         }
 
         syncControl.Pause();
-        UpdateDownloadMonitor(row, row.ProgressPercent, "Tạm dừng", "Tác vụ đã tạm dừng.");
+        UpdateDownloadMonitor(row, row.ProgressPercent, I18n.Server.UpdatePausedStatus, I18n.Server.TaskPaused);
     }
 
     private void ResumeDownloadMenuItem_Click(object? sender, EventArgs e)
@@ -546,12 +544,12 @@ public sealed partial class MainForm
 
         if (!TryGetResourceSyncToken(row, out var syncControl))
         {
-            ShowInfo("Tác vụ này không còn chạy.");
+            ShowInfo(I18n.Server.TaskNoLongerRunning);
             return;
         }
 
         syncControl.Resume();
-        UpdateDownloadMonitor(row, row.ProgressPercent, "Đang tải", "Tác vụ đã tiếp tục.");
+        UpdateDownloadMonitor(row, row.ProgressPercent, I18n.Server.UpdateRunningStatus, I18n.Server.TaskResumed);
     }
 
     private void PauseAllDownloadsMenuItem_Click(object? sender, EventArgs e)
@@ -574,7 +572,7 @@ public sealed partial class MainForm
             }
 
             syncControl.Pause();
-            UpdateDownloadMonitor(row, row.ProgressPercent, "Tạm dừng", "Đã tạm dừng theo yêu cầu hàng loạt.");
+            UpdateDownloadMonitor(row, row.ProgressPercent, I18n.Server.UpdatePausedStatus, I18n.Server.BatchPaused);
         }
     }
 
@@ -598,7 +596,7 @@ public sealed partial class MainForm
             }
 
             syncControl.Resume();
-            UpdateDownloadMonitor(row, row.ProgressPercent, "Đang tải", "Đã tiếp tục theo yêu cầu hàng loạt.");
+            UpdateDownloadMonitor(row, row.ProgressPercent, I18n.Server.UpdateRunningStatus, I18n.Server.BatchResumed);
         }
     }
 
@@ -617,13 +615,13 @@ public sealed partial class MainForm
 
         if (!TryGetResourceSyncToken(row, out var syncControl))
         {
-            ShowInfo("Tác vụ này không còn chạy.");
+            ShowInfo(I18n.Server.TaskNoLongerRunning);
             return;
         }
 
         syncControl.SetBandwidthLimitMbps(mbps);
         SetCheckedBandwidthPreset(mbps);
-        UpdateDownloadMonitor(row, row.ProgressPercent, row.Status, $"Đã đặt giới hạn băng thông: {mbps} MB/s.");
+        UpdateDownloadMonitor(row, row.ProgressPercent, row.Status, I18n.Server.BandwidthLimitSet(mbps));
     }
 
     private void SetCheckedBandwidthPreset(int mbps)
@@ -644,11 +642,11 @@ public sealed partial class MainForm
 
         if (!TryGetResourceSyncToken(row, out var syncControl))
         {
-            ShowInfo("Tác vụ này không còn chạy.");
+            ShowInfo(I18n.Server.TaskNoLongerRunning);
             return;
         }
 
-        UpdateDownloadMonitor(row, row.ProgressPercent, "Đang dừng", "Đang gửi yêu cầu dừng...");
+        UpdateDownloadMonitor(row, row.ProgressPercent, I18n.Server.UpdateStoppingStatus, I18n.Server.TaskStopping);
         syncControl.Cancel();
     }
 
@@ -662,14 +660,14 @@ public sealed partial class MainForm
 
         if (IsResourceSyncRunning(monitorRow))
         {
-            ShowInfo("Tác vụ đang chạy, không thể tải lại.");
+            ShowInfo(I18n.Server.RetryWhileRunningNotAllowed);
             return;
         }
 
         var resourceRow = FindResourceRowForMonitor(monitorRow);
         if (resourceRow is null || !resourceRow.HasSource)
         {
-            ShowInfo("Không tìm thấy nguồn IDC để tải lại tác vụ này.");
+            ShowInfo(I18n.Server.RetrySourceNotFound);
             return;
         }
 
@@ -702,7 +700,7 @@ public sealed partial class MainForm
 
         if (IsResourceSyncRunning(row))
         {
-            ShowInfo("Vui lòng dừng tác vụ trước khi xóa dòng.");
+            ShowInfo(I18n.Server.NeedStopTaskBeforeRemoveRow);
             return;
         }
 
@@ -779,9 +777,9 @@ public sealed partial class MainForm
     {
         if (_activeResourceSyncControls.Count > 0 ||
             _downloadMonitorRows.Any(row =>
-                string.Equals(row.Status, "Đang tải", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(row.Status, "Tạm dừng", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(row.Status, "Đang dừng", StringComparison.OrdinalIgnoreCase)))
+                string.Equals(row.Status, I18n.Server.UpdateRunningStatus, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(row.Status, I18n.Server.UpdatePausedStatus, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(row.Status, I18n.Server.UpdateStoppingStatus, StringComparison.OrdinalIgnoreCase)))
         {
             return;
         }
@@ -790,8 +788,8 @@ public sealed partial class MainForm
 
         var recentUpdateLogs = logs
             .Where(log =>
-                log.Action.Contains("Cập nhật", StringComparison.OrdinalIgnoreCase) ||
-                log.Action.Contains("Đồng bộ", StringComparison.OrdinalIgnoreCase))
+                log.Action.Contains(I18n.Server.LogActionUpdateKeyword, StringComparison.OrdinalIgnoreCase) ||
+                log.Action.Contains(I18n.Server.LogActionSyncKeyword, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(log => log.CreatedAt)
             .Take(30);
 
@@ -802,11 +800,11 @@ public sealed partial class MainForm
                 StartedAt = log.CreatedAt.ToLocalTime(),
                 UpdatedAt = log.CreatedAt.ToLocalTime(),
                 GameName = log.GameName,
-                ProgressPercent = string.Equals(log.Status, "Thành công", StringComparison.OrdinalIgnoreCase) ? 100 : 0,
+                ProgressPercent = string.Equals(log.Status, I18n.Server.UpdateSuccessStatus, StringComparison.OrdinalIgnoreCase) ? 100 : 0,
                 Status = log.Status,
                 Message = log.Message,
                 GameIdDisplay = "-",
-                ProgressDisplay = string.Equals(log.Status, "Thành công", StringComparison.OrdinalIgnoreCase) ? "100.0%" : "0.0%",
+                ProgressDisplay = string.Equals(log.Status, I18n.Server.UpdateSuccessStatus, StringComparison.OrdinalIgnoreCase) ? "100.0%" : "0.0%",
                 TotalSizeGbDisplay = "-",
                 RemainingMbDisplay = "-",
                 RemainingTimeDisplay = "-",

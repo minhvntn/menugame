@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using GameUpdater.Core.Abstractions;
 using GameUpdater.Core.Services;
+using GameUpdater.Shared.Localization;
 using GameUpdater.Shared.Models;
 
 namespace GameUpdater.WinForms.Forms;
@@ -19,24 +20,24 @@ public sealed partial class MainForm
         _resourceTree.AfterSelect -= ResourceTree_AfterSelect;
         _resourceTree.Nodes.Clear();
 
-        var resourceRoot = new TreeNode("Tải tài nguyên")
+        var resourceRoot = new TreeNode(I18n.Server.ResourceTreeRoot)
         {
             Tag = ResourceFilterKind.All
         };
-        resourceRoot.Nodes.Add(new TreeNode("Trò chơi chưa tải")
+        resourceRoot.Nodes.Add(new TreeNode(I18n.Server.ResourceTreeMissing)
         {
             Tag = ResourceFilterKind.Missing
         });
-        resourceRoot.Nodes.Add(new TreeNode("Trò chơi đã tải")
+        resourceRoot.Nodes.Add(new TreeNode(I18n.Server.ResourceTreeDownloaded)
         {
             Tag = ResourceFilterKind.Downloaded
         });
 
-        var monitorRoot = new TreeNode("Trung tâm giám sát")
+        var monitorRoot = new TreeNode(I18n.Server.ResourceTreeMonitorRoot)
         {
             Tag = ResourceFilterKind.DownloadMonitor
         };
-        monitorRoot.Nodes.Add(new TreeNode("Tải xuống máy chủ")
+        monitorRoot.Nodes.Add(new TreeNode(I18n.Server.ResourceTreeMonitor)
         {
             Tag = ResourceFilterKind.DownloadMonitor
         });
@@ -74,7 +75,7 @@ public sealed partial class MainForm
     {
         using var dialog = new FolderBrowserDialog
         {
-            Description = "Chọn thư mục nguồn tài nguyên (IDC).",
+            Description = I18n.Server.ResourceSourcePickerDescription,
             UseDescriptionForTitle = true,
             SelectedPath = _resourceSourceRootTextBox.Text
         };
@@ -89,7 +90,7 @@ public sealed partial class MainForm
     {
         using var dialog = new FolderBrowserDialog
         {
-            Description = "Chọn thư mục đích trên máy chủ.",
+            Description = I18n.Server.ResourceTargetPickerDescription,
             UseDescriptionForTitle = true,
             SelectedPath = _resourceTargetRootTextBox.Text
         };
@@ -107,7 +108,7 @@ public sealed partial class MainForm
             UpdateResourceRootsFromInputs();
             await SaveUiSettingsAsync();
             await ReloadAllAsync(SelectedGame?.Id);
-            ShowInfo("Đã lưu cấu hình nguồn/đích tài nguyên.");
+            ShowInfo(I18n.Server.ResourceConfigSaved);
         });
     }
 
@@ -119,9 +120,9 @@ public sealed partial class MainForm
             await RebuildResourceRowsAsync(_gamesBinding.List.OfType<GameRecord>().ToList());
             var missingSource = _allResourceRows.Count(row => !row.HasSource);
             var needSync = _allResourceRows.Count(row => row.RequiredAdditionalBytes.GetValueOrDefault() > 0);
-            var missingRunFile = _allResourceRows.Count(row => row.IsDownloaded && !string.Equals(row.HealthStatus, "OK", StringComparison.OrdinalIgnoreCase));
+            var missingRunFile = _allResourceRows.Count(row => row.IsDownloaded && !string.Equals(row.HealthStatus, I18n.Server.ResourceHealthOk, StringComparison.OrdinalIgnoreCase));
             UpdateResourceSummary(_allResourceRows);
-            ShowInfo($"Kiểm tra tài nguyên xong. Thiếu nguồn: {missingSource}. Cần đồng bộ: {needSync}. Cần kiểm tra file chạy: {missingRunFile}.\n{BuildResourceHealthSummary()}");
+            ShowInfo(I18n.Server.ResourceHealthCheckDone(missingSource, needSync, missingRunFile, BuildResourceHealthSummary()));
         });
     }
 
@@ -129,7 +130,7 @@ public sealed partial class MainForm
 {
     if (_resourcesGrid.Visible == false)
     {
-        ShowInfo("Vui lòng chuyển sang danh sách tài nguyên để chọn trò chơi.");
+        ShowInfo(I18n.Server.NeedSwitchToResourceList);
         return;
     }
 
@@ -140,7 +141,7 @@ public sealed partial class MainForm
 
     if (selectedRows.Count == 0)
     {
-        ShowInfo("Vui lòng chọn trò chơi có nguồn IDC để tải.");
+        ShowInfo(I18n.Server.NeedSelectResourceWithSource);
         return;
     }
 
@@ -167,7 +168,7 @@ public sealed partial class MainForm
             {
                 if (FindActiveMonitorRowForResource(row) is not null)
                 {
-                    AppendUpdateMessage($"Bỏ qua {row.Name}: đang có tác vụ tải chạy.");
+                    AppendUpdateMessage(I18n.Server.ResourceSkipBecauseTaskRunning(row.Name));
                     continue;
                 }
 
@@ -181,7 +182,7 @@ public sealed partial class MainForm
                 }
                 catch (OperationCanceledException)
                 {
-                    AppendUpdateMessage($"Đã dừng tác vụ tải tài nguyên của {row.Name} theo yêu cầu.");
+                    AppendUpdateMessage(I18n.Server.ResourceTaskStoppedByRequest(row.Name));
                     break;
                 }
             }
@@ -196,7 +197,7 @@ public sealed partial class MainForm
         var monitorRow = StartDownloadMonitor(game.Name, game.Id > 0 ? game.Id : null, resourceKey: ResolveSourceKeyForGame(game));
         var syncControl = new ResourceSyncTaskControl();
         var syncMode = ResourceSyncMode.Incremental;
-        var actionName = "Đồng bộ tài nguyên";
+        var actionName = I18n.Server.ResourceSyncAction;
 
         try
         {
@@ -211,7 +212,7 @@ public sealed partial class MainForm
                     return;
                 }
 
-                UpdateDownloadMonitor(monitorRow, info.Percent, "Đang tải", info.Message, info);
+                UpdateDownloadMonitor(monitorRow, info.Percent, I18n.Server.UpdateRunningStatus, info.Message, info);
             });
 
             var result = await _resourceSyncService.SyncGameAsync(
@@ -221,10 +222,10 @@ public sealed partial class MainForm
                 progress);
 
             var successMessage = syncMode == ResourceSyncMode.MissingOnly
-                ? $"Đồng bộ file thiếu {game.Name}: sao chép {result.CopiedFiles}/{result.TotalFiles} tệp."
-                : $"Đã tải {game.Name}: sao chép {result.CopiedFiles}/{result.TotalFiles} tệp từ {result.SourcePath} về {result.TargetPath}.";
+                ? I18n.Server.ResourceSyncMissingSuccess(game.Name, result.CopiedFiles, result.TotalFiles)
+                : I18n.Server.ResourceSyncDownloadedSuccess(game.Name, result.CopiedFiles, result.TotalFiles, result.SourcePath, result.TargetPath);
 
-            UpdateDownloadMonitor(monitorRow, 100, "Hoàn tất", successMessage);
+            UpdateDownloadMonitor(monitorRow, 100, I18n.Server.UpdateSuccessStatus, successMessage);
             AppendUpdateMessage(successMessage);
 
             await _logRepository.AddAsync(new UpdateLogEntry
@@ -232,21 +233,21 @@ public sealed partial class MainForm
                 GameId = game.Id > 0 ? game.Id : null,
                 GameName = game.Name,
                 Action = actionName,
-                Status = "Thành công",
+                Status = I18n.Server.UpdateSuccessStatus,
                 Message = successMessage,
                 CreatedAt = DateTime.UtcNow
             });
         }
         catch (Exception exception)
         {
-            UpdateDownloadMonitor(monitorRow, monitorRow.ProgressPercent, "Thất bại", exception.Message);
+            UpdateDownloadMonitor(monitorRow, monitorRow.ProgressPercent, I18n.Server.UpdateFailedStatus, exception.Message);
 
             await _logRepository.AddAsync(new UpdateLogEntry
             {
                 GameId = game.Id > 0 ? game.Id : null,
                 GameName = game.Name,
-                Action = "Đồng bộ tài nguyên",
-                Status = "Thất bại",
+                Action = I18n.Server.ResourceSyncAction,
+                Status = I18n.Server.UpdateFailedStatus,
                 Message = exception.Message,
                 CreatedAt = DateTime.UtcNow
             });
@@ -271,7 +272,7 @@ public sealed partial class MainForm
         var syncControl = new ResourceSyncTaskControl();
         syncControl.SetBandwidthLimitMbps(_resourceBandwidthLimitMbps);
         RegisterResourceSyncToken(monitorRow, syncControl);
-        var actionName = syncMode == ResourceSyncMode.MissingOnly ? "Đồng bộ file thiếu IDC" : "Đồng bộ tài nguyên";
+        var actionName = syncMode == ResourceSyncMode.MissingOnly ? I18n.Server.ResourceSyncMissingAction : I18n.Server.ResourceSyncAction;
 
         try
         {
@@ -282,7 +283,7 @@ public sealed partial class MainForm
                     return;
                 }
 
-                UpdateDownloadMonitor(monitorRow, info.Percent, "Đang tải", info.Message, info);
+                UpdateDownloadMonitor(monitorRow, info.Percent, I18n.Server.UpdateRunningStatus, info.Message, info);
             });
 
             var result = await SyncGameWithMirrorFallbackAsync(
@@ -293,10 +294,10 @@ public sealed partial class MainForm
                 syncControl);
 
             var successMessage = syncMode == ResourceSyncMode.MissingOnly
-                ? $"Đồng bộ file thiếu {game.Name}: sao chép {result.CopiedFiles}/{result.TotalFiles} tệp."
-                : $"Đã tải {game.Name}: sao chép {result.CopiedFiles}/{result.TotalFiles} tệp từ {result.SourcePath} về {result.TargetPath}.";
+                ? I18n.Server.ResourceSyncMissingSuccess(game.Name, result.CopiedFiles, result.TotalFiles)
+                : I18n.Server.ResourceSyncDownloadedSuccess(game.Name, result.CopiedFiles, result.TotalFiles, result.SourcePath, result.TargetPath);
 
-            UpdateDownloadMonitor(monitorRow, 100, "Hoàn tất", successMessage);
+            UpdateDownloadMonitor(monitorRow, 100, I18n.Server.UpdateSuccessStatus, successMessage);
             AppendUpdateMessage(successMessage);
 
             await _logRepository.AddAsync(new UpdateLogEntry
@@ -304,15 +305,15 @@ public sealed partial class MainForm
                 GameId = game.Id > 0 ? game.Id : null,
                 GameName = game.Name,
                 Action = actionName,
-                Status = "Thành công",
+                Status = I18n.Server.UpdateSuccessStatus,
                 Message = successMessage,
                 CreatedAt = DateTime.UtcNow
             });
         }
         catch (OperationCanceledException)
         {
-            var canceledMessage = $"Đã dừng tải {game.Name} theo yêu cầu.";
-            UpdateDownloadMonitor(monitorRow, monitorRow.ProgressPercent, "Đã dừng", canceledMessage);
+            var canceledMessage = I18n.Server.ResourceDownloadStopped(game.Name);
+            UpdateDownloadMonitor(monitorRow, monitorRow.ProgressPercent, I18n.Server.UpdateStoppedStatus, canceledMessage);
             AppendUpdateMessage(canceledMessage);
 
             await _logRepository.AddAsync(new UpdateLogEntry
@@ -320,7 +321,7 @@ public sealed partial class MainForm
                 GameId = game.Id > 0 ? game.Id : null,
                 GameName = game.Name,
                 Action = actionName,
-                Status = "Đã dừng",
+                Status = I18n.Server.UpdateStoppedStatus,
                 Message = canceledMessage,
                 CreatedAt = DateTime.UtcNow
             });
@@ -329,14 +330,14 @@ public sealed partial class MainForm
         }
         catch (Exception exception)
         {
-            UpdateDownloadMonitor(monitorRow, monitorRow.ProgressPercent, "Thất bại", exception.Message);
+            UpdateDownloadMonitor(monitorRow, monitorRow.ProgressPercent, I18n.Server.UpdateFailedStatus, exception.Message);
 
             await _logRepository.AddAsync(new UpdateLogEntry
             {
                 GameId = game.Id > 0 ? game.Id : null,
                 GameName = game.Name,
                 Action = actionName,
-                Status = "Thất bại",
+                Status = I18n.Server.UpdateFailedStatus,
                 Message = exception.Message,
                 CreatedAt = DateTime.UtcNow
             });
@@ -358,7 +359,7 @@ public sealed partial class MainForm
     {
         if (sourceRoots.Count == 0)
         {
-            throw new InvalidOperationException("Chưa cấu hình nguồn IDC hợp lệ.");
+            throw new InvalidOperationException(I18n.Server.ResourceSourceConfigInvalid);
         }
 
         Exception? lastException = null;
@@ -372,7 +373,7 @@ public sealed partial class MainForm
 
             progress.Report(UpdateProgressInfo.Create(
                 5,
-                $"Đang thử nguồn IDC {index + 1}/{sourceRoots.Count}: {sourceRoot}"));
+                I18n.Server.ResourceTrySourceProgress(index + 1, sourceRoots.Count, sourceRoot)));
 
             try
             {
@@ -396,11 +397,11 @@ public sealed partial class MainForm
             catch (Exception exception)
             {
                 lastException = exception;
-                AppendUpdateMessage($"Nguồn IDC lỗi ({sourceRoot}): {exception.Message}");
+                AppendUpdateMessage(I18n.Server.ResourceSourceError(sourceRoot, exception.Message));
             }
         }
 
-        throw lastException ?? new InvalidOperationException("Không thể đồng bộ từ các nguồn IDC đã cấu hình.");
+        throw lastException ?? new InvalidOperationException(I18n.Server.ResourceSyncAllSourcesFailed);
     }
 
     private GameRecord? FindGameById(int gameId)
@@ -436,12 +437,12 @@ public sealed partial class MainForm
         {
             Id = 0,
             Name = row.Name,
-            Category = string.IsNullOrWhiteSpace(row.Category) ? "IDC" : row.Category,
+            Category = string.IsNullOrWhiteSpace(row.Category) ? I18n.Server.ResourceDefaultCategoryIdc : row.Category,
             InstallPath = row.InstallPath,
-            Version = "1.0.0",
+            Version = I18n.Server.GameEditorDefaultVersion,
             LaunchRelativePath = string.Empty,
             LaunchArguments = string.Empty,
-            Notes = "Tạo tự động từ nguồn IDC"
+            Notes = I18n.Server.ResourceAutoCreatedFromSourceNote
         };
     }
 
@@ -449,7 +450,7 @@ public sealed partial class MainForm
     {
         if (!await ConfirmDiskSpaceForResourceSyncAsync(row))
         {
-            AppendUpdateMessage($"Bỏ qua tải {row.Name}: không đủ dung lượng trống.");
+            AppendUpdateMessage(I18n.Server.ResourceSkipDueLowDisk(row.Name));
             return null;
         }
 
@@ -490,13 +491,10 @@ public sealed partial class MainForm
         var availableGb = availableBytes / 1024d / 1024d / 1024d;
         var reserveGb = reserveBytes / 1024d / 1024d / 1024d;
 
-        var result = MessageBox.Show(
+                var result = MessageBox.Show(
             this,
-            $"Dung lượng trống có thể không đủ để tải {row.Name}.{Environment.NewLine}" +
-            $"Cần thêm khoảng: {requiredGb:N2} GB{Environment.NewLine}" +
-            $"Đang trống: {availableGb:N2} GB (khuyến nghị dự phòng {reserveGb:N0} GB).{Environment.NewLine}{Environment.NewLine}" +
-            "Bạn có muốn tiếp tục không?",
-            "Cảnh báo dung lượng",
+            I18n.Server.DiskSpaceWarning(row.Name, requiredGb, availableGb, reserveGb),
+            I18n.Server.DiskSpaceWarningTitle,
             MessageBoxButtons.YesNo,
             MessageBoxIcon.Warning);
 
@@ -546,25 +544,25 @@ public sealed partial class MainForm
     {
         if (!hasSource)
         {
-            return "Thiếu nguồn IDC";
+            return I18n.Server.ResourceHealthMissingSource;
         }
 
         if (!hasDownloadedData)
         {
-            return "Chưa tải";
+            return I18n.Server.ResourceHealthNotDownloaded;
         }
 
         if (!runReady)
         {
-            return "Thiếu file chạy";
+            return I18n.Server.ResourceHealthMissingRunFile;
         }
 
         if (requiredAdditionalBytes.GetValueOrDefault() > 0)
         {
-            return "Cần đồng bộ";
+            return I18n.Server.ResourceHealthNeedSync;
         }
 
-        return "OK";
+        return I18n.Server.ResourceHealthOk;
     }
 
     private string BuildResourceHealthSummary()
@@ -574,18 +572,16 @@ public sealed partial class MainForm
         var sourceOk = sourceRoots.Any(root => IsHttpSourceRootConfigured(root) || Directory.Exists(root));
         if (sourceRoots.Count > 1)
         {
-            messages.Add(sourceOk
-                ? $"Nguồn IDC mirror: {sourceRoots.Count} nguồn"
-                : $"Nguồn IDC mirror: {sourceRoots.Count} nguồn không truy cập");
+            messages.Add(I18n.Server.ResourceMirrorSummary(sourceRoots.Count, sourceOk));
         }
         else
         {
-            messages.Add(sourceOk ? "Nguồn IDC: OK" : "Nguồn IDC: Không truy cập");
+            messages.Add(sourceOk ? I18n.Server.ResourceSourceStatusOk : I18n.Server.ResourceSourceStatusUnavailable);
         }
 
         var targetOk = Directory.Exists(_resourceTargetRootPath);
         var targetWritable = targetOk && CanWriteToFolder(_resourceTargetRootPath);
-        messages.Add(targetWritable ? "Đích game: OK" : "Đích game: Không ghi được");
+        messages.Add(targetWritable ? I18n.Server.ResourceTargetStatusOk : I18n.Server.ResourceTargetStatusNotWritable);
 
         if (targetOk)
         {
@@ -596,8 +592,8 @@ public sealed partial class MainForm
                 var freeGb = drive.AvailableFreeSpace / 1024d / 1024d / 1024d;
                 var totalGb = drive.TotalSize / 1024d / 1024d / 1024d;
                 var usedPercent = totalGb <= 0 ? 0 : (totalGb - freeGb) * 100d / totalGb;
-                var warning = freeGb < 100 || usedPercent >= 90 ? " ⚠" : string.Empty;
-                messages.Add($"Ổ game trống: {freeGb:N1}/{totalGb:N1} GB ({usedPercent:N0}% dùng){warning}");
+                var warning = freeGb < 100 || usedPercent >= 90 ? " !" : string.Empty;
+                messages.Add(I18n.Server.ResourceDiskFreeSummary(freeGb, totalGb, usedPercent, warning));
             }
         }
 
@@ -675,7 +671,7 @@ public sealed partial class MainForm
 
         if (string.IsNullOrWhiteSpace(game.Version))
         {
-            game.Version = "1.0.0";
+            game.Version = I18n.Server.GameEditorDefaultVersion;
         }
 
         var gameId = await _gameService.SaveGameAsync(game);
@@ -733,12 +729,12 @@ public sealed partial class MainForm
 
         if (GetConfiguredResourceSourceRoots().Count == 0)
         {
-            throw new InvalidOperationException("Vui lòng nhập ít nhất một nguồn IDC (hỗ trợ ngăn cách bằng dấu ; hoặc xuống dòng để mirror/fallback).");
+            throw new InvalidOperationException(I18n.Server.NeedAtLeastOneIdcSource);
         }
 
         if (string.IsNullOrWhiteSpace(_resourceTargetRootPath))
         {
-            throw new InvalidOperationException("Vui lòng nhập thư mục đích máy chủ.");
+            throw new InvalidOperationException(I18n.Server.NeedResourceTargetFolder);
         }
     }
 
@@ -759,23 +755,23 @@ public sealed partial class MainForm
         _resourcesGrid.Columns.Add(new DataGridViewImageColumn
         {
             Name = "ResourceStatusIcon",
-            HeaderText = "Tình trạng",
+            HeaderText = I18n.Server.ResourceGridHeaderStatus,
             DataPropertyName = nameof(ResourceGameRow.HealthStatus),
             Width = 84,
             ImageLayout = DataGridViewImageCellLayout.Zoom
         });
-        _resourcesGrid.Columns.Add(CreateTextColumn("Tên trò chơi", nameof(ResourceGameRow.Name), 180));
-        _resourcesGrid.Columns.Add(CreateTextColumn("Nhóm", nameof(ResourceGameRow.Category), 120));
-        _resourcesGrid.Columns.Add(CreateTextColumn("Nguồn IDC", nameof(ResourceGameRow.SourceStatus), 110));
-        _resourcesGrid.Columns.Add(CreateTextColumn("Trạng thái tải", nameof(ResourceGameRow.DownloadStatus), 160));
-        _resourcesGrid.Columns.Add(CreateTextColumn("Tốc độ", nameof(ResourceGameRow.DownloadSpeedDisplay), 100));
-        _resourcesGrid.Columns.Add(CreateTextColumn("Trạng thái chạy", nameof(ResourceGameRow.RunStatus), 130));
-        _resourcesGrid.Columns.Add(CreateTextColumn("Số tệp", nameof(ResourceGameRow.FileCountDisplay), 90));
-        _resourcesGrid.Columns.Add(CreateTextColumn("Kích thước (GB)", nameof(ResourceGameRow.SizeGbDisplay), 110));
-        _resourcesGrid.Columns.Add(CreateTextColumn("Cần thêm GB", nameof(ResourceGameRow.RequiredAdditionalGbDisplay), 110));
-        _resourcesGrid.Columns.Add(CreateTextColumn("Cập nhật gần nhất", nameof(ResourceGameRow.LastUpdatedAt), 150, "yyyy-MM-dd HH:mm:ss"));
-        _resourcesGrid.Columns.Add(CreateTextColumn("Đường dẫn nguồn", nameof(ResourceGameRow.SourcePath), 260));
-        _resourcesGrid.Columns.Add(CreateTextColumn("Đường dẫn cài đặt", nameof(ResourceGameRow.InstallPath), 400, fill: true));
+        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderGameName, nameof(ResourceGameRow.Name), 180));
+        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderCategory, nameof(ResourceGameRow.Category), 120));
+        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderSource, nameof(ResourceGameRow.SourceStatus), 110));
+        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderDownloadStatus, nameof(ResourceGameRow.DownloadStatus), 160));
+        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderSpeed, nameof(ResourceGameRow.DownloadSpeedDisplay), 100));
+        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderRunStatus, nameof(ResourceGameRow.RunStatus), 130));
+        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderFileCount, nameof(ResourceGameRow.FileCountDisplay), 90));
+        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderSizeGb, nameof(ResourceGameRow.SizeGbDisplay), 110));
+        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderRequiredGb, nameof(ResourceGameRow.RequiredAdditionalGbDisplay), 110));
+        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderLastUpdated, nameof(ResourceGameRow.LastUpdatedAt), 150, "yyyy-MM-dd HH:mm:ss"));
+        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderSourcePath, nameof(ResourceGameRow.SourcePath), 260));
+        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderInstallPath, nameof(ResourceGameRow.InstallPath), 400, fill: true));
     }
 
     private void EnsureResourceStatusIconsLoaded()
@@ -815,7 +811,7 @@ public sealed partial class MainForm
         }
 
         var status = e.Value?.ToString()?.Trim();
-        var isActive = string.Equals(status, "OK", StringComparison.OrdinalIgnoreCase);
+        var isActive = string.Equals(status, I18n.Server.ResourceHealthOk, StringComparison.OrdinalIgnoreCase);
         e.Value = isActive ? _resourceStatusActiveIcon : _resourceStatusInactiveIcon;
         e.FormattingApplied = e.Value is not null;
     }
@@ -951,7 +947,7 @@ public sealed partial class MainForm
 
         if (selectedRows.Count == 0)
         {
-            ShowInfo("Không có trò chơi có nguồn IDC để tải.");
+            ShowInfo(I18n.Server.NoResourceWithSourceToDownload);
             return;
         }
 
@@ -970,13 +966,13 @@ public sealed partial class MainForm
             }
 
             control.Pause();
-            UpdateDownloadMonitor(monitorRow, monitorRow.ProgressPercent, "Tạm dừng", "Đã tạm dừng theo yêu cầu từ danh sách tài nguyên.");
+            UpdateDownloadMonitor(monitorRow, monitorRow.ProgressPercent, I18n.Server.UpdatePausedStatus, I18n.Server.ResourcePauseFromList);
             paused++;
         }
 
         if (paused == 0)
         {
-            ShowInfo("Không có tác vụ đang chạy để tạm dừng.");
+            ShowInfo(I18n.Server.NoRunningTaskToPause);
         }
     }
 
@@ -992,13 +988,13 @@ public sealed partial class MainForm
             }
 
             control.Resume();
-            UpdateDownloadMonitor(monitorRow, monitorRow.ProgressPercent, "Đang tải", "Đã tiếp tục theo yêu cầu từ danh sách tài nguyên.");
+            UpdateDownloadMonitor(monitorRow, monitorRow.ProgressPercent, I18n.Server.UpdateRunningStatus, I18n.Server.ResourceResumeFromList);
             resumed++;
         }
 
         if (resumed == 0)
         {
-            ShowInfo("Không có tác vụ tạm dừng để tiếp tục.");
+            ShowInfo(I18n.Server.NoPausedTaskToResume);
         }
     }
 
@@ -1008,14 +1004,14 @@ public sealed partial class MainForm
         var stopped = 0;
         foreach (var (monitorRow, control) in selectedTasks)
         {
-            UpdateDownloadMonitor(monitorRow, monitorRow.ProgressPercent, "Đang dừng", "Đang gửi yêu cầu dừng từ danh sách tài nguyên...");
+            UpdateDownloadMonitor(monitorRow, monitorRow.ProgressPercent, I18n.Server.UpdateStoppingStatus, I18n.Server.ResourceRunningTaskInListStopMessage);
             control.Cancel();
             stopped++;
         }
 
         if (stopped == 0)
         {
-            ShowInfo("Không có tác vụ đang chạy để dừng.");
+            ShowInfo(I18n.Server.NoRunningTaskToStop);
         }
     }
 
@@ -1032,7 +1028,7 @@ public sealed partial class MainForm
 
         if (selectedRows.Count == 0)
         {
-            ShowInfo("Không có mục phù hợp để tải lại.");
+            ShowInfo(I18n.Server.NoRetryableTask);
             return;
         }
 
@@ -1049,14 +1045,14 @@ public sealed partial class MainForm
         var selectedTasks = GetSelectedActiveResourceTasks();
         if (selectedTasks.Count == 0)
         {
-            ShowInfo("Không có tác vụ đang chạy để đặt băng thông.");
+            ShowInfo(I18n.Server.NoRunningTaskToSetBandwidth);
             return;
         }
 
         foreach (var (monitorRow, control) in selectedTasks)
         {
             control.SetBandwidthLimitMbps(mbps);
-            UpdateDownloadMonitor(monitorRow, monitorRow.ProgressPercent, monitorRow.Status, $"Đã đặt giới hạn băng thông: {mbps} MB/s.");
+            UpdateDownloadMonitor(monitorRow, monitorRow.ProgressPercent, monitorRow.Status, I18n.Server.BandwidthLimitSet(mbps));
         }
 
         SetCheckedResourceBandwidthPreset(mbps);
@@ -1082,7 +1078,7 @@ public sealed partial class MainForm
 
         if (selectedRows.Count == 0)
         {
-            ShowInfo("Không có trò chơi phù hợp để đồng bộ file thiếu.");
+            ShowInfo(I18n.Server.NoEligibleGameToSyncMissing);
             return;
         }
 
@@ -1165,8 +1161,8 @@ public sealed partial class MainForm
 
     private static bool IsRetryableMonitorStatus(string status)
     {
-        return string.Equals(status, "Thất bại", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(status, "Đã dừng", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(status, I18n.Server.UpdateFailedStatus, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(status, I18n.Server.UpdateStoppedStatus, StringComparison.OrdinalIgnoreCase);
     }
 
     private void ConfigureDownloadMonitorGrid()
@@ -1180,22 +1176,22 @@ public sealed partial class MainForm
         _downloadMonitorGrid.RowHeadersVisible = false;
         _downloadMonitorGrid.DataSource = _downloadMonitorBinding;
 
-        _downloadMonitorGrid.Columns.Add(CreateTextColumn("STT", nameof(DownloadMonitorRow.SerialNumber), 50));
-        _downloadMonitorGrid.Columns.Add(CreateTextColumn("Game ID", nameof(DownloadMonitorRow.GameIdDisplay), 80));
-        _downloadMonitorGrid.Columns.Add(CreateTextColumn("Tên Game", nameof(DownloadMonitorRow.GameName), 190));
+        _downloadMonitorGrid.Columns.Add(CreateTextColumn(I18n.Server.MonitorGridHeaderIndex, nameof(DownloadMonitorRow.SerialNumber), 50));
+        _downloadMonitorGrid.Columns.Add(CreateTextColumn(I18n.Server.MonitorGridHeaderGameId, nameof(DownloadMonitorRow.GameIdDisplay), 80));
+        _downloadMonitorGrid.Columns.Add(CreateTextColumn(I18n.Server.MonitorGridHeaderGameName, nameof(DownloadMonitorRow.GameName), 190));
         var progressColumn = new DataGridViewTextBoxColumn
         {
             Name = DownloadProgressColumnName,
-            HeaderText = "Tiến trình",
+            HeaderText = I18n.Server.MonitorGridHeaderProgress,
             DataPropertyName = nameof(DownloadMonitorRow.ProgressPercent),
             Width = 100
         };
         _downloadMonitorGrid.Columns.Add(progressColumn);
-        _downloadMonitorGrid.Columns.Add(CreateTextColumn("Trạng thái", nameof(DownloadMonitorRow.Status), 110));
-        _downloadMonitorGrid.Columns.Add(CreateTextColumn("Dung lượng (GB)", nameof(DownloadMonitorRow.TotalSizeGbDisplay), 115));
-        _downloadMonitorGrid.Columns.Add(CreateTextColumn("Còn lại (MB)", nameof(DownloadMonitorRow.RemainingMbDisplay), 115));
-        _downloadMonitorGrid.Columns.Add(CreateTextColumn("Thời gian còn lại", nameof(DownloadMonitorRow.RemainingTimeDisplay), 125));
-        _downloadMonitorGrid.Columns.Add(CreateTextColumn("Tốc độ (MB/S)", nameof(DownloadMonitorRow.SpeedMbpsDisplay), 100));
+        _downloadMonitorGrid.Columns.Add(CreateTextColumn(I18n.Server.MonitorGridHeaderStatus, nameof(DownloadMonitorRow.Status), 110));
+        _downloadMonitorGrid.Columns.Add(CreateTextColumn(I18n.Server.MonitorGridHeaderTotalGb, nameof(DownloadMonitorRow.TotalSizeGbDisplay), 115));
+        _downloadMonitorGrid.Columns.Add(CreateTextColumn(I18n.Server.MonitorGridHeaderRemainingMb, nameof(DownloadMonitorRow.RemainingMbDisplay), 115));
+        _downloadMonitorGrid.Columns.Add(CreateTextColumn(I18n.Server.MonitorGridHeaderRemainingTime, nameof(DownloadMonitorRow.RemainingTimeDisplay), 125));
+        _downloadMonitorGrid.Columns.Add(CreateTextColumn(I18n.Server.MonitorGridHeaderSpeed, nameof(DownloadMonitorRow.SpeedMbpsDisplay), 100));
         _downloadMonitorGrid.CellPainting -= DownloadMonitorGrid_CellPainting;
         _downloadMonitorGrid.CellPainting += DownloadMonitorGrid_CellPainting;
     }
@@ -1283,16 +1279,16 @@ public sealed partial class MainForm
             SourceKey = sourceKey,
             SourceRoot = sourceRoot,
             SourcePath = sourcePath,
-            SourceStatus = sourceExists ? "Có nguồn" : "Thiếu nguồn",
+            SourceStatus = sourceExists ? I18n.Server.ResourceStatusHasSource : I18n.Server.ResourceStatusMissingSource,
             InstallPath = game.InstallPath,
             LastUpdatedAt = game.LastUpdatedAt,
             IsDownloaded = hasDownloadedData,
             IsManaged = true,
             HasSource = sourceExists,
             HealthStatus = healthStatus,
-            DownloadStatus = hasDownloadedData ? "Đã tải" : "Chưa tải",
+            DownloadStatus = hasDownloadedData ? I18n.Server.DownloadStatusDownloaded : I18n.Server.DownloadStatusMissing,
             DownloadSpeedDisplay = "-",
-            RunStatus = runReady ? "Sẵn sàng chạy" : "Thiếu tệp chạy",
+            RunStatus = runReady ? I18n.Server.RunStatusReady : I18n.Server.RunStatusMissingExe,
             FileCountDisplay = fileCount?.ToString("N0") ?? "-",
             SizeGbDisplay = totalBytes.HasValue ? (totalBytes.Value / 1024d / 1024d / 1024d).ToString("N2") : "-",
             RequiredAdditionalBytes = requiredAdditionalBytes
@@ -1540,14 +1536,14 @@ public sealed partial class MainForm
             Id = 0,
             ManagedGameId = null,
             Name = sourceFolder.Name,
-            Category = "IDC",
+            Category = I18n.Server.ResourceDefaultCategoryIdc,
             SourceKey = sourceFolder.Key,
             SourceRoot = sourceFolder.SourceRoot,
-            SourceStatus = "Có nguồn",
+            SourceStatus = I18n.Server.ResourceStatusHasSource,
             SourcePath = sourceFolder.FullPath,
-            DownloadStatus = hasDownloadedData ? "Đã tải" : "Chưa tải",
+            DownloadStatus = hasDownloadedData ? I18n.Server.DownloadStatusDownloaded : I18n.Server.DownloadStatusMissing,
             DownloadSpeedDisplay = "-",
-            RunStatus = runReady ? "Sẵn sàng chạy" : "Chưa cấu hình tệp chạy",
+            RunStatus = runReady ? I18n.Server.RunStatusReady : I18n.Server.RunStatusNotConfiguredExe,
             FileCountDisplay = "-",
             SizeGbDisplay = "-",
             LastUpdatedAt = null,
@@ -1576,11 +1572,11 @@ public sealed partial class MainForm
 
             var isDownloaded = await DetermineResourceDownloadedStateAsync(row, gamesById);
             row.IsDownloaded = isDownloaded;
-            row.DownloadStatus = isDownloaded ? "Đã tải" : "Chưa tải";
+            row.DownloadStatus = isDownloaded ? I18n.Server.DownloadStatusDownloaded : I18n.Server.DownloadStatusMissing;
             row.DownloadSpeedDisplay = "-";
             row.RunStatus = isDownloaded
                 ? GetRunStatusAfterSync(row)
-                : (row.IsManaged ? "Thiếu tệp chạy" : "Chưa cấu hình tệp chạy");
+                : (row.IsManaged ? I18n.Server.RunStatusMissingExe : I18n.Server.RunStatusNotConfiguredExe);
         }
     }
 
@@ -1879,11 +1875,11 @@ public sealed partial class MainForm
                 continue;
             }
 
-            row.DownloadStatus = row.IsDownloaded ? "Đã tải" : "Chưa tải";
+            row.DownloadStatus = row.IsDownloaded ? I18n.Server.DownloadStatusDownloaded : I18n.Server.DownloadStatusMissing;
             row.DownloadSpeedDisplay = "-";
             row.RunStatus = row.IsDownloaded
                 ? GetRunStatusAfterSync(row)
-                : (row.IsManaged ? "Thiếu tệp chạy" : "Chưa cấu hình tệp chạy");
+                : (row.IsManaged ? I18n.Server.RunStatusMissingExe : I18n.Server.RunStatusNotConfiguredExe);
         }
     }
 
@@ -1895,23 +1891,27 @@ public sealed partial class MainForm
         var totalRequiredGb = _allResourceRows
             .Where(row => row.RequiredAdditionalBytes.HasValue)
             .Sum(row => row.RequiredAdditionalBytes!.Value) / 1024d / 1024d / 1024d;
-        _resourceSummaryLabel.Text = $"Hiển thị {filteredRows.Count}/{total} trò chơi. Đã tải: {downloaded}. Chưa tải: {missing}. Cần thêm: {totalRequiredGb:N1} GB. {BuildResourceHealthSummary()}";
+        _resourceSummaryLabel.Text = I18n.Server.ResourceSummaryText(filteredRows.Count, total, downloaded, missing, totalRequiredGb, BuildResourceHealthSummary());
     }
 
     private void UpdateDownloadSummary()
     {
         var total = _downloadMonitorRows.Count;
-        var running = _downloadMonitorRows.Count(row => string.Equals(row.Status, "Đang tải", StringComparison.OrdinalIgnoreCase));
-        var paused = _downloadMonitorRows.Count(row => string.Equals(row.Status, "Tạm dừng", StringComparison.OrdinalIgnoreCase));
-        var stopping = _downloadMonitorRows.Count(row => string.Equals(row.Status, "Đang dừng", StringComparison.OrdinalIgnoreCase));
-        var failed = _downloadMonitorRows.Count(row => string.Equals(row.Status, "Thất bại", StringComparison.OrdinalIgnoreCase));
-        var totalSpeed = _downloadMonitorRows.Where(row => string.Equals(row.Status, "Đang tải", StringComparison.OrdinalIgnoreCase)).Sum(row => row.SpeedMbps.GetValueOrDefault());
+        var running = _downloadMonitorRows.Count(row => string.Equals(row.Status, I18n.Server.UpdateRunningStatus, StringComparison.OrdinalIgnoreCase));
+        var paused = _downloadMonitorRows.Count(row => string.Equals(row.Status, I18n.Server.UpdatePausedStatus, StringComparison.OrdinalIgnoreCase));
+        var stopping = _downloadMonitorRows.Count(row => string.Equals(row.Status, I18n.Server.UpdateStoppingStatus, StringComparison.OrdinalIgnoreCase));
+        var failed = _downloadMonitorRows.Count(row => string.Equals(row.Status, I18n.Server.UpdateFailedStatus, StringComparison.OrdinalIgnoreCase));
+        var totalSpeed = _downloadMonitorRows.Where(row => string.Equals(row.Status, I18n.Server.UpdateRunningStatus, StringComparison.OrdinalIgnoreCase)).Sum(row => row.SpeedMbps.GetValueOrDefault());
         var totalRemainingMb = _downloadMonitorRows
             .Where(row => row.TotalBytes.HasValue)
             .Sum(row => Math.Max(0L, row.TotalBytes!.Value - row.ProcessedBytes)) / 1024d / 1024d;
-        _resourceSummaryLabel.Text = $"Giám sát tải xuống máy chủ: tổng {total} tác vụ, đang tải {running}, tạm dừng {paused}, đang dừng {stopping}, thất bại {failed}. Tổng tốc độ: {totalSpeed:N2} MB/s. Còn lại: {totalRemainingMb:N0} MB.";
+        _resourceSummaryLabel.Text = I18n.Server.ResourceDownloadMonitorSummary(total, running, paused, stopping, failed, totalSpeed, totalRemainingMb);
     }
 }
+
+
+
+
 
 
 

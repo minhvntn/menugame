@@ -1,4 +1,5 @@
 using GameUpdater.Shared.Models;
+using GameUpdater.Shared.Localization;
 
 namespace GameUpdater.WinForms.Forms;
 
@@ -14,7 +15,7 @@ public sealed class GameEditorForm : Form
     {
         Dock = DockStyle.Left,
         AutoSize = true,
-        Text = "Hien thi trong Hot game (client)"
+        Text = I18n.Server.GameEditorHotCheckbox
     };
     private readonly TextBox _notesTextBox = new()
     {
@@ -28,7 +29,7 @@ public sealed class GameEditorForm : Form
     {
         _existingGame = existingGame;
 
-        Text = existingGame is null ? "Them tro choi" : "Sua tro choi";
+        Text = existingGame is null ? I18n.Server.GameEditorAddTitle : I18n.Server.GameEditorEditTitle;
         StartPosition = FormStartPosition.CenterParent;
         Width = 740;
         Height = 520;
@@ -57,49 +58,49 @@ public sealed class GameEditorForm : Form
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
 
-        root.Controls.Add(CreateLabel("Ten tro choi"), 0, 0);
+        root.Controls.Add(CreateLabel(I18n.Server.GameEditorName), 0, 0);
         root.Controls.Add(_nameTextBox, 1, 0);
         root.SetColumnSpan(_nameTextBox, 2);
 
-        root.Controls.Add(CreateLabel("Nhom"), 0, 1);
+        root.Controls.Add(CreateLabel(I18n.Server.GameEditorCategory), 0, 1);
         root.Controls.Add(_categoryTextBox, 1, 1);
         root.SetColumnSpan(_categoryTextBox, 2);
 
-        root.Controls.Add(CreateLabel("Duong dan cai dat"), 0, 2);
+        root.Controls.Add(CreateLabel(I18n.Server.GameEditorInstallPath), 0, 2);
         root.Controls.Add(_pathTextBox, 1, 2);
 
         var browseInstallButton = new Button
         {
-            Text = "Chon",
+            Text = I18n.Common.SelectButton,
             Dock = DockStyle.Fill
         };
         browseInstallButton.Click += BrowseInstallButton_Click;
         root.Controls.Add(browseInstallButton, 2, 2);
 
-        root.Controls.Add(CreateLabel("Phien ban"), 0, 3);
+        root.Controls.Add(CreateLabel(I18n.Server.GameEditorVersion), 0, 3);
         root.Controls.Add(_versionTextBox, 1, 3);
         root.SetColumnSpan(_versionTextBox, 2);
 
-        root.Controls.Add(CreateLabel("Tep chay (EXE)"), 0, 4);
+        root.Controls.Add(CreateLabel(I18n.Server.GameEditorExe), 0, 4);
         root.Controls.Add(_launchPathTextBox, 1, 4);
 
         var browseLaunchButton = new Button
         {
-            Text = "Chon",
+            Text = I18n.Common.SelectButton,
             Dock = DockStyle.Fill
         };
         browseLaunchButton.Click += BrowseLaunchButton_Click;
         root.Controls.Add(browseLaunchButton, 2, 4);
 
-        root.Controls.Add(CreateLabel("Tham so"), 0, 5);
+        root.Controls.Add(CreateLabel(I18n.Server.GameEditorLaunchArgs), 0, 5);
         root.Controls.Add(_launchArgumentsTextBox, 1, 5);
         root.SetColumnSpan(_launchArgumentsTextBox, 2);
 
-        root.Controls.Add(CreateLabel("Hien thi client"), 0, 6);
+        root.Controls.Add(CreateLabel(I18n.Server.GameEditorClientVisible), 0, 6);
         root.Controls.Add(_isHotCheckBox, 1, 6);
         root.SetColumnSpan(_isHotCheckBox, 2);
 
-        root.Controls.Add(CreateLabel("Ghi chu"), 0, 7);
+        root.Controls.Add(CreateLabel(I18n.Server.GameEditorNotes), 0, 7);
         root.Controls.Add(_notesTextBox, 1, 7);
         root.SetColumnSpan(_notesTextBox, 2);
 
@@ -111,14 +112,14 @@ public sealed class GameEditorForm : Form
 
         var saveButton = new Button
         {
-            Text = "Luu",
+            Text = I18n.Common.SaveButton,
             Width = 90
         };
         saveButton.Click += SaveButton_Click;
 
         var cancelButton = new Button
         {
-            Text = "Huy",
+            Text = I18n.Common.CancelButton,
             Width = 90
         };
         cancelButton.Click += (_, _) => DialogResult = DialogResult.Cancel;
@@ -143,8 +144,8 @@ public sealed class GameEditorForm : Form
         }
         else
         {
-            _categoryTextBox.Text = "Online";
-            _versionTextBox.Text = "1.0.0";
+            _categoryTextBox.Text = I18n.Server.GameEditorDefaultCategory;
+            _versionTextBox.Text = I18n.Server.GameEditorDefaultVersion;
         }
     }
 
@@ -154,7 +155,7 @@ public sealed class GameEditorForm : Form
     {
         using var dialog = new FolderBrowserDialog
         {
-            Description = "Chon thu muc tro choi dung chung tren server.",
+            Description = I18n.Server.GameEditorFolderPickerDescription,
             UseDescriptionForTitle = true,
             SelectedPath = _pathTextBox.Text
         };
@@ -169,8 +170,8 @@ public sealed class GameEditorForm : Form
     {
         using var dialog = new OpenFileDialog
         {
-            Title = "Chon tep chay tro choi",
-            Filter = "Tep EXE (*.exe)|*.exe|Tat ca tep (*.*)|*.*",
+            Title = I18n.Server.GameEditorExeDialogTitle,
+            Filter = I18n.Server.GameEditorExeDialogFilter,
             CheckFileExists = true,
             InitialDirectory = Directory.Exists(_pathTextBox.Text) ? _pathTextBox.Text : string.Empty
         };
@@ -205,19 +206,19 @@ public sealed class GameEditorForm : Form
     {
         if (string.IsNullOrWhiteSpace(_nameTextBox.Text))
         {
-            MessageBox.Show(this, "Vui long nhap ten tro choi.", "Kiem tra du lieu", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, I18n.Server.ValidationNameRequired, I18n.Common.ValidationTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_pathTextBox.Text))
         {
-            MessageBox.Show(this, "Vui long nhap duong dan cai dat.", "Kiem tra du lieu", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, I18n.Server.ValidationInstallPathRequired, I18n.Common.ValidationTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_launchPathTextBox.Text))
         {
-            MessageBox.Show(this, "Vui long nhap tep chay tro choi (EXE).", "Kiem tra du lieu", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, I18n.Server.ValidationExeRequired, I18n.Common.ValidationTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -225,9 +226,9 @@ public sealed class GameEditorForm : Form
         {
             Id = _existingGame?.Id ?? 0,
             Name = _nameTextBox.Text.Trim(),
-            Category = string.IsNullOrWhiteSpace(_categoryTextBox.Text) ? "Chung" : _categoryTextBox.Text.Trim(),
+            Category = string.IsNullOrWhiteSpace(_categoryTextBox.Text) ? I18n.Server.DefaultCategoryFallback : _categoryTextBox.Text.Trim(),
             InstallPath = _pathTextBox.Text.Trim(),
-            Version = string.IsNullOrWhiteSpace(_versionTextBox.Text) ? "1.0.0" : _versionTextBox.Text.Trim(),
+            Version = string.IsNullOrWhiteSpace(_versionTextBox.Text) ? I18n.Server.GameEditorDefaultVersion : _versionTextBox.Text.Trim(),
             LaunchRelativePath = _launchPathTextBox.Text.Trim(),
             LaunchArguments = _launchArgumentsTextBox.Text.Trim(),
             IsHot = _isHotCheckBox.Checked,

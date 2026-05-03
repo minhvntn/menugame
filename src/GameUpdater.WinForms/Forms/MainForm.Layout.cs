@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using GameUpdater.Core.Abstractions;
 using GameUpdater.Core.Services;
+using GameUpdater.Shared.Localization;
 using GameUpdater.Shared.Models;
 
 namespace GameUpdater.WinForms.Forms;
@@ -35,7 +36,7 @@ public sealed partial class MainForm
 
     private TabPage BuildGamesTab()
     {
-        var page = new TabPage("Trò chơi");
+        var page = new TabPage(I18n.Server.GamesTab);
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -59,13 +60,13 @@ public sealed partial class MainForm
         };
 
         _gamesViewModeComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-        _gamesViewModeComboBox.Items.AddRange(new object[] { "Dạng bảng", "Dạng lưới" });
+        _gamesViewModeComboBox.Items.AddRange(new object[] { I18n.Server.GamesViewTable, I18n.Server.GamesViewGrid });
         _gamesViewModeComboBox.SelectedIndex = 0;
         _gamesViewModeComboBox.SelectedIndexChanged += GamesViewModeComboBox_SelectedIndexChanged;
         toolbar.Controls.Add(_gamesViewModeComboBox);
 
-        toolbar.Controls.Add(CreateButton("Xuất Danh Mục Client", ExportCatalogButton_Click));
-        toolbar.Controls.Add(CreateButton("Làm mới", RefreshButton_Click));
+        toolbar.Controls.Add(CreateButton(I18n.Server.ExportClientCatalogButton, ExportCatalogButton_Click));
+        toolbar.Controls.Add(CreateButton(I18n.Common.RefreshButton, RefreshButton_Click));
 
         ConfigureGamesGrid();
         ConfigureGamesGridPanel();
@@ -86,7 +87,7 @@ public sealed partial class MainForm
 
     private TabPage BuildClientDashboardTab()
     {
-        var page = new TabPage("Client");
+        var page = new TabPage(I18n.Server.ClientTab);
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -106,15 +107,15 @@ public sealed partial class MainForm
 
         _clientDashboardSummaryLabel.AutoSize = true;
         _clientDashboardSummaryLabel.Font = new Font("Segoe UI Semibold", 11f, FontStyle.Bold);
-        _clientDashboardSummaryLabel.Text = "Chưa có dữ liệu máy trạm.";
+        _clientDashboardSummaryLabel.Text = I18n.Server.ClientDashboardNoData;
         _clientDashboardSummaryLabel.Margin = new Padding(0, 6, 18, 0);
         toolbar.Controls.Add(_clientDashboardSummaryLabel);
-        toolbar.Controls.Add(CreateButton("Làm mới", async (_, _) => await RefreshClientDashboardAsync(forceNetworkProbe: true)));
-        toolbar.Controls.Add(CreateButton("Mở thư mục trạng thái", OpenClientStatusFolderButton_Click));
+        toolbar.Controls.Add(CreateButton(I18n.Common.RefreshButton, async (_, _) => await RefreshClientDashboardAsync(forceNetworkProbe: true)));
+        toolbar.Controls.Add(CreateButton(I18n.Server.OpenClientStatusFolderButton, OpenClientStatusFolderButton_Click));
 
         _clientDashboardGameStatsLabel.Dock = DockStyle.Fill;
         _clientDashboardGameStatsLabel.Font = new Font("Segoe UI", 10f, FontStyle.Regular);
-        _clientDashboardGameStatsLabel.Text = "Game hot: - • Chơi nhiều nhất: - • Vừa cập nhật: -";
+        _clientDashboardGameStatsLabel.Text = I18n.Server.ClientDashboardGameStatsPlaceholder;
         _clientDashboardGameStatsLabel.TextAlign = ContentAlignment.MiddleLeft;
 
         ConfigureClientStatusGrid();
@@ -147,7 +148,7 @@ public sealed partial class MainForm
 
     private TabPage BuildServerDashboardTab()
     {
-        var page = new TabPage("Server");
+        var page = new TabPage(I18n.Server.ServerTab);
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -165,7 +166,7 @@ public sealed partial class MainForm
         _serverDashboardSummaryLabel.Font = new Font("Segoe UI Semibold", 12f, FontStyle.Bold);
         _serverDashboardSummaryLabel.ForeColor = DashboardSummaryColor;
         _serverDashboardSummaryLabel.TextAlign = ContentAlignment.MiddleLeft;
-        _serverDashboardSummaryLabel.Text = "Đang tải thông tin máy server...";
+        _serverDashboardSummaryLabel.Text = I18n.Server.ServerDashboardLoading;
 
         var metricCards = new TableLayoutPanel
         {
@@ -177,9 +178,9 @@ public sealed partial class MainForm
         metricCards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
         metricCards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
         metricCards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34f));
-        metricCards.Controls.Add(CreateServerMetricCard("CPU", _serverDashboardCpuLabel, _serverCpuProgressBar), 0, 0);
-        metricCards.Controls.Add(CreateServerMetricCard("RAM", _serverDashboardMemoryLabel, _serverMemoryProgressBar), 1, 0);
-        metricCards.Controls.Add(CreateServerMetricCard("Ổ hệ thống", _serverDashboardDiskLabel, _serverDiskProgressBar), 2, 0);
+        metricCards.Controls.Add(CreateServerMetricCard(I18n.Server.ServerMetricCpu, _serverDashboardCpuLabel, _serverCpuProgressBar), 0, 0);
+        metricCards.Controls.Add(CreateServerMetricCard(I18n.Server.ServerMetricRam, _serverDashboardMemoryLabel, _serverMemoryProgressBar), 1, 0);
+        metricCards.Controls.Add(CreateServerMetricCard(I18n.Server.ServerMetricSystemDrive, _serverDashboardDiskLabel, _serverDiskProgressBar), 2, 0);
 
         var details = new TableLayoutPanel
         {
@@ -190,8 +191,8 @@ public sealed partial class MainForm
         };
         details.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         details.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        details.Controls.Add(CreateServerInfoCard("Mạng", _serverDashboardNetworkLabel), 0, 0);
-        details.Controls.Add(CreateServerInfoCard("Kho dữ liệu & catalog", _serverDashboardStorageLabel), 1, 0);
+        details.Controls.Add(CreateServerInfoCard(I18n.Server.ServerCardNetwork, _serverDashboardNetworkLabel), 0, 0);
+        details.Controls.Add(CreateServerInfoCard(I18n.Server.ServerCardStorage, _serverDashboardStorageLabel), 1, 0);
 
         var bottom = new TableLayoutPanel
         {
@@ -201,8 +202,8 @@ public sealed partial class MainForm
         };
         bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        bottom.Controls.Add(CreateServerInfoCard("Dịch vụ đang chạy", _serverDashboardServiceLabel), 0, 0);
-        bottom.Controls.Add(CreateServerInfoCard("Khuyến nghị", _serverDashboardRecommendationLabel), 1, 0);
+        bottom.Controls.Add(CreateServerInfoCard(I18n.Server.ServerCardServices, _serverDashboardServiceLabel), 0, 0);
+        bottom.Controls.Add(CreateServerInfoCard(I18n.Server.ServerCardRecommendation, _serverDashboardRecommendationLabel), 1, 0);
 
         root.Controls.Add(_serverDashboardSummaryLabel, 0, 0);
         root.Controls.Add(metricCards, 0, 1);
@@ -272,7 +273,7 @@ public sealed partial class MainForm
 
     private TabPage BuildResourcesTab()
     {
-        var page = new TabPage("Tài nguyên");
+        var page = new TabPage(I18n.Server.ResourcesTab);
 
         var split = new SplitContainer
         {
@@ -297,7 +298,7 @@ public sealed partial class MainForm
             Padding = new Padding(8),
             WrapContents = false
         };
-        leftToolbar.Controls.Add(CreateButton("Làm mới tài nguyên", RefreshResourcesButton_Click));
+        leftToolbar.Controls.Add(CreateButton(I18n.Server.RefreshResourcesButton, RefreshResourcesButton_Click));
 
         BuildResourceTree();
         _resourceTree.Dock = DockStyle.Fill;
@@ -338,7 +339,7 @@ public sealed partial class MainForm
         sourceRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
         sourceRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         sourceRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 42));
-        sourceRow.Controls.Add(CreateFieldLabel("Nguồn IDC"), 0, 0);
+        sourceRow.Controls.Add(CreateFieldLabel(I18n.Server.ResourceSourceLabel), 0, 0);
         sourceRow.Controls.Add(_resourceSourceRootTextBox, 1, 0);
         sourceRow.Controls.Add(_browseResourceSourceButton, 2, 0);
 
@@ -351,7 +352,7 @@ public sealed partial class MainForm
         targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
         targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 42));
-        targetRow.Controls.Add(CreateFieldLabel("Đích máy chủ"), 0, 0);
+        targetRow.Controls.Add(CreateFieldLabel(I18n.Server.ResourceTargetLabel), 0, 0);
         targetRow.Controls.Add(_resourceTargetRootTextBox, 1, 0);
         targetRow.Controls.Add(_browseResourceTargetButton, 2, 0);
 
@@ -364,9 +365,9 @@ public sealed partial class MainForm
         bandwidthRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
         bandwidthRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
         bandwidthRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        bandwidthRow.Controls.Add(CreateFieldLabel("Giới hạn MB/s"), 0, 0);
+        bandwidthRow.Controls.Add(CreateFieldLabel(I18n.Server.ResourceBandwidthLabel), 0, 0);
         bandwidthRow.Controls.Add(_resourceBandwidthLimitNumeric, 1, 0);
-        bandwidthRow.Controls.Add(CreateFieldLabel("0 = không giới hạn"), 2, 0);
+        bandwidthRow.Controls.Add(CreateFieldLabel(I18n.Server.ResourceBandwidthHint), 2, 0);
 
         var actionsRow = new FlowLayoutPanel
         {
@@ -374,15 +375,15 @@ public sealed partial class MainForm
             Padding = new Padding(0, 2, 0, 0),
             WrapContents = false
         };
-        _saveResourceSettingsButton.Text = "Lưu cấu hình";
+        _saveResourceSettingsButton.Text = I18n.Server.ResourceSaveConfig;
         _saveResourceSettingsButton.Click += SaveResourceSettingsButton_Click;
         StyleButton(_saveResourceSettingsButton);
 
-        _checkResourceHealthButton.Text = "Kiểm tra tài nguyên";
+        _checkResourceHealthButton.Text = I18n.Server.ResourceHealthCheck;
         _checkResourceHealthButton.Click += CheckResourceHealthButton_Click;
         StyleButton(_checkResourceHealthButton);
 
-        _syncSelectedResourceButton.Text = "Tải trò chơi đã chọn";
+        _syncSelectedResourceButton.Text = I18n.Server.ResourceSyncSelected;
         _syncSelectedResourceButton.Click += SyncSelectedResourceButton_Click;
         StyleButton(_syncSelectedResourceButton, primary: true);
 
@@ -393,7 +394,7 @@ public sealed partial class MainForm
 
         _resourceSummaryLabel.Dock = DockStyle.Fill;
         _resourceSummaryLabel.TextAlign = ContentAlignment.MiddleLeft;
-        _resourceSummaryLabel.Text = "Đang tải dữ liệu tài nguyên...";
+        _resourceSummaryLabel.Text = I18n.Server.ResourceLoading;
 
         var contentPanel = new Panel
         {
@@ -443,15 +444,15 @@ public sealed partial class MainForm
             {
                 Dock = DockStyle.Top,
                 AutoSize = true,
-                Text = "Cấu hình nguồn/đích và giới hạn băng thông tải tài nguyên."
+                Text = I18n.Server.ResourceConfigHint
             },
             0,
             4);
 
-        var listTab = new TabPage("Danh sách trò chơi");
+        var listTab = new TabPage(I18n.Server.ResourceListTab);
         listTab.Controls.Add(listWorkspaceLayout);
 
-        var configTab = new TabPage("Cấu hình nguồn");
+        var configTab = new TabPage(I18n.Server.ResourceConfigTab);
         configTab.Controls.Add(configWorkspaceLayout);
 
         _resourceWorkspaceTabControl.Dock = DockStyle.Fill;

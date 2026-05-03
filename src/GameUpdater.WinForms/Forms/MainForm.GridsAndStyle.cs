@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using GameUpdater.Core.Abstractions;
 using GameUpdater.Core.Services;
+using GameUpdater.Shared.Localization;
 using GameUpdater.Shared.Models;
 
 namespace GameUpdater.WinForms.Forms;
@@ -235,7 +236,7 @@ public sealed partial class MainForm
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi đổi vị trí: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Loi doi vi tri: {ex.Message}", I18n.Common.ErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
@@ -343,7 +344,7 @@ public sealed partial class MainForm
     {
         if (SelectedGame is null)
         {
-            ShowInfo("Vui lòng chọn trò chơi trước.");
+            ShowInfo(I18n.Server.NeedSelectGameFirst);
             return;
         }
 
@@ -477,7 +478,7 @@ public sealed partial class MainForm
     {
         var label = new Label
         {
-            Text = "Cỡ chữ giao diện",
+            Text = "Co chu giao dien",
             AutoSize = true,
             TextAlign = ContentAlignment.MiddleLeft,
             Margin = new Padding(0, 5, 8, 0)
@@ -490,9 +491,9 @@ public sealed partial class MainForm
         _fontSizeComboBox.ValueMember = nameof(FontSizeOption.Mode);
         _fontSizeComboBox.DataSource = new List<FontSizeOption>
         {
-            new() { Mode = UiFontSizeMode.Normal, Name = "Bình thường" },
-            new() { Mode = UiFontSizeMode.Big, Name = "Lớn" },
-            new() { Mode = UiFontSizeMode.VeryBig, Name = "Rất lớn" }
+            new() { Mode = UiFontSizeMode.Normal, Name = "Binh thuong" },
+            new() { Mode = UiFontSizeMode.Big, Name = "Lon" },
+            new() { Mode = UiFontSizeMode.VeryBig, Name = "Rat lon" }
         };
 
         SetFontSizeSelection(_uiFontSizeMode);
@@ -540,7 +541,7 @@ public sealed partial class MainForm
     {
         _uiFontSizeMode = mode;
         var uiFontSize = GetUiFontSize(mode);
-        var fontFamily = string.IsNullOrWhiteSpace(_clientThemeFontFamily) ? "Segoe UI" : _clientThemeFontFamily;
+        var fontFamily = string.IsNullOrWhiteSpace(_clientThemeFontFamily) ? I18n.Server.DefaultThemeFontFamily : _clientThemeFontFamily;
         var uiFont = new Font(fontFamily, uiFontSize, FontStyle.Regular);
 
         SuspendLayout();

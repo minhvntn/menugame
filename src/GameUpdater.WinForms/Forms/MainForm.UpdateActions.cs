@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using GameUpdater.Core.Abstractions;
 using GameUpdater.Core.Services;
+using GameUpdater.Shared.Localization;
 using GameUpdater.Shared.Models;
 
 namespace GameUpdater.WinForms.Forms;
@@ -16,7 +17,7 @@ public sealed partial class MainForm
         {
             using var dialog = new FolderBrowserDialog
             {
-                Description = "Chọn thư mục bản vá để chép vào thư mục trò chơi.",
+                Description = I18n.Server.UpdateSourceFolderPickerDescription,
                 UseDescriptionForTitle = true,
                 SelectedPath = _updateSourceTextBox.Text
             };
@@ -30,7 +31,7 @@ public sealed partial class MainForm
         {
             using var dialog = new OpenFileDialog
             {
-                Filter = "Tệp ZIP (*.zip)|*.zip",
+                Filter = I18n.Server.UpdateSourceZipFilter,
                 CheckFileExists = true,
                 InitialDirectory = File.Exists(_updateSourceTextBox.Text)
                     ? Path.GetDirectoryName(_updateSourceTextBox.Text)
@@ -48,7 +49,7 @@ public sealed partial class MainForm
     {
         if (SelectedGame is null)
         {
-            ShowInfo("Vui lòng chọn trò chơi trước.");
+            ShowInfo(I18n.Server.NeedSelectGameFirst);
             return;
         }
 
@@ -69,7 +70,7 @@ public sealed partial class MainForm
             ToggleUpdateControls(false);
             _updateOutputTextBox.Clear();
             _updateProgressBar.Value = 0;
-            AppendUpdateMessage($"Bắt đầu cập nhật {game.Name}.");
+            AppendUpdateMessage(I18n.Server.UpdateStarted(game.Name));
 
             try
             {
@@ -77,22 +78,22 @@ public sealed partial class MainForm
                 {
                     _updateProgressBar.Value = Math.Clamp(info.Percent, 0, 100);
                     AppendUpdateMessage(info.Message);
-                    UpdateDownloadMonitor(monitorRow, info.Percent, "Đang tải", info.Message, info);
+                    UpdateDownloadMonitor(monitorRow, info.Percent, I18n.Server.UpdateRunningStatus, info.Message, info);
                 });
 
                 var backupPath = await _updateService.ApplyUpdateAsync(request, progress);
                 if (!string.IsNullOrWhiteSpace(backupPath))
                 {
-                    AppendUpdateMessage($"Đã lưu bản sao lưu: {backupPath}");
+                    AppendUpdateMessage(I18n.Server.BackupSaved(backupPath));
                 }
 
-                UpdateDownloadMonitor(monitorRow, 100, "Hoàn tất", "Cập nhật hoàn tất.");
+                UpdateDownloadMonitor(monitorRow, 100, I18n.Server.UpdateSuccessStatus, I18n.Server.UpdateCompleted);
                 await AutoExportCatalogAsync();
                 await ReloadAllAsync(game.Id);
             }
             catch (Exception exception)
             {
-                UpdateDownloadMonitor(monitorRow, monitorRow.ProgressPercent, "Thất bại", exception.Message);
+                UpdateDownloadMonitor(monitorRow, monitorRow.ProgressPercent, I18n.Server.UpdateFailedStatus, exception.Message);
                 throw;
             }
         }, () => ToggleUpdateControls(true));

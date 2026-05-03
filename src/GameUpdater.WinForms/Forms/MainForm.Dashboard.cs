@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using GameUpdater.Core.Abstractions;
 using GameUpdater.Core.Services;
+using GameUpdater.Shared.Localization;
 using GameUpdater.Shared.Models;
 
 namespace GameUpdater.WinForms.Forms;
@@ -22,8 +23,8 @@ public sealed partial class MainForm
             var network = GetServerNetworkSnapshot(now);
             var storage = GetServerStorageSnapshot();
             var runningTasks = _downloadMonitorRows.Count(row =>
-                string.Equals(row.Status, "Đang tải", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(row.Status, "Tạm dừng", StringComparison.OrdinalIgnoreCase));
+                string.Equals(row.Status, I18n.Server.UpdateRunningStatus, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(row.Status, I18n.Server.UpdatePausedStatus, StringComparison.OrdinalIgnoreCase));
             var clientRows = LoadClientDashboardRows();
             var onlineClients = clientRows.Count(row => row.IsOnline);
             var playingClients = clientRows.Count(row => row.IsPlaying);
@@ -197,7 +198,7 @@ public sealed partial class MainForm
         {
             _clientStatusBinding.DataSource = new List<ClientDashboardRow>();
             _clientDashboardSummaryLabel.Text = $"Không đọc được trạng thái máy trạm: {exception.Message}";
-            _clientDashboardGameStatsLabel.Text = "Game hot: - • Chơi nhiều nhất: - • Vừa cập nhật: -";
+            _clientDashboardGameStatsLabel.Text = I18n.Server.ClientDashboardGameStatsPlaceholder;
         }
         finally
         {
@@ -211,7 +212,7 @@ public sealed partial class MainForm
         {
             var target = row.ProbeTarget?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(target) ||
-                string.Equals(target, "Không rõ", StringComparison.OrdinalIgnoreCase))
+                string.Equals(target, "Khong ro", StringComparison.OrdinalIgnoreCase))
             {
                 row.ReachabilityOverride = null;
                 return;
@@ -320,7 +321,7 @@ public sealed partial class MainForm
         var folder = ResolveClientStatusFolder();
         if (string.IsNullOrWhiteSpace(folder))
         {
-            ShowInfo("Chưa cấu hình thư mục trạng thái client.");
+            ShowInfo(I18n.Server.NeedConfigStatusFolder);
             return;
         }
 
