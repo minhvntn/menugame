@@ -67,6 +67,7 @@ public sealed partial class MainForm : Form
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         _statusHeartbeatTimer.Stop();
+        _clockTimer.Stop();
         WriteClientStatusSafe(clearPlayingGame: true);
         _headerLogoImage?.Dispose();
         _headerLogoImage = null;

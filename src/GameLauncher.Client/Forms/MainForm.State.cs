@@ -1,4 +1,4 @@
-﻿using GameLauncher.Client.Controls;
+using GameLauncher.Client.Controls;
 using GameLauncher.Client.Models;
 using GameLauncher.Client.Services;
 using GameUpdater.Shared.Localization;
@@ -8,12 +8,27 @@ namespace GameLauncher.Client.Forms;
 
 public sealed partial class MainForm
 {
+    private static readonly string DefaultCategoryLabel = I18n.Launcher.DefaultCategory;
+    private const string HotCategoryLabel = "Hot";
+    private static readonly string[] SidebarCategoryLabels =
+    {
+        HotCategoryLabel,
+        "Online",
+        "Phi\u00eau l\u01b0u",
+        "Chi\u1ebfn thu\u1eadt",
+        "Casual",
+        "Tr\u00ed tu\u1ec7",
+        "Kh\u00e1c"
+    };
+
     private List<LauncherGameRow> _allRows = new();
     private readonly List<GameCardControl> _hotCards = new();
     private readonly List<GameCardControl> _normalCards = new();
     private string _catalogPath = string.Empty;
     private string _currentGameName = string.Empty;
     private string _currentGameExecutablePath = string.Empty;
+    private string _selectedCategory = DefaultCategoryLabel;
+    private bool _sortAscending = true;
 
     private async Task LoadCatalogOnStartupAsync()
     {
@@ -43,48 +58,180 @@ public sealed partial class MainForm
 
     private void InitializeCards()
     {
+        BuildCategoryButtons(_allRows
+            .Select(row => row.Category?.Trim() ?? string.Empty)
+            .Where(category => !string.IsNullOrWhiteSpace(category)));
+        ApplyFiltersAndRenderCards();
+    }
+
+    private void BuildCategoryButtons(IEnumerable<string> categories)
+    {
+        _categoryListPanel.SuspendLayout();
+
+        foreach (Control control in _categoryListPanel.Controls)
+        {
+            control.Dispose();
+        }
+
+        _categoryListPanel.Controls.Clear();
+        _categoryButtons.Clear();
+
+        var categoryList = new List<string> { DefaultCategoryLabel };
+        categoryList.AddRange(SidebarCategoryLabels);
+        categoryList.AddRange(
+            categories
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(category => category, StringComparer.CurrentCultureIgnoreCase));
+        categoryList = categoryList
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var category in categoryList)
+        {
+            var button = CreateCategoryButton(category);
+            button.Click += (_, _) =>
+            {
+                _selectedCategory = category;
+                UpdateCategoryButtonStyles();
+                ApplyFiltersAndRenderCards();
+            };
+            _categoryButtons[category] = button;
+            _categoryListPanel.Controls.Add(button);
+        }
+
+        _selectedCategory = _categoryButtons.ContainsKey(_selectedCategory)
+            ? _selectedCategory
+            : DefaultCategoryLabel;
+        UpdateCategoryButtonStyles();
+        _categoryListPanel.ResumeLayout();
+    }
+
+    private void UpdateCategoryButtonStyles()
+    {
+        foreach (var (category, button) in _categoryButtons)
+        {
+            var isSelected = string.Equals(category, _selectedCategory, StringComparison.OrdinalIgnoreCase);
+            button.BackColor = isSelected
+                ? Color.FromArgb(67, 37, 128)
+                : Color.FromArgb(5, 12, 28);
+            button.FlatAppearance.BorderColor = isSelected
+                ? Color.FromArgb(127, 82, 214)
+                : Color.FromArgb(5, 12, 28);
+            button.ForeColor = isSelected
+                ? Color.White
+                : Color.FromArgb(206, 226, 255);
+        }
+    }
+
+    private void ToggleSortOrder()
+    {
+        _sortAscending = !_sortAscending;
+        ApplyFiltersAndRenderCards();
+    }
+
+    private void ApplyFiltersAndRenderCards()
+    {
         _hotCardsPanel.SuspendLayout();
         _normalCardsPanel.SuspendLayout();
 
-        foreach (Control control in _hotCardsPanel.Controls)
-        {
-            control.Dispose();
-        }
-
-        foreach (Control control in _normalCardsPanel.Controls)
-        {
-            control.Dispose();
-        }
-
-        _hotCardsPanel.Controls.Clear();
-        _normalCardsPanel.Controls.Clear();
+        ClearAndDisposePanelControls(_hotCardsPanel);
+        ClearAndDisposePanelControls(_normalCardsPanel);
         _hotCards.Clear();
         _normalCards.Clear();
 
-        var hotRows = _allRows
-            .Where(r => r.IsHot)
-            .OrderBy(r => r.SortOrder)
-            .ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
+        var filteredRows = _allRows
+            .Where(row => MatchesCategory(row))
+            .Where(row => MatchesSearch(row))
             .ToList();
+
+        var hotRows = SortRows(filteredRows.Where(row => row.IsHot)).ToList();
+        var normalRows = SortRows(filteredRows.Where(row => !row.IsHot)).ToList();
+
         var hotControls = hotRows
             .Select(row => new GameCardControl(row, PlayGame, isHotRow: true, ThemeFontFamily))
             .ToArray();
-        _hotCards.AddRange(hotControls);
-        _hotCardsPanel.Controls.AddRange(hotControls);
-
-        var normalRows = _allRows
-            .Where(r => !r.IsHot)
-            .OrderBy(r => r.SortOrder)
-            .ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
         var normalControls = normalRows
             .Select(row => new GameCardControl(row, PlayGame, isHotRow: false, ThemeFontFamily))
             .ToArray();
+
+        _hotCards.AddRange(hotControls);
         _normalCards.AddRange(normalControls);
+        _hotCardsPanel.Controls.AddRange(hotControls);
         _normalCardsPanel.Controls.AddRange(normalControls);
+
+        if (_hotCardsPanel.Controls.Count == 0)
+        {
+            _hotCardsPanel.Controls.Add(CreateEmptyStateLabel("Khong co game noi bat."));
+        }
+
+        if (_normalCardsPanel.Controls.Count == 0)
+        {
+            _normalCardsPanel.Controls.Add(CreateEmptyStateLabel("Khong co game phu hop."));
+        }
+
+        var sortText = _sortAscending ? "S\u1eafp x\u1ebfp: A \u2192 Z" : "S\u1eafp x\u1ebfp: Z \u2192 A";
+        _hotSortLabel.Text = sortText;
+        _allSortLabel.Text = sortText;
 
         _hotCardsPanel.ResumeLayout();
         _normalCardsPanel.ResumeLayout();
+    }
+
+    private IEnumerable<LauncherGameRow> SortRows(IEnumerable<LauncherGameRow> rows)
+    {
+        // Keep sorting stable by sort order after the user-visible name sort.
+        return _sortAscending
+            ? rows.OrderBy(row => row.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(row => row.SortOrder)
+            : rows.OrderByDescending(row => row.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(row => row.SortOrder);
+    }
+
+    private bool MatchesCategory(LauncherGameRow row)
+    {
+        if (string.Equals(_selectedCategory, DefaultCategoryLabel, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (string.Equals(_selectedCategory, HotCategoryLabel, StringComparison.OrdinalIgnoreCase))
+        {
+            return row.IsHot;
+        }
+
+        return string.Equals(row.Category, _selectedCategory, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool MatchesSearch(LauncherGameRow row)
+    {
+        var query = _searchTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return true;
+        }
+
+        return row.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+               (row.Category?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false);
+    }
+
+    private Label CreateEmptyStateLabel(string message)
+    {
+        return new Label
+        {
+            AutoSize = true,
+            ForeColor = Color.FromArgb(161, 194, 245),
+            Font = new Font("Segoe UI", 10f, FontStyle.Italic),
+            Text = message,
+            Margin = new Padding(8, 8, 8, 8)
+        };
+    }
+
+    private static void ClearAndDisposePanelControls(FlowLayoutPanel panel)
+    {
+        foreach (Control control in panel.Controls)
+        {
+            control.Dispose();
+        }
+
+        panel.Controls.Clear();
     }
 
     private void PlayGame(LauncherGameRow row)
@@ -177,5 +324,3 @@ public sealed partial class MainForm
         return Path.GetFullPath(sameFolderJson);
     }
 }
-
-

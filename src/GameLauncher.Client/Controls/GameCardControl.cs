@@ -33,19 +33,19 @@ public sealed class GameCardControl : UserControl
         _playAction = playAction;
         _isHotRow = isHotRow;
 
-        _iconSize = _isHotRow ? 60 : 40;
-        _tileSize = _isHotRow ? 78 : 56;
-        _cardWidth = _isHotRow ? 118 : 96;
-        _cardHeight = _isHotRow ? 114 : 98;
-        _nameFont = new Font(string.IsNullOrWhiteSpace(fontFamily) ? "Segoe UI" : fontFamily, _isHotRow ? 8.5f : 8f, FontStyle.Bold);
+        _iconSize = _isHotRow ? 76 : 40;
+        _tileSize = _isHotRow ? 92 : 50;
+        _cardWidth = _isHotRow ? 144 : 74;
+        _cardHeight = _isHotRow ? 180 : 102;
+        _nameFont = new Font(string.IsNullOrWhiteSpace(fontFamily) ? "Segoe UI" : fontFamily, _isHotRow ? 10f : 8f, FontStyle.Bold);
 
         _resolvedExecutablePath = NormalizeExecutablePath(_row.ResolvedExecutablePath);
         _iconCacheKey = BuildIconCacheKey(_resolvedExecutablePath, _iconSize);
 
         Width = _cardWidth;
         Height = _cardHeight;
-        Margin = _isHotRow ? new Padding(9, 0, 9, 0) : new Padding(8, 8, 8, 8);
-        Padding = new Padding(2);
+        Margin = _isHotRow ? new Padding(10, 2, 10, 4) : new Padding(8, 4, 8, 6);
+        Padding = new Padding(0);
         BackColor = Color.Transparent;
         Cursor = Cursors.Hand;
         DoubleBuffered = true;
@@ -71,12 +71,38 @@ public sealed class GameCardControl : UserControl
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 2,
+            RowCount = _isHotRow ? 3 : 2,
             BackColor = Color.Transparent
         };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, _tileSize + 8));
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, _tileSize + (_isHotRow ? 16 : 8)));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, _isHotRow ? 46 : 38));
+        if (_isHotRow)
+        {
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        }
+
+        var cardShell = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.FromArgb(6, 13, 30),
+            Padding = _isHotRow ? new Padding(8, 8, 8, 8) : new Padding(6, 6, 6, 5)
+        };
+        cardShell.Resize += (_, _) => ApplyRoundedRegion(cardShell, _isHotRow ? 8 : 7);
+        cardShell.Paint += (_, e) =>
+        {
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            var bounds = new Rectangle(0, 0, cardShell.Width - 1, cardShell.Height - 1);
+            using var path = CreateRoundRectPath(bounds, _isHotRow ? 8 : 7);
+            using var fill = new System.Drawing.Drawing2D.LinearGradientBrush(
+                bounds,
+                Color.FromArgb(18, 27, 46),
+                Color.FromArgb(9, 16, 31),
+                90f);
+            using var pen = new Pen(Color.FromArgb(42, 51, 72));
+            e.Graphics.FillPath(fill, path);
+            e.Graphics.DrawPath(pen, path);
+        };
 
         var hostPanel = new Panel
         {
@@ -88,7 +114,7 @@ public sealed class GameCardControl : UserControl
         {
             Width = _tileSize,
             Height = _tileSize,
-            BackColor = Color.FromArgb(30, 41, 59)
+            BackColor = Color.Transparent
         };
 
         _iconBox.Width = _iconSize;
@@ -113,15 +139,57 @@ public sealed class GameCardControl : UserControl
             TextAlign = ContentAlignment.TopCenter,
             AutoEllipsis = false,
             ForeColor = Color.FromArgb(241, 245, 249),
-            Padding = new Padding(2, 1, 2, 0)
+            Padding = new Padding(1, 1, 1, 0)
         };
+
+        if (_isHotRow)
+        {
+            var hotBadge = new Label
+            {
+                AutoSize = false,
+                Width = 38,
+                Height = 22,
+                Text = "HOT",
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold),
+                ForeColor = Color.White,
+                BackColor = Color.FromArgb(224, 27, 62),
+                Location = new Point(0, 0)
+            };
+            hostPanel.Controls.Add(hotBadge);
+            hotBadge.BringToFront();
+            WireCardClick(hotBadge);
+        }
 
         root.Controls.Add(hostPanel, 0, 0);
         root.Controls.Add(nameLabel, 0, 1);
+        if (_isHotRow)
+        {
+            var playButton = new Button
+            {
+                Text = "Ch\u01a1i ngay  \u2192",
+                Dock = DockStyle.Fill,
+                Height = 28,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(15, 24, 42),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 9f, FontStyle.Regular),
+                Cursor = Cursors.Hand,
+                Margin = new Padding(8, 0, 8, 8)
+            };
+            playButton.FlatAppearance.BorderColor = Color.FromArgb(20, 31, 52);
+            playButton.FlatAppearance.BorderSize = 1;
+            playButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(27, 39, 66);
+            playButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(37, 48, 78);
+            playButton.Click += (_, _) => _playAction(_row);
+            root.Controls.Add(playButton, 0, 2);
+        }
 
-        Controls.Add(root);
+        cardShell.Controls.Add(root);
+        Controls.Add(cardShell);
 
         WireCardClick(root);
+        WireCardClick(cardShell);
         WireCardClick(hostPanel);
         WireCardClick(iconTile);
         WireCardClick(_iconBox);
@@ -462,5 +530,29 @@ public sealed class GameCardControl : UserControl
             TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
 
         return measured.Width;
+    }
+
+    private static void ApplyRoundedRegion(Control control, int radius)
+    {
+        if (control.Width <= 0 || control.Height <= 0)
+        {
+            return;
+        }
+
+        using var path = CreateRoundRectPath(new Rectangle(0, 0, control.Width, control.Height), radius);
+        control.Region?.Dispose();
+        control.Region = new Region(path);
+    }
+
+    private static System.Drawing.Drawing2D.GraphicsPath CreateRoundRectPath(Rectangle bounds, int radius)
+    {
+        var path = new System.Drawing.Drawing2D.GraphicsPath();
+        var diameter = radius * 2;
+        path.AddArc(bounds.X, bounds.Y, diameter, diameter, 180, 90);
+        path.AddArc(bounds.Right - diameter, bounds.Y, diameter, diameter, 270, 90);
+        path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
+        path.AddArc(bounds.X, bounds.Bottom - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure();
+        return path;
     }
 }
