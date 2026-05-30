@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using GameLauncher.Client.Models;
 
 namespace GameLauncher.Client.Controls;
@@ -33,11 +33,11 @@ public sealed class GameCardControl : UserControl
         _playAction = playAction;
         _isHotRow = isHotRow;
 
-        _iconSize = _isHotRow ? 76 : 40;
-        _tileSize = _isHotRow ? 92 : 50;
-        _cardWidth = _isHotRow ? 144 : 74;
-        _cardHeight = _isHotRow ? 180 : 102;
-        _nameFont = new Font(string.IsNullOrWhiteSpace(fontFamily) ? "Segoe UI" : fontFamily, _isHotRow ? 10f : 8f, FontStyle.Bold);
+        _iconSize = _isHotRow ? 80 : 48;
+        _tileSize = _isHotRow ? 96 : 60;
+        _cardWidth = _isHotRow ? 180 : 110;
+        _cardHeight = _isHotRow ? 220 : 140;
+        _nameFont = new Font(string.IsNullOrWhiteSpace(fontFamily) ? "Segoe UI" : fontFamily, _isHotRow ? 10.5f : 8.5f, FontStyle.Bold);
 
         _resolvedExecutablePath = NormalizeExecutablePath(_row.ResolvedExecutablePath);
         _iconCacheKey = BuildIconCacheKey(_resolvedExecutablePath, _iconSize);
@@ -75,31 +75,38 @@ public sealed class GameCardControl : UserControl
             BackColor = Color.Transparent
         };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, _tileSize + (_isHotRow ? 16 : 8)));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, _isHotRow ? 46 : 38));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, _tileSize + (_isHotRow ? 16 : 12)));
+        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
         if (_isHotRow)
         {
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
         }
 
         var cardShell = new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = Color.FromArgb(6, 13, 30),
+            BackColor = Color.Transparent,
             Padding = _isHotRow ? new Padding(8, 8, 8, 8) : new Padding(6, 6, 6, 5)
         };
-        cardShell.Resize += (_, _) => ApplyRoundedRegion(cardShell, _isHotRow ? 8 : 7);
+        cardShell.Resize += (_, _) => ApplyRoundedRegion(cardShell, _isHotRow ? 12 : 10);
         cardShell.Paint += (_, e) =>
         {
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             var bounds = new Rectangle(0, 0, cardShell.Width - 1, cardShell.Height - 1);
-            using var path = CreateRoundRectPath(bounds, _isHotRow ? 8 : 7);
+            using var path = CreateRoundRectPath(bounds, _isHotRow ? 12 : 10);
+
+            var isHover = cardShell.ClientRectangle.Contains(cardShell.PointToClient(Cursor.Position));
+
+            Color baseColorStart = isHover ? Color.FromArgb(37, 41, 54) : Color.FromArgb(28, 31, 41); // #252936 / #1C1F29
+            Color baseColorEnd = isHover ? Color.FromArgb(28, 31, 41) : Color.FromArgb(21, 23, 31);
+            Color borderColor = isHover ? Color.FromArgb(139, 92, 246) : Color.FromArgb(42, 47, 61); // #8B5CF6 / #2A2F3D
+
             using var fill = new System.Drawing.Drawing2D.LinearGradientBrush(
                 bounds,
-                Color.FromArgb(18, 27, 46),
-                Color.FromArgb(9, 16, 31),
+                baseColorStart,
+                baseColorEnd,
                 90f);
-            using var pen = new Pen(Color.FromArgb(42, 51, 72));
+            using var pen = new Pen(borderColor, isHover ? 1.5f : 1f);
             e.Graphics.FillPath(fill, path);
             e.Graphics.DrawPath(pen, path);
         };
@@ -133,57 +140,71 @@ public sealed class GameCardControl : UserControl
 
         var nameLabel = new Label
         {
-            Text = BuildTwoLineTextCached(_row.Name, _nameFont, _cardWidth - 10),
+            Text = BuildTwoLineTextCached(_row.Name, _nameFont, _cardWidth - 12),
             Dock = DockStyle.Fill,
             Font = _nameFont,
             TextAlign = ContentAlignment.TopCenter,
             AutoEllipsis = false,
-            ForeColor = Color.FromArgb(241, 245, 249),
+            ForeColor = Color.FromArgb(230, 232, 239), // #E6E8EF
             Padding = new Padding(1, 1, 1, 0)
         };
 
-        if (_isHotRow)
-        {
-            var hotBadge = new Label
-            {
-                AutoSize = false,
-                Width = 38,
-                Height = 22,
-                Text = "HOT",
-                TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold),
-                ForeColor = Color.White,
-                BackColor = Color.FromArgb(224, 27, 62),
-                Location = new Point(0, 0)
-            };
-            hostPanel.Controls.Add(hotBadge);
-            hotBadge.BringToFront();
-            WireCardClick(hotBadge);
-        }
+
 
         root.Controls.Add(hostPanel, 0, 0);
         root.Controls.Add(nameLabel, 0, 1);
+
         if (_isHotRow)
         {
             var playButton = new Button
             {
                 Text = "Ch\u01a1i ngay  \u2192",
                 Dock = DockStyle.Fill,
-                Height = 28,
+                Height = 30,
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(15, 24, 42),
+                BackColor = Color.FromArgb(42, 47, 61), // #2A2F3D
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 9f, FontStyle.Regular),
+                Font = new Font("Segoe UI Semibold", 8.5f, FontStyle.Bold),
                 Cursor = Cursors.Hand,
                 Margin = new Padding(8, 0, 8, 8)
             };
-            playButton.FlatAppearance.BorderColor = Color.FromArgb(20, 31, 52);
-            playButton.FlatAppearance.BorderSize = 1;
-            playButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(27, 39, 66);
-            playButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(37, 48, 78);
+            playButton.FlatAppearance.BorderSize = 0;
+            playButton.Paint += (sender, e) =>
+            {
+                var btn = (Button)sender;
+                var g = e.Graphics;
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+                
+                var rect = btn.ClientRectangle;
+                
+                var isButtonHover = btn.ClientRectangle.Contains(btn.PointToClient(Cursor.Position));
+                var backColor = isButtonHover ? Color.FromArgb(139, 92, 246) : Color.FromArgb(42, 47, 61); // #8B5CF6 / #2A2F3D
+                
+                using (var path = CreateRoundRectPath(new Rectangle(0, 0, btn.Width - 1, btn.Height - 1), 6))
+                {
+                    using (var fill = new SolidBrush(backColor))
+                    {
+                        g.FillPath(fill, path);
+                    }
+                }
+                
+                var textSize = g.MeasureString(btn.Text, btn.Font);
+                g.DrawString(
+                    btn.Text,
+                    btn.Font,
+                    Brushes.White,
+                    (btn.Width - textSize.Width) / 2,
+                    (btn.Height - textSize.Height) / 2);
+            };
+            playButton.MouseEnter += (s, e) => playButton.Invalidate();
+            playButton.MouseLeave += (s, e) => playButton.Invalidate();
             playButton.Click += (_, _) => _playAction(_row);
             root.Controls.Add(playButton, 0, 2);
+            WireCardHover(playButton, cardShell);
         }
+
+
 
         cardShell.Controls.Add(root);
         Controls.Add(cardShell);
@@ -194,6 +215,19 @@ public sealed class GameCardControl : UserControl
         WireCardClick(iconTile);
         WireCardClick(_iconBox);
         WireCardClick(nameLabel);
+
+        WireCardHover(root, cardShell);
+        WireCardHover(cardShell, cardShell);
+        WireCardHover(hostPanel, cardShell);
+        WireCardHover(iconTile, cardShell);
+        WireCardHover(_iconBox, cardShell);
+        WireCardHover(nameLabel, cardShell);
+    }
+
+    private void WireCardHover(Control control, Panel cardShell)
+    {
+        control.MouseEnter += (s, e) => cardShell.Invalidate();
+        control.MouseLeave += (s, e) => cardShell.Invalidate();
     }
 
     private void QueueIconLoadIfNeeded()

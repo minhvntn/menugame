@@ -6,8 +6,9 @@ namespace GameLauncher.Client.Forms;
 
 public sealed partial class MainForm
 {
-    private static readonly Color HeaderBackColor = Color.FromArgb(4, 10, 24);
-    private static readonly Color BodyBackColor = Color.FromArgb(2, 7, 20);
+    private static readonly Color HeaderBackColor = Color.FromArgb(13, 15, 20); // #0D0F14
+    private static readonly Color BodyBackColor = Color.FromArgb(13, 15, 20); // #0D0F14
+    private static readonly Color SidebarBackColor = Color.FromArgb(21, 24, 33); // #151821
 
     private readonly Label _headerSectionLabel = new();
     private readonly Label _cafeNameLabel = new();
@@ -37,11 +38,7 @@ public sealed partial class MainForm
         };
         root.Paint += (_, e) =>
         {
-            using var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
-                root.ClientRectangle,
-                Color.FromArgb(2, 8, 24),
-                Color.FromArgb(1, 5, 16),
-                0f);
+            using var brush = new SolidBrush(BodyBackColor);
             e.Graphics.FillRectangle(brush, root.ClientRectangle);
         };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
@@ -67,40 +64,43 @@ public sealed partial class MainForm
         };
         headerPanel.Paint += (_, e) =>
         {
-            using var topGlow = new Pen(Color.FromArgb(35, 84, 160));
-            e.Graphics.DrawLine(topGlow, 0, 0, headerPanel.Width, 0);
-            using var pen = new Pen(Color.FromArgb(24, 60, 116));
+            using var pen = new Pen(Color.FromArgb(42, 47, 61)); // #2A2F3D
             e.Graphics.DrawLine(pen, 0, headerPanel.Height - 1, headerPanel.Width, headerPanel.Height - 1);
         };
 
         var headerLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 3
+            ColumnCount = 3,
+            RowCount = 1
         };
         headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 290));
         headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 270));
+        headerLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
         _headerLogoImage = BuildHeaderLogoImage();
-        var logoBox = new PictureBox
+        var logoBox = new Label
         {
             Width = 44,
             Height = 44,
             Margin = new Padding(0, 3, 0, 0),
-            Image = _headerLogoImage,
-            SizeMode = PictureBoxSizeMode.Zoom
+            Font = new Font("Segoe MDL2 Assets", 22f, FontStyle.Regular),
+            ForeColor = Color.White,
+            Text = "\uE7FC",
+            TextAlign = ContentAlignment.MiddleCenter,
+            BackColor = Color.Transparent
         };
 
-        _cafeNameLabel.Text = CafeDisplayName;
+        _cafeNameLabel.Text = CafeDisplayName.ToUpper();
         _cafeNameLabel.AutoSize = true;
-        _cafeNameLabel.ForeColor = Color.White;
-        _cafeNameLabel.Font = new Font("Segoe UI Semibold", 14f, FontStyle.Bold);
+        _cafeNameLabel.ForeColor = Color.FromArgb(230, 232, 239); // #E6E8EF
+        _cafeNameLabel.Font = new Font("Segoe UI", 14f, FontStyle.Bold);
 
         _headerSectionLabel.Text = I18n.Launcher.HeaderSectionTitle;
         _headerSectionLabel.AutoSize = true;
-        _headerSectionLabel.ForeColor = Color.FromArgb(174, 210, 255);
-        _headerSectionLabel.Font = new Font("Segoe UI", 10.5f, FontStyle.Regular);
+        _headerSectionLabel.ForeColor = Color.FromArgb(139, 147, 167); // #8B93A7
+        _headerSectionLabel.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
 
         var cafeTextPanel = new TableLayoutPanel
         {
@@ -125,41 +125,49 @@ public sealed partial class MainForm
         leftPanel.Controls.Add(logoBox);
         leftPanel.Controls.Add(cafeTextPanel);
 
-        var searchCenterPanel = new Panel
+        var searchCenterPanel = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            BackColor = Color.Transparent
+            BackColor = Color.Transparent,
+            ColumnCount = 1,
+            RowCount = 1
         };
+        searchCenterPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        searchCenterPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
         var searchHost = new Panel
         {
             Width = 420,
             Height = 38,
-            BackColor = Color.FromArgb(6, 12, 30),
-            Padding = new Padding(14, 9, 14, 9),
-            Margin = new Padding(0)
+            BackColor = Color.FromArgb(21, 24, 33), // #151821
+            Padding = new Padding(38, 9, 14, 9),
+            Margin = new Padding(0),
+            Anchor = AnchorStyles.None
         };
         searchHost.Paint += (_, e) =>
         {
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             using var borderPath = CreateRoundRectPath(new Rectangle(0, 0, searchHost.Width - 1, searchHost.Height - 1), 18);
-            using var fill = new SolidBrush(Color.FromArgb(6, 12, 30));
-            using var pen = new Pen(Color.FromArgb(79, 101, 139));
+            using var fill = new SolidBrush(Color.FromArgb(21, 24, 33)); // #151821
+            using var pen = new Pen(Color.FromArgb(42, 47, 61)); // #2A2F3D
             e.Graphics.FillPath(fill, borderPath);
             e.Graphics.DrawPath(pen, borderPath);
+
+            // Draw magnifying glass icon manually
+            using var iconPen = new Pen(Color.FromArgb(139, 147, 167), 1.8f); // #8B93A7
+            e.Graphics.DrawEllipse(iconPen, 15, 14, 9, 9);
+            e.Graphics.DrawLine(iconPen, 22, 21, 26, 25);
         };
 
         _searchTextBox.Dock = DockStyle.Fill;
         _searchTextBox.BorderStyle = BorderStyle.None;
-        _searchTextBox.BackColor = searchHost.BackColor;
-        _searchTextBox.ForeColor = Color.FromArgb(233, 246, 255);
-        _searchTextBox.Font = new Font("Segoe UI", 10.5f, FontStyle.Regular);
+        _searchTextBox.BackColor = Color.FromArgb(21, 24, 33);
+        _searchTextBox.ForeColor = Color.FromArgb(230, 232, 239);
+        _searchTextBox.Font = new Font("Segoe UI", 10f, FontStyle.Regular);
         _searchTextBox.PlaceholderText = "T\u00ecm ki\u1ebfm game...";
         _searchTextBox.TextChanged += (_, _) => ApplyFiltersAndRenderCards();
         searchHost.Controls.Add(_searchTextBox);
-        searchCenterPanel.Controls.Add(searchHost);
-        CenterControl(searchCenterPanel, searchHost);
-        searchCenterPanel.Resize += (_, _) => CenterControl(searchCenterPanel, searchHost);
+        searchCenterPanel.Controls.Add(searchHost, 0, 0);
 
         var quickActions = new FlowLayoutPanel
         {
@@ -202,12 +210,12 @@ public sealed partial class MainForm
         var sidebar = new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = Color.FromArgb(5, 12, 28),
+            BackColor = SidebarBackColor,
             Padding = new Padding(10, 16, 10, 12)
         };
         sidebar.Paint += (_, e) =>
         {
-            using var pen = new Pen(Color.FromArgb(22, 36, 59));
+            using var pen = new Pen(Color.FromArgb(42, 47, 61)); // #2A2F3D
             e.Graphics.DrawLine(pen, sidebar.Width - 1, 0, sidebar.Width - 1, sidebar.Height);
         };
 
@@ -235,7 +243,7 @@ public sealed partial class MainForm
             Padding = new Padding(32, 18, 22, 12)
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 250f));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 286f));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
         _hotCardsPanel.Dock = DockStyle.Fill;
@@ -270,15 +278,6 @@ public sealed partial class MainForm
             Padding = new Padding(0),
             Margin = new Padding(0, 0, 0, 8)
         };
-        panel.Paint += (_, e) =>
-        {
-            using var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
-                panel.ClientRectangle,
-                BodyBackColor,
-                Color.FromArgb(3, 9, 24),
-                0f);
-            e.Graphics.FillRectangle(brush, panel.ClientRectangle);
-        };
 
         var layout = new TableLayoutPanel
         {
@@ -311,9 +310,10 @@ public sealed partial class MainForm
         sortLabel.AutoSize = true;
         sortLabel.Anchor = AnchorStyles.Right;
         sortLabel.Cursor = Cursors.Hand;
-        sortLabel.ForeColor = Color.FromArgb(232, 238, 248);
+        sortLabel.ForeColor = Color.FromArgb(139, 147, 167); // #8B93A7
         sortLabel.Font = new Font("Segoe UI", 9f, FontStyle.Regular);
         sortLabel.Click += (_, _) => ToggleSortOrder();
+        sortLabel.Visible = false;
 
         topBar.Controls.Add(titleLabel, 0, 0);
         topBar.Controls.Add(sortLabel, 1, 0);
@@ -328,12 +328,12 @@ public sealed partial class MainForm
         var panel = new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = Color.FromArgb(3, 10, 23),
+            BackColor = BodyBackColor,
             Padding = new Padding(14, 6, 14, 6)
         };
         panel.Paint += (_, e) =>
         {
-            using var pen = new Pen(Color.FromArgb(35, 84, 160));
+            using var pen = new Pen(Color.FromArgb(42, 47, 61)); // #2A2F3D
             e.Graphics.DrawLine(pen, 0, 0, panel.Width, 0);
         };
 
@@ -349,9 +349,9 @@ public sealed partial class MainForm
         _bannerMessageLabel.Dock = DockStyle.Fill;
         _bannerMessageLabel.TextAlign = ContentAlignment.MiddleLeft;
         _bannerMessageLabel.Font = new Font("Segoe UI", 10f, FontStyle.Regular);
-        _bannerMessageLabel.ForeColor = Color.White;
+        _bannerMessageLabel.ForeColor = Color.FromArgb(230, 232, 239); // #E6E8EF
         _bannerMessageLabel.BackColor = Color.Transparent;
-        _bannerMessageLabel.Text = I18n.Launcher.DefaultBannerMessage;
+        _bannerMessageLabel.Text = "👋  " + I18n.Launcher.DefaultBannerMessage;
         _bannerMessageLabel.Visible = true;
         _bannerMessageLabel.Padding = new Padding(0, 0, 0, 1);
 
@@ -365,18 +365,38 @@ public sealed partial class MainForm
             Padding = new Padding(0)
         };
 
+        var dotLabel = new Label
+        {
+            AutoSize = true,
+            Text = "\u25CF",
+            ForeColor = Color.FromArgb(139, 92, 246), // #8B5CF6
+            Font = new Font("Segoe UI", 9f, FontStyle.Regular),
+            Margin = new Padding(0, 5, 6, 0)
+        };
+
         _footerMachineLabel.AutoSize = true;
-        _footerMachineLabel.ForeColor = Color.FromArgb(183, 209, 255);
+        _footerMachineLabel.ForeColor = Color.FromArgb(139, 147, 167); // #8B93A7
         _footerMachineLabel.Font = new Font("Segoe UI", 10f, FontStyle.Regular);
-        _footerMachineLabel.Margin = new Padding(0, 4, 18, 0);
+        _footerMachineLabel.Margin = new Padding(0, 4, 12, 0);
         _footerMachineLabel.Text = Environment.MachineName;
+
+        var barLabel = new Label
+        {
+            AutoSize = true,
+            Text = "|",
+            ForeColor = Color.FromArgb(42, 47, 61), // #2A2F3D
+            Font = new Font("Segoe UI", 10f, FontStyle.Regular),
+            Margin = new Padding(0, 3, 12, 0)
+        };
 
         _footerClockLabel.AutoSize = true;
         _footerClockLabel.ForeColor = Color.White;
         _footerClockLabel.Font = new Font("Segoe UI Semibold", 10f, FontStyle.Bold);
         _footerClockLabel.Margin = new Padding(0, 4, 0, 0);
 
+        rightPanel.Controls.Add(dotLabel);
         rightPanel.Controls.Add(_footerMachineLabel);
+        rightPanel.Controls.Add(barLabel);
         rightPanel.Controls.Add(_footerClockLabel);
 
         layout.Controls.Add(_bannerMessageLabel, 0, 0);
@@ -430,71 +450,118 @@ public sealed partial class MainForm
         return fallbackBitmap;
     }
 
-    private Button CreateCategoryButton(string text)
+    private Button CreateCategoryButton(string category)
     {
         var button = new Button
         {
-            Text = GetCategoryDisplayText(text),
+            Text = string.Empty,
             Width = 134,
             Height = 44,
             FlatStyle = FlatStyle.Flat,
-            BackColor = Color.FromArgb(5, 12, 28),
+            BackColor = SidebarBackColor,
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
-            TextAlign = ContentAlignment.MiddleLeft,
             Cursor = Cursors.Hand,
             Margin = new Padding(0, 0, 0, 8),
-            Padding = new Padding(10, 0, 0, 0)
+            Padding = new Padding(0)
         };
-        button.FlatAppearance.BorderColor = Color.FromArgb(5, 12, 28);
-        button.FlatAppearance.BorderSize = 1;
-        button.FlatAppearance.MouseOverBackColor = Color.FromArgb(22, 32, 55);
-        button.FlatAppearance.MouseDownBackColor = Color.FromArgb(47, 30, 91);
+        button.FlatAppearance.BorderSize = 0;
+        button.FlatAppearance.MouseOverBackColor = Color.Transparent;
+        button.FlatAppearance.MouseDownBackColor = Color.Transparent;
+        
+        button.Paint += (sender, e) =>
+        {
+            var btn = (Button)sender;
+            var g = e.Graphics;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            
+            var rect = btn.ClientRectangle;
+            
+            using (var bgBrush = new SolidBrush(SidebarBackColor))
+            {
+                g.FillRectangle(bgBrush, rect);
+            }
+            
+            var isSelected = string.Equals(category, _selectedCategory, StringComparison.OrdinalIgnoreCase);
+            
+            using (var path = CreateRoundRectPath(new Rectangle(0, 0, btn.Width - 1, btn.Height - 1), 8))
+            {
+                if (isSelected)
+                {
+                    using (var fill = new System.Drawing.Drawing2D.LinearGradientBrush(
+                        new Rectangle(0, 0, btn.Width, btn.Height),
+                        Color.FromArgb(46, 27, 78),   // #2E1B4E (deep violet)
+                        Color.FromArgb(24, 17, 36),   // #181124 (very dark violet)
+                        0f))
+                    {
+                        g.FillPath(fill, path);
+                    }
+                }
+                else if (btn.ClientRectangle.Contains(btn.PointToClient(Cursor.Position)))
+                {
+                    using (var fill = new SolidBrush(Color.FromArgb(28, 31, 41))) // #1C1F29
+                    {
+                        g.FillPath(fill, path);
+                    }
+                }
+            }
+            
+            string iconGlyph = GetCategoryIconGlyph(category);
+            var iconFont = new Font("Segoe MDL2 Assets", 11.5f, FontStyle.Regular);
+            var textFont = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
+            
+            var iconColor = isSelected ? Color.White : Color.FromArgb(139, 147, 167); // #8B93A7
+            var textColor = isSelected ? Color.White : Color.FromArgb(230, 232, 239); // #E6E8EF
+            
+            var iconSize = g.MeasureString(iconGlyph, iconFont);
+            var iconY = (btn.Height - iconSize.Height) / 2;
+            using (var brush = new SolidBrush(iconColor))
+            {
+                g.DrawString(iconGlyph, iconFont, brush, 14, iconY + 1);
+            }
+            
+            var textSize = g.MeasureString(category, textFont);
+            var textY = (btn.Height - textSize.Height) / 2;
+            using (var brush = new SolidBrush(textColor))
+            {
+                g.DrawString(category, textFont, brush, 38, textY);
+            }
+            
+            iconFont.Dispose();
+            textFont.Dispose();
+        };
+        
+        button.MouseEnter += (s, e) => button.Invalidate();
+        button.MouseLeave += (s, e) => button.Invalidate();
+        
         return button;
     }
 
-    private static string GetCategoryDisplayText(string text)
+    private static string GetCategoryIconGlyph(string text)
     {
         if (string.Equals(text, I18n.Launcher.DefaultCategory, StringComparison.OrdinalIgnoreCase))
         {
-            return "\u25B6  " + text;
+            return "\uE990"; // Filled gamepad icon
         }
-
         if (string.Equals(text, "Hot", StringComparison.OrdinalIgnoreCase))
         {
-            return "\u2606  " + text;
+            return "\uE734";
         }
-
         if (text.Contains("Online", StringComparison.OrdinalIgnoreCase))
         {
-            return "\u25CE  " + text;
+            return "\uE774"; // Globe icon
         }
-
-        if (text.Contains("Phieu", StringComparison.OrdinalIgnoreCase) ||
-            text.Contains("Phi", StringComparison.OrdinalIgnoreCase) ||
-            text.Contains("Phi\u00eau", StringComparison.OrdinalIgnoreCase))
+        if (text.Contains("Offline", StringComparison.OrdinalIgnoreCase))
         {
-            return "\u25C8  " + text;
+            return "\uE779"; // PC / Local Network icon
         }
-
-        if (text.Contains("Chien", StringComparison.OrdinalIgnoreCase) ||
-            text.Contains("Chi\u1ebfn", StringComparison.OrdinalIgnoreCase))
+        if (text.Contains("Tools", StringComparison.OrdinalIgnoreCase) ||
+            text.Contains("Cong cu", StringComparison.OrdinalIgnoreCase) ||
+            text.Contains("C\u00f4ng c\u1ee5", StringComparison.OrdinalIgnoreCase))
         {
-            return "\u2694  " + text;
+            return "\uE812"; // Wrench/Tool icon
         }
-
-        if (text.Contains("Casual", StringComparison.OrdinalIgnoreCase))
-        {
-            return "\u2667  " + text;
-        }
-
-        if (text.Contains("Tri", StringComparison.OrdinalIgnoreCase) ||
-            text.Contains("Tr\u00ed", StringComparison.OrdinalIgnoreCase))
-        {
-            return "\u25C9  " + text;
-        }
-
-        return "\u2723  " + text;
+        return "\uE712";
     }
 
     private static Button CreateHeaderLinkButton(string text, string tooltip, string url)
@@ -506,15 +573,52 @@ public sealed partial class MainForm
             Height = 32,
             FlatStyle = FlatStyle.Flat,
             Margin = new Padding(8, 0, 0, 0),
-            BackColor = Color.FromArgb(10, 22, 49),
-            ForeColor = Color.White,
-            Font = new Font("Segoe UI Semibold", 10f, FontStyle.Bold),
+            BackColor = Color.FromArgb(28, 31, 41), // #1C1F29
+            ForeColor = Color.FromArgb(230, 232, 239), // #E6E8EF
+            Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold),
             Cursor = Cursors.Hand
         };
-        button.FlatAppearance.BorderColor = Color.FromArgb(77, 135, 223);
-        button.FlatAppearance.BorderSize = 1;
-        button.FlatAppearance.MouseOverBackColor = Color.FromArgb(34, 72, 132);
-        button.FlatAppearance.MouseDownBackColor = Color.FromArgb(40, 82, 150);
+        button.FlatAppearance.BorderSize = 0;
+        button.Paint += (sender, e) =>
+        {
+            var btn = (Button)sender;
+            var g = e.Graphics;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            
+            var rect = btn.ClientRectangle;
+            using (var bgBrush = new SolidBrush(HeaderBackColor))
+            {
+                g.FillRectangle(bgBrush, rect);
+            }
+            
+            var isHover = btn.ClientRectangle.Contains(btn.PointToClient(Cursor.Position));
+            var backColor = isHover ? Color.FromArgb(139, 92, 246) : Color.FromArgb(28, 31, 41); // #8B5CF6 / #1C1F29
+            var borderColor = isHover ? Color.FromArgb(139, 92, 246) : Color.FromArgb(42, 47, 61); // #8B5CF6 / #2A2F3D
+            
+            using (var path = CreateRoundRectPath(new Rectangle(0, 0, btn.Width - 1, btn.Height - 1), 6))
+            {
+                using (var fill = new SolidBrush(backColor))
+                {
+                    g.FillPath(fill, path);
+                }
+                using (var pen = new Pen(borderColor, 1))
+                {
+                    g.DrawPath(pen, path);
+                }
+            }
+            
+            var textSize = g.MeasureString(btn.Text, btn.Font);
+            g.DrawString(
+                btn.Text,
+                btn.Font,
+                Brushes.White,
+                (btn.Width - textSize.Width) / 2,
+                (btn.Height - textSize.Height) / 2);
+        };
+        button.MouseEnter += (s, e) => button.Invalidate();
+        button.MouseLeave += (s, e) => button.Invalidate();
+
         button.Click += (_, _) =>
         {
             try

@@ -56,6 +56,27 @@ public sealed partial class MainForm : Form
     {
         base.OnHandleCreated(e);
         UpdateCloseAppHotKeyRegistration();
+        ApplyImmersiveDarkMode();
+    }
+
+    private void ApplyImmersiveDarkMode()
+    {
+        try
+        {
+            if (Environment.OSVersion.Version.Major >= 10)
+            {
+                int useDarkMode = 1;
+                int result = DwmSetWindowAttribute(Handle, DwmwaUseImmersiveDarkMode, ref useDarkMode, sizeof(int));
+                if (result != 0)
+                {
+                    DwmSetWindowAttribute(Handle, DwmwaUseImmersiveDarkModeBefore20h1, ref useDarkMode, sizeof(int));
+                }
+            }
+        }
+        catch
+        {
+            // Fallback on restricted or older Windows environments.
+        }
     }
 
     protected override void OnHandleDestroyed(EventArgs e)

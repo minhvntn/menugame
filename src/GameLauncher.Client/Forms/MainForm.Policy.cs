@@ -36,13 +36,13 @@ public sealed partial class MainForm
     private void ApplyBrandingPolicy(LauncherClientPolicy policy)
     {
         _cafeNameLabel.Text = string.IsNullOrWhiteSpace(policy.CafeDisplayName)
-            ? CafeDisplayName
-            : policy.CafeDisplayName.Trim();
+            ? CafeDisplayName.ToUpper()
+            : policy.CafeDisplayName.Trim().ToUpper();
 
         var bannerMessage = policy.BannerMessage?.Trim() ?? string.Empty;
-        _bannerMessageLabel.Text = string.IsNullOrWhiteSpace(bannerMessage)
+        _bannerMessageLabel.Text = "👋  " + (string.IsNullOrWhiteSpace(bannerMessage)
             ? I18n.Launcher.DefaultBannerMessage
-            : bannerMessage;
+            : bannerMessage);
         _bannerMessageLabel.Visible = true;
         ThemeFontFamily = string.IsNullOrWhiteSpace(policy.ThemeFontFamily)
             ? I18n.Launcher.DefaultFontFamily

@@ -12,13 +12,9 @@ public sealed partial class MainForm
     private const string HotCategoryLabel = "Hot";
     private static readonly string[] SidebarCategoryLabels =
     {
-        HotCategoryLabel,
         "Online",
-        "Phi\u00eau l\u01b0u",
-        "Chi\u1ebfn thu\u1eadt",
-        "Casual",
-        "Tr\u00ed tu\u1ec7",
-        "Kh\u00e1c"
+        "Offline",
+        "Tools"
     };
 
     private List<LauncherGameRow> _allRows = new();
@@ -78,13 +74,6 @@ public sealed partial class MainForm
 
         var categoryList = new List<string> { DefaultCategoryLabel };
         categoryList.AddRange(SidebarCategoryLabels);
-        categoryList.AddRange(
-            categories
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(category => category, StringComparer.CurrentCultureIgnoreCase));
-        categoryList = categoryList
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
 
         foreach (var category in categoryList)
         {
@@ -110,16 +99,7 @@ public sealed partial class MainForm
     {
         foreach (var (category, button) in _categoryButtons)
         {
-            var isSelected = string.Equals(category, _selectedCategory, StringComparison.OrdinalIgnoreCase);
-            button.BackColor = isSelected
-                ? Color.FromArgb(67, 37, 128)
-                : Color.FromArgb(5, 12, 28);
-            button.FlatAppearance.BorderColor = isSelected
-                ? Color.FromArgb(127, 82, 214)
-                : Color.FromArgb(5, 12, 28);
-            button.ForeColor = isSelected
-                ? Color.White
-                : Color.FromArgb(206, 226, 255);
+            button.Invalidate();
         }
     }
 
@@ -169,7 +149,9 @@ public sealed partial class MainForm
             _normalCardsPanel.Controls.Add(CreateEmptyStateLabel("Khong co game phu hop."));
         }
 
-        var sortText = _sortAscending ? "S\u1eafp x\u1ebfp: A \u2192 Z" : "S\u1eafp x\u1ebfp: Z \u2192 A";
+        var sortText = _sortAscending 
+            ? "S\u1eafp x\u1ebfp: A \u2192 Z  \u02C4" 
+            : "S\u1eafp x\u1ebfp: Z \u2192 A  \u02C5";
         _hotSortLabel.Text = sortText;
         _allSortLabel.Text = sortText;
 
@@ -195,6 +177,12 @@ public sealed partial class MainForm
         if (string.Equals(_selectedCategory, HotCategoryLabel, StringComparison.OrdinalIgnoreCase))
         {
             return row.IsHot;
+        }
+
+        if (string.Equals(_selectedCategory, "Tools", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Equals(row.Category, "Tools", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(row.Category, "Tool", StringComparison.OrdinalIgnoreCase);
         }
 
         return string.Equals(row.Category, _selectedCategory, StringComparison.OrdinalIgnoreCase);
