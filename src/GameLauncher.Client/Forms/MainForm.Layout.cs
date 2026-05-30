@@ -64,7 +64,7 @@ public sealed partial class MainForm
         };
         headerPanel.Paint += (_, e) =>
         {
-            using var pen = new Pen(Color.FromArgb(42, 47, 61)); // #2A2F3D
+            using var pen = new Pen(Color.FromArgb(75, 42, 47, 61)); // #2A2F3D with ~30% opacity for a soft, blurry look
             e.Graphics.DrawLine(pen, 0, headerPanel.Height - 1, headerPanel.Width, headerPanel.Height - 1);
         };
 
@@ -215,7 +215,7 @@ public sealed partial class MainForm
         };
         sidebar.Paint += (_, e) =>
         {
-            using var pen = new Pen(Color.FromArgb(42, 47, 61)); // #2A2F3D
+            using var pen = new Pen(Color.FromArgb(75, 42, 47, 61)); // #2A2F3D with ~30% opacity for a soft, blurry look
             e.Graphics.DrawLine(pen, sidebar.Width - 1, 0, sidebar.Width - 1, sidebar.Height);
         };
 
@@ -333,7 +333,7 @@ public sealed partial class MainForm
         };
         panel.Paint += (_, e) =>
         {
-            using var pen = new Pen(Color.FromArgb(42, 47, 61)); // #2A2F3D
+            using var pen = new Pen(Color.FromArgb(75, 42, 47, 61)); // #2A2F3D with ~30% opacity for a soft, blurry look
             e.Graphics.DrawLine(pen, 0, 0, panel.Width, 0);
         };
 
