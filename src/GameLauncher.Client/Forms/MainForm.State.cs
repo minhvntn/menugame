@@ -136,6 +136,13 @@ public sealed partial class MainForm
 
         _hotCards.AddRange(hotControls);
         _normalCards.AddRange(normalControls);
+        
+        _slideTimer.Stop();
+        _slideTargetLeft = 0;
+        _slideStartLeft = 0;
+        _slideProgress = 0f;
+        _hotCardsPanel.Left = 0;
+        
         _hotCardsPanel.Controls.AddRange(hotControls);
         _normalCardsPanel.Controls.AddRange(normalControls);
 
@@ -143,6 +150,8 @@ public sealed partial class MainForm
         {
             _hotCardsPanel.Controls.Add(CreateEmptyStateLabel("Khong co game noi bat."));
         }
+
+        UpdateCarouselButtonsVisibility();
 
         if (_normalCardsPanel.Controls.Count == 0)
         {

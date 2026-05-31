@@ -221,6 +221,22 @@ public sealed partial class MainForm
 
         public double MemoryUsagePercent { get; init; }
 
+        public double CpuTemperatureCelsius { get; init; }
+
+        public string CpuName { get; init; } = string.Empty;
+
+        public string GpuName { get; init; } = string.Empty;
+
+        public double CpuLoadPercent { get; init; }
+
+        public double CpuClockMhz { get; init; }
+
+        public double GpuTemperatureCelsius { get; init; }
+
+        public double GpuLoadPercent { get; init; }
+
+        public double GpuFanRpm { get; init; }
+
         public DateTime ClientStartedAtUtc { get; init; }
 
         public long UptimeSeconds { get; init; }
@@ -253,6 +269,58 @@ public sealed partial class MainForm
             ? "-"
             : $"{UsedMemoryGb:0.#}/{TotalMemoryGb:0.#}GB ({MemoryUsagePercent:0.#}%)";
 
+        public string CpuTemperatureText => CpuTemperatureCelsius <= 0
+            ? "-"
+            : $"{CpuTemperatureCelsius:0.#}\u00b0C";
+
+        public string VgaLoadText
+        {
+            get
+            {
+                var parts = new List<string>();
+                if (GpuTemperatureCelsius > 0)
+                {
+                    parts.Add($"{GpuTemperatureCelsius:0.#}\u00b0C");
+                }
+
+                if (GpuLoadPercent > 0)
+                {
+                    parts.Add($"{GpuLoadPercent:0.#}%");
+                }
+
+                if (GpuFanRpm > 0)
+                {
+                    parts.Add($"{GpuFanRpm:0} RPM");
+                }
+
+                return parts.Count == 0 ? "-" : string.Join(" / ", parts);
+            }
+        }
+
+        public string CpuLoadText
+        {
+            get
+            {
+                var parts = new List<string>();
+                if (CpuTemperatureCelsius > 0)
+                {
+                    parts.Add($"{CpuTemperatureCelsius:0.#}\u00b0C");
+                }
+
+                if (CpuLoadPercent > 0)
+                {
+                    parts.Add($"{CpuLoadPercent:0.#}%");
+                }
+
+                if (CpuClockMhz > 0)
+                {
+                    parts.Add($"{CpuClockMhz / 1000d:0.###}GHz");
+                }
+
+                return parts.Count == 0 ? "-" : string.Join(" / ", parts);
+            }
+        }
+
         public string UptimeText => UptimeSeconds <= 0
             ? "-"
             : FormatDuration(TimeSpan.FromSeconds(UptimeSeconds));
@@ -276,9 +344,17 @@ public sealed partial class MainForm
                 IpAddress = status.IpAddress?.Trim() ?? string.Empty,
                 LastSeenUtc = status.LastSeenUtc,
                 SourceFileName = sourceFileName,
+                CpuName = status.CpuName,
+                GpuName = status.GpuName,
                 TotalMemoryGb = status.TotalMemoryGb,
                 UsedMemoryGb = status.UsedMemoryGb,
                 MemoryUsagePercent = status.MemoryUsagePercent,
+                CpuTemperatureCelsius = status.CpuTemperatureCelsius,
+                CpuLoadPercent = status.CpuLoadPercent,
+                CpuClockMhz = status.CpuClockMhz,
+                GpuTemperatureCelsius = status.GpuTemperatureCelsius,
+                GpuLoadPercent = status.GpuLoadPercent,
+                GpuFanRpm = status.GpuFanRpm,
                 ClientStartedAtUtc = status.ClientStartedAtUtc,
                 UptimeSeconds = status.UptimeSeconds,
                 NetworkSentKbps = status.NetworkSentKbps,

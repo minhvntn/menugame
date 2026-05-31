@@ -5,8 +5,14 @@ namespace GameUpdater.WinForms.Forms;
 
 public sealed class GameEditorForm : Form
 {
+    private static readonly string[] CategoryOptions = { "Online", "Offline", "Tools" };
+
     private readonly TextBox _nameTextBox = new() { Dock = DockStyle.Fill };
-    private readonly TextBox _categoryTextBox = new() { Dock = DockStyle.Fill };
+    private readonly ComboBox _categoryComboBox = new()
+    {
+        Dock = DockStyle.Fill,
+        DropDownStyle = ComboBoxStyle.DropDownList
+    };
     private readonly TextBox _pathTextBox = new() { Dock = DockStyle.Fill };
     private readonly TextBox _versionTextBox = new() { Dock = DockStyle.Fill };
     private readonly TextBox _launchPathTextBox = new() { Dock = DockStyle.Fill };
@@ -63,8 +69,9 @@ public sealed class GameEditorForm : Form
         root.SetColumnSpan(_nameTextBox, 2);
 
         root.Controls.Add(CreateLabel(I18n.Server.GameEditorCategory), 0, 1);
-        root.Controls.Add(_categoryTextBox, 1, 1);
-        root.SetColumnSpan(_categoryTextBox, 2);
+        _categoryComboBox.Items.AddRange(CategoryOptions);
+        root.Controls.Add(_categoryComboBox, 1, 1);
+        root.SetColumnSpan(_categoryComboBox, 2);
 
         root.Controls.Add(CreateLabel(I18n.Server.GameEditorInstallPath), 0, 2);
         root.Controls.Add(_pathTextBox, 1, 2);
@@ -134,7 +141,7 @@ public sealed class GameEditorForm : Form
         if (existingGame is not null)
         {
             _nameTextBox.Text = existingGame.Name;
-            _categoryTextBox.Text = existingGame.Category;
+            SelectCategory(existingGame.Category);
             _pathTextBox.Text = existingGame.InstallPath;
             _versionTextBox.Text = existingGame.Version;
             _launchPathTextBox.Text = existingGame.LaunchRelativePath;
@@ -144,7 +151,7 @@ public sealed class GameEditorForm : Form
         }
         else
         {
-            _categoryTextBox.Text = I18n.Server.GameEditorDefaultCategory;
+            SelectCategory(I18n.Server.GameEditorDefaultCategory);
             _versionTextBox.Text = I18n.Server.GameEditorDefaultVersion;
         }
     }
@@ -226,7 +233,7 @@ public sealed class GameEditorForm : Form
         {
             Id = _existingGame?.Id ?? 0,
             Name = _nameTextBox.Text.Trim(),
-            Category = string.IsNullOrWhiteSpace(_categoryTextBox.Text) ? I18n.Server.DefaultCategoryFallback : _categoryTextBox.Text.Trim(),
+            Category = _categoryComboBox.SelectedItem?.ToString() ?? I18n.Server.GameEditorDefaultCategory,
             InstallPath = _pathTextBox.Text.Trim(),
             Version = string.IsNullOrWhiteSpace(_versionTextBox.Text) ? I18n.Server.GameEditorDefaultVersion : _versionTextBox.Text.Trim(),
             LaunchRelativePath = _launchPathTextBox.Text.Trim(),
@@ -250,5 +257,19 @@ public sealed class GameEditorForm : Form
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleLeft
         };
+    }
+
+    private void SelectCategory(string? category)
+    {
+        var normalized = category?.Trim() ?? string.Empty;
+        var selectedCategory = CategoryOptions.FirstOrDefault(option =>
+            string.Equals(option, normalized, StringComparison.OrdinalIgnoreCase))
+            ?? I18n.Server.GameEditorDefaultCategory;
+
+        _categoryComboBox.SelectedItem = selectedCategory;
+        if (_categoryComboBox.SelectedIndex < 0)
+        {
+            _categoryComboBox.SelectedIndex = 0;
+        }
     }
 }

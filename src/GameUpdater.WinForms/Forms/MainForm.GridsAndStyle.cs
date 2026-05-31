@@ -12,6 +12,7 @@ namespace GameUpdater.WinForms.Forms;
 
 public sealed partial class MainForm
 {
+    private const string HotColumnName = "HotColumn";
     private const string GameSizeDisplayColumnName = "GameSizeDisplayColumn";
 
     private void ConfigureGamesGrid()
@@ -27,7 +28,12 @@ public sealed partial class MainForm
         _gamesGrid.DataSource = _gamesBinding;
         _gamesGrid.CellFormatting -= GamesGrid_CellFormatting;
         _gamesGrid.CellFormatting += GamesGrid_CellFormatting;
-        _gamesGrid.Columns.Add(CreateCheckBoxColumn("Hot", nameof(GameRecord.IsHot), 65));
+        _gamesGrid.CellClick -= GamesGrid_CellClick;
+        _gamesGrid.CellClick += GamesGrid_CellClick;
+
+        var hotColumn = CreateCheckBoxColumn("Hot", nameof(GameRecord.IsHot), 65);
+        hotColumn.Name = HotColumnName;
+        _gamesGrid.Columns.Add(hotColumn);
 
         _gamesGrid.Columns.Add(CreateTextColumn("Tên trò chơi", nameof(GameRecord.Name), 230));
         _gamesGrid.Columns.Add(CreateTextColumn("Nhóm", nameof(GameRecord.Category), 120));
@@ -48,6 +54,37 @@ public sealed partial class MainForm
         _gamesGrid.Columns.Add(CreateTextColumn("Đường dẫn cài đặt", nameof(GameRecord.InstallPath), 320));
         _gamesGrid.Columns.Add(CreateTextColumn("Quét gần nhất", nameof(GameRecord.LastScannedAt), 140, "yyyy-MM-dd HH:mm:ss"));
         _gamesGrid.Columns.Add(CreateTextColumn("Cập nhật gần nhất", nameof(GameRecord.LastUpdatedAt), 140, "yyyy-MM-dd HH:mm:ss"));
+    }
+
+    private async void GamesGrid_CellClick(object? sender, DataGridViewCellEventArgs e)
+    {
+        if (e.RowIndex < 0 ||
+            e.ColumnIndex < 0 ||
+            _gamesGrid.Columns[e.ColumnIndex].Name != HotColumnName ||
+            _gamesGrid.Rows[e.RowIndex].DataBoundItem is not GameRecord game)
+        {
+            return;
+        }
+
+        _gamesBinding.Position = e.RowIndex;
+        _gamesGrid.CurrentCell = _gamesGrid.Rows[e.RowIndex].Cells[e.ColumnIndex];
+        await SetGameHotFromGridAsync(game, !game.IsHot);
+    }
+
+    private async Task SetGameHotFromGridAsync(GameRecord game, bool isHot)
+    {
+        if (game.IsHot == isHot)
+        {
+            return;
+        }
+
+        await ExecuteWithErrorHandlingAsync(async () =>
+        {
+            game.IsHot = isHot;
+            var gameId = await _gameService.SaveGameAsync(game);
+            await AutoExportCatalogAsync();
+            await ReloadAllAsync(gameId);
+        });
     }
 
     private void GamesGrid_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
@@ -126,6 +163,11 @@ public sealed partial class MainForm
         _clientStatusGrid.Columns.Add(statusCol);
         _clientStatusGrid.Columns.Add(CreateTextColumn("Máy", nameof(ClientDashboardRow.MachineName), 150));
         _clientStatusGrid.Columns.Add(CreateTextColumn("User", nameof(ClientDashboardRow.UserName), 120));
+        _clientStatusGrid.Columns.Add(CreateTextColumn("Tên CPU", nameof(ClientDashboardRow.CpuName), 170));
+        _clientStatusGrid.Columns.Add(CreateTextColumn("Tên Card", nameof(ClientDashboardRow.GpuName), 170));
+        _clientStatusGrid.Columns.Add(CreateTextColumn("Nhiệt CPU", nameof(ClientDashboardRow.CpuTemperatureText), 95));
+        _clientStatusGrid.Columns.Add(CreateTextColumn("VGA Load", nameof(ClientDashboardRow.VgaLoadText), 150));
+        _clientStatusGrid.Columns.Add(CreateTextColumn("CPU Load", nameof(ClientDashboardRow.CpuLoadText), 150));
         _clientStatusGrid.Columns.Add(CreateTextColumn("Đang chơi", nameof(ClientDashboardRow.CurrentGameName), 200));
         _clientStatusGrid.Columns.Add(CreateTextColumn("Uptime", nameof(ClientDashboardRow.UptimeText), 90));
         _clientStatusGrid.Columns.Add(CreateTextColumn("RAM", nameof(ClientDashboardRow.MemoryText), 130));

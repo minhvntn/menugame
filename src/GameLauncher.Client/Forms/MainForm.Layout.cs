@@ -21,8 +21,19 @@ public sealed partial class MainForm
     private readonly FlowLayoutPanel _categoryListPanel = new();
     private readonly FlowLayoutPanel _hotCardsPanel = new();
     private readonly FlowLayoutPanel _normalCardsPanel = new();
+    private readonly Button _hotLeftBtn = new();
+    private readonly Button _hotRightBtn = new();
+    private readonly Panel _hotCardsViewport = new();
     private readonly Dictionary<string, Button> _categoryButtons = new(StringComparer.OrdinalIgnoreCase);
     private readonly System.Windows.Forms.Timer _clockTimer = new();
+    private readonly System.Windows.Forms.Timer _slideTimer = new();
+    private int _slideStartLeft;
+    private int _slideTargetLeft;
+    private float _slideProgress;
+    private readonly Panel _customScrollbar = new();
+    private bool _isDraggingScrollbar;
+    private int _dragStartY;
+    private int _dragStartScrollValue;
     private Image? _headerLogoImage;
 
     private void BuildLayout()
@@ -71,6 +82,7 @@ public sealed partial class MainForm
 
         Controls.Add(root);
         InitializeClock();
+        InitializeSlideTimer();
     }
 
     private Control BuildHeaderPanel()
@@ -257,32 +269,137 @@ public sealed partial class MainForm
             ColumnCount = 1,
             RowCount = 2,
             BackColor = Color.Transparent,
-            Padding = new Padding(32, 18, 22, 12)
+            Padding = new Padding(0, 18, 0, 12)
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 286f));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 242f));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
-        _hotCardsPanel.Dock = DockStyle.Fill;
-        _hotCardsPanel.AutoScroll = true;
+        var hotSectionPanel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.Transparent
+        };
+
+        var hotTopBar = new TableLayoutPanel
+        {
+            Height = 42,
+            Dock = DockStyle.Top,
+            ColumnCount = 2,
+            Padding = new Padding(32, 0, 22, 0),
+            BackColor = Color.Transparent
+        };
+        hotTopBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        hotTopBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+        var hotTitleLabel = new Label
+        {
+            Dock = DockStyle.Fill,
+            Text = "GAME N\u1ed4I B\u1eacT",
+            ForeColor = Color.White,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Font = new Font("Segoe UI Semibold", 12f, FontStyle.Bold)
+        };
+
+        _hotSortLabel.AutoSize = true;
+        _hotSortLabel.Anchor = AnchorStyles.Right;
+        _hotSortLabel.Cursor = Cursors.Hand;
+        _hotSortLabel.ForeColor = Color.FromArgb(139, 147, 167);
+        _hotSortLabel.Font = new Font("Segoe UI", 9f, FontStyle.Regular);
+        _hotSortLabel.Click += (_, _) => ToggleSortOrder();
+        _hotSortLabel.Visible = false;
+
+        hotTopBar.Controls.Add(hotTitleLabel, 0, 0);
+        hotTopBar.Controls.Add(_hotSortLabel, 1, 0);
+
+        _hotCardsViewport.Location = new Point(32, 42);
+        _hotCardsViewport.Size = new Size(1312, 200);
+        _hotCardsViewport.BackColor = Color.Transparent;
+        _hotCardsViewport.AutoScroll = false;
+
+        _hotCardsPanel.Location = new Point(0, 0);
+        _hotCardsPanel.AutoScroll = false;
         _hotCardsPanel.WrapContents = false;
         _hotCardsPanel.FlowDirection = FlowDirection.LeftToRight;
         _hotCardsPanel.Padding = new Padding(0, 8, 0, 8);
         _hotCardsPanel.Margin = new Padding(0);
         _hotCardsPanel.BackColor = Color.Transparent;
+        _hotCardsPanel.AutoSize = true;
+        _hotCardsPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         EnableDoubleBuffering(_hotCardsPanel);
 
-        _normalCardsPanel.Dock = DockStyle.Fill;
+        _hotCardsViewport.Controls.Add(_hotCardsPanel);
+
+        // Left Carousel Button (Outside viewport, in the left 32px padding zone)
+        _hotLeftBtn.Size = new Size(32, 44);
+        _hotLeftBtn.FlatStyle = FlatStyle.Flat;
+        _hotLeftBtn.FlatAppearance.BorderSize = 0;
+        _hotLeftBtn.FlatAppearance.MouseOverBackColor = Color.Transparent;
+        _hotLeftBtn.FlatAppearance.MouseDownBackColor = Color.Transparent;
+        _hotLeftBtn.Font = new Font("Segoe MDL2 Assets", 12f, FontStyle.Bold);
+        _hotLeftBtn.Text = "\uE76B"; // ChevronLeft
+        _hotLeftBtn.Cursor = Cursors.Hand;
+        _hotLeftBtn.Paint += (sender, e) => DrawCarouselNavButton(sender, e);
+        _hotLeftBtn.MouseEnter += (s, e) => _hotLeftBtn.Invalidate();
+        _hotLeftBtn.MouseLeave += (s, e) => _hotLeftBtn.Invalidate();
+        _hotLeftBtn.Click += (_, _) => SlideCarousel(164); // Slide left
+
+        // Right Carousel Button (Outside viewport, in the right 22px padding zone)
+        _hotRightBtn.Size = new Size(32, 44);
+        _hotRightBtn.FlatStyle = FlatStyle.Flat;
+        _hotRightBtn.FlatAppearance.BorderSize = 0;
+        _hotRightBtn.FlatAppearance.MouseOverBackColor = Color.Transparent;
+        _hotRightBtn.FlatAppearance.MouseDownBackColor = Color.Transparent;
+        _hotRightBtn.Font = new Font("Segoe MDL2 Assets", 12f, FontStyle.Bold);
+        _hotRightBtn.Text = "\uE76C"; // ChevronRight
+        _hotRightBtn.Cursor = Cursors.Hand;
+        _hotRightBtn.Paint += (sender, e) => DrawCarouselNavButton(sender, e);
+        _hotRightBtn.MouseEnter += (s, e) => _hotRightBtn.Invalidate();
+        _hotRightBtn.MouseLeave += (s, e) => _hotRightBtn.Invalidate();
+        _hotRightBtn.Click += (_, _) => SlideCarousel(-164); // Slide right
+
+        hotSectionPanel.Controls.Add(hotTopBar);
+        hotSectionPanel.Controls.Add(_hotLeftBtn);
+        hotSectionPanel.Controls.Add(_hotRightBtn);
+        hotSectionPanel.Controls.Add(_hotCardsViewport);
+
+        // Make sure buttons draw on top of everything
+        _hotLeftBtn.BringToFront();
+        _hotRightBtn.BringToFront();
+
+        hotSectionPanel.Resize += (_, _) =>
+        {
+            _hotCardsViewport.Width = Math.Min(1312, hotSectionPanel.Width - 54);
+            _hotCardsViewport.Height = hotSectionPanel.Height - 42;
+            
+            // Vertically center left/right buttons and place them in outer margins
+            _hotLeftBtn.Location = new Point(0, 42 + (_hotCardsViewport.Height - _hotLeftBtn.Height) / 2);
+            _hotRightBtn.Location = new Point(hotSectionPanel.Width - _hotRightBtn.Width, 42 + (_hotCardsViewport.Height - _hotRightBtn.Height) / 2);
+            
+            int minLeft = _hotCardsViewport.Width - _hotCardsPanel.Width;
+            if (minLeft > 0) minLeft = 0;
+
+            if (_hotCardsPanel.Left < minLeft)
+            {
+                _hotCardsPanel.Left = minLeft;
+            }
+            if (_slideTargetLeft < minLeft) _slideTargetLeft = minLeft;
+            if (_slideTargetLeft > 0) _slideTargetLeft = 0;
+
+            UpdateCarouselButtonsVisibility();
+        };
+
+        _normalCardsPanel.Dock = DockStyle.None;
         _normalCardsPanel.AutoScroll = true;
         _normalCardsPanel.WrapContents = true;
         _normalCardsPanel.FlowDirection = FlowDirection.LeftToRight;
-        _normalCardsPanel.Padding = new Padding(0, 8, 0, 8);
+        _normalCardsPanel.Padding = new Padding(0, 8, SystemInformation.VerticalScrollBarWidth, 8);
         _normalCardsPanel.Margin = new Padding(0);
         _normalCardsPanel.BackColor = Color.Transparent;
         EnableDoubleBuffering(_normalCardsPanel);
 
-        layout.Controls.Add(BuildSectionPanel("GAME N\u1ed4I B\u1eacT", _hotCardsPanel, _hotSortLabel), 0, 0);
-        layout.Controls.Add(BuildSectionPanel("T\u1ea4T C\u1ea2 GAME", _normalCardsPanel, _allSortLabel), 0, 1);
+        layout.Controls.Add(hotSectionPanel, 0, 0);
+        layout.Controls.Add(BuildSectionPanel("T\u1ea4T C\u1ea2 GAME", BuildNormalCardsScrollWrapper(), _allSortLabel), 0, 1);
         return layout;
     }
 
@@ -310,7 +427,7 @@ public sealed partial class MainForm
         {
             Dock = DockStyle.Fill,
             ColumnCount = 2,
-            Padding = new Padding(0, 0, 0, 0)
+            Padding = new Padding(32, 0, 22, 0)
         };
         topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         topBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -335,6 +452,8 @@ public sealed partial class MainForm
         topBar.Controls.Add(titleLabel, 0, 0);
         topBar.Controls.Add(sortLabel, 1, 0);
         layout.Controls.Add(topBar, 0, 0);
+
+        bodyControl.Margin = new Padding(32, 0, 22, 0);
         layout.Controls.Add(bodyControl, 0, 1);
         panel.Controls.Add(layout);
         return panel;
@@ -682,5 +801,309 @@ public sealed partial class MainForm
         path.AddArc(bounds.X, bounds.Bottom - diameter, diameter, diameter, 90, 90);
         path.CloseFigure();
         return path;
+    }
+
+    private void DrawCarouselNavButton(object? sender, PaintEventArgs e)
+    {
+        if (sender is not Button btn) return;
+        var g = e.Graphics;
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+        var isHover = btn.ClientRectangle.Contains(btn.PointToClient(Cursor.Position));
+        
+        if (isHover)
+        {
+            using var fill = new SolidBrush(Color.FromArgb(30, 139, 92, 246)); // Subtly transparent neon purple
+            using var pen = new Pen(Color.FromArgb(100, 139, 92, 246), 1.5f);
+            g.FillEllipse(fill, 2, (btn.Height - 28) / 2, 28, 28);
+            g.DrawEllipse(pen, 2, (btn.Height - 28) / 2, 28, 28);
+        }
+        else
+        {
+            using var fill = new SolidBrush(Color.FromArgb(10, 255, 255, 255));
+            g.FillEllipse(fill, 2, (btn.Height - 28) / 2, 28, 28);
+        }
+
+        var arrowColor = isHover ? Color.White : Color.FromArgb(139, 147, 167);
+        using var brush = new SolidBrush(arrowColor);
+        var size = g.MeasureString(btn.Text, btn.Font);
+        g.DrawString(btn.Text, btn.Font, brush, (btn.Width - size.Width) / 2, (btn.Height - size.Height) / 2 + 0.5f);
+    }
+
+    private void InitializeSlideTimer()
+    {
+        _slideTimer.Interval = 15;
+        _slideTimer.Tick += SlideTimer_Tick;
+    }
+
+    private void SlideTimer_Tick(object? sender, EventArgs e)
+    {
+        _slideProgress += 0.05f; // ~300ms transition time
+        if (_slideProgress >= 1.0f)
+        {
+            _slideProgress = 1.0f;
+            _hotCardsPanel.Left = _slideTargetLeft;
+            _slideTimer.Stop();
+        }
+        else
+        {
+            float t = EaseOutCubic(_slideProgress);
+            _hotCardsPanel.Left = (int)(_slideStartLeft + (_slideTargetLeft - _slideStartLeft) * t);
+        }
+    }
+
+    private static float EaseOutCubic(float t)
+    {
+        return 1f - (float)Math.Pow(1f - t, 3f);
+    }
+
+    private void SlideCarousel(int amount)
+    {
+        int currentTarget = _slideTimer.Enabled ? _slideTargetLeft : _hotCardsPanel.Left;
+        int newTargetLeft = currentTarget + amount;
+        
+        int minLeft = _hotCardsViewport.Width - _hotCardsPanel.Width;
+        if (minLeft > 0) minLeft = 0;
+        
+        if (newTargetLeft < minLeft) newTargetLeft = minLeft;
+        if (newTargetLeft > 0) newTargetLeft = 0;
+        
+        if (newTargetLeft == _hotCardsPanel.Left && !_slideTimer.Enabled)
+        {
+            return;
+        }
+        
+        _slideStartLeft = _hotCardsPanel.Left;
+        _slideTargetLeft = newTargetLeft;
+        _slideProgress = 0f;
+        
+        if (!_slideTimer.Enabled)
+        {
+            _slideTimer.Start();
+        }
+    }
+
+    private void UpdateCarouselButtonsVisibility()
+    {
+        int cardCount = _hotCards.Count;
+        bool needCarousel = cardCount > 8;
+        
+        _hotLeftBtn.Visible = needCarousel;
+        _hotRightBtn.Visible = needCarousel;
+        
+        if (!needCarousel)
+        {
+            _slideTimer.Stop();
+            _hotCardsPanel.Left = 0;
+            _slideTargetLeft = 0;
+            _slideStartLeft = 0;
+            _slideProgress = 0f;
+        }
+    }
+
+    private Control BuildNormalCardsScrollWrapper()
+    {
+        var wrapper = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            BackColor = Color.Transparent
+        };
+        wrapper.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        wrapper.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 16f)); // Space for scrollbar track & hover zone
+
+        var viewport = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.Transparent,
+            Margin = new Padding(0)
+        };
+
+        _normalCardsPanel.Dock = DockStyle.None;
+        _normalCardsPanel.Padding = new Padding(0, 8, SystemInformation.VerticalScrollBarWidth, 8);
+
+        viewport.Controls.Add(_normalCardsPanel);
+
+        viewport.Resize += (s, e) =>
+        {
+            _normalCardsPanel.Size = new Size(viewport.Width + SystemInformation.VerticalScrollBarWidth, viewport.Height);
+        };
+
+        _customScrollbar.Width = 16;
+        _customScrollbar.Dock = DockStyle.Fill;
+        _customScrollbar.BackColor = Color.Transparent;
+        _customScrollbar.Margin = new Padding(0, 8, 0, 8);
+        _customScrollbar.Cursor = Cursors.Hand;
+
+        _customScrollbar.Paint += CustomScrollbar_Paint;
+        _customScrollbar.MouseDown += CustomScrollbar_MouseDown;
+        _customScrollbar.MouseMove += CustomScrollbar_MouseMove;
+        _customScrollbar.MouseUp += CustomScrollbar_MouseUp;
+        _customScrollbar.MouseEnter += (s, e) => _customScrollbar.Invalidate();
+        _customScrollbar.MouseLeave += (s, e) => _customScrollbar.Invalidate();
+
+        _normalCardsPanel.Scroll += (s, e) => _customScrollbar.Invalidate();
+        _normalCardsPanel.MouseWheel += (s, e) => _customScrollbar.Invalidate();
+        _normalCardsPanel.Layout += (s, e) => _customScrollbar.Invalidate();
+        _normalCardsPanel.Paint += (s, e) => _customScrollbar.Invalidate();
+
+        wrapper.Controls.Add(viewport, 0, 0);
+        wrapper.Controls.Add(_customScrollbar, 1, 0);
+
+        return wrapper;
+    }
+
+    private int GetScrollThumbHeight()
+    {
+        int viewHeight = _normalCardsPanel.Height;
+        int totalHeight = _normalCardsPanel.DisplayRectangle.Height;
+        if (totalHeight <= viewHeight || viewHeight <= 0) return 0;
+
+        int trackHeight = _customScrollbar.Height;
+        int thumbHeight = (int)((double)viewHeight / totalHeight * trackHeight);
+        return Math.Max(30, thumbHeight); // Minimum 30px thumb height for usability
+    }
+
+    private int GetScrollThumbY()
+    {
+        int viewHeight = _normalCardsPanel.Height;
+        int totalHeight = _normalCardsPanel.DisplayRectangle.Height;
+        int maxScroll = totalHeight - viewHeight;
+        if (maxScroll <= 0) return 0;
+
+        int trackHeight = _customScrollbar.Height;
+        int thumbHeight = GetScrollThumbHeight();
+        int scrollVal = -_normalCardsPanel.AutoScrollPosition.Y; // AutoScrollPosition.Y is negative in WinForms
+
+        return (int)((double)scrollVal / maxScroll * (trackHeight - thumbHeight));
+    }
+
+    private void CustomScrollbar_MouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left) return;
+
+        int thumbY = GetScrollThumbY();
+        int thumbHeight = GetScrollThumbHeight();
+
+        if (e.Y >= thumbY && e.Y <= thumbY + thumbHeight)
+        {
+            _isDraggingScrollbar = true;
+            _dragStartY = e.Y;
+            _dragStartScrollValue = -_normalCardsPanel.AutoScrollPosition.Y;
+            _customScrollbar.Capture = true;
+            _customScrollbar.Invalidate();
+        }
+        else
+        {
+            // Jump scrolling (Page Up / Page Down)
+            int viewHeight = _normalCardsPanel.Height;
+            int scrollVal = -_normalCardsPanel.AutoScrollPosition.Y;
+            if (e.Y < thumbY)
+            {
+                ScrollToValue(scrollVal - viewHeight);
+            }
+            else
+            {
+                ScrollToValue(scrollVal + viewHeight);
+            }
+        }
+    }
+
+    private void CustomScrollbar_MouseMove(object? sender, MouseEventArgs e)
+    {
+        if (!_isDraggingScrollbar)
+        {
+            _customScrollbar.Invalidate();
+            return;
+        }
+
+        int deltaY = e.Y - _dragStartY;
+        int viewHeight = _normalCardsPanel.Height;
+        int totalHeight = _normalCardsPanel.DisplayRectangle.Height;
+        int maxScroll = totalHeight - viewHeight;
+        if (maxScroll <= 0) return;
+
+        int trackHeight = _customScrollbar.Height;
+        int thumbHeight = GetScrollThumbHeight();
+        int maxThumbY = trackHeight - thumbHeight;
+        if (maxThumbY <= 0) return;
+
+        double scrollDelta = (double)deltaY / maxThumbY * maxScroll;
+        int newScrollVal = _dragStartScrollValue + (int)scrollDelta;
+
+        ScrollToValue(newScrollVal);
+    }
+
+    private void CustomScrollbar_MouseUp(object? sender, MouseEventArgs e)
+    {
+        if (_isDraggingScrollbar)
+        {
+            _isDraggingScrollbar = false;
+            _customScrollbar.Capture = false;
+            _customScrollbar.Invalidate();
+        }
+    }
+
+    private void ScrollToValue(int value)
+    {
+        int min = 0;
+        int max = _normalCardsPanel.DisplayRectangle.Height - _normalCardsPanel.Height;
+        if (max < 0) max = 0;
+
+        int clampedVal = Math.Clamp(value, min, max);
+
+        _normalCardsPanel.AutoScrollPosition = new Point(0, clampedVal);
+        _customScrollbar.Invalidate();
+    }
+
+    private void CustomScrollbar_Paint(object? sender, PaintEventArgs e)
+    {
+        var g = e.Graphics;
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+        int thumbHeight = GetScrollThumbHeight();
+        if (thumbHeight <= 0) return;
+
+        int thumbY = GetScrollThumbY();
+        int cellWidth = _customScrollbar.Width;
+        const int scrollbarWidth = 6;
+        int scrollbarX = (cellWidth - scrollbarWidth) / 2;
+
+        // Draw track: subtly dark transparent track
+        using (var trackBrush = new SolidBrush(Color.FromArgb(12, 255, 255, 255)))
+        {
+            using (var trackPath = CreateRoundRectPath(new Rectangle(scrollbarX, 0, scrollbarWidth, _customScrollbar.Height), scrollbarWidth / 2))
+            {
+                g.FillPath(trackBrush, trackPath);
+            }
+        }
+
+        // Draw thumb: changes color on hover and drag
+        var clientPos = _customScrollbar.PointToClient(Cursor.Position);
+        bool isHover = _customScrollbar.ClientRectangle.Contains(clientPos);
+
+        Color thumbColor;
+        if (_isDraggingScrollbar)
+        {
+            thumbColor = Color.FromArgb(190, 139, 92, 246); // Bright neon purple
+        }
+        else if (isHover)
+        {
+            thumbColor = Color.FromArgb(140, 139, 92, 246); // Semi-bright neon purple
+        }
+        else
+        {
+            thumbColor = Color.FromArgb(40, 255, 255, 255);  // Translucent glassmorphic white
+        }
+
+        using (var thumbBrush = new SolidBrush(thumbColor))
+        {
+            using (var thumbPath = CreateRoundRectPath(new Rectangle(scrollbarX, thumbY, scrollbarWidth, thumbHeight), scrollbarWidth / 2))
+            {
+                g.FillPath(thumbBrush, thumbPath);
+            }
+        }
     }
 }

@@ -1,6 +1,8 @@
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
+using System.Management;
+using LibreHardwareMonitor.Hardware;
 using GameUpdater.Shared.Models;
 
 namespace GameLauncher.Client.Forms;
@@ -57,6 +59,7 @@ public sealed partial class MainForm
     private void PopulateSystemMetrics(LauncherClientStatus status)
     {
         PopulateMemoryMetrics(status);
+        PopulateHardwareMetrics(status);
         PopulateNetworkMetrics(status);
     }
 
@@ -75,6 +78,206 @@ public sealed partial class MainForm
         status.TotalMemoryGb = Math.Round(totalGb, 1);
         status.UsedMemoryGb = Math.Round(usedGb, 1);
         status.MemoryUsagePercent = Math.Round(usedGb / totalGb * 100, 1);
+    }
+
+    private static void PopulateHardwareMetrics(LauncherClientStatus status)
+    {
+        if (!TryReadHardwareMonitorMetrics(status))
+        {
+            var wmiTemperature = TryReadWmiTemperature();
+            if (wmiTemperature > 0)
+            {
+                status.CpuTemperatureCelsius = wmiTemperature;
+            }
+        }
+    }
+
+    private static bool TryReadHardwareMonitorMetrics(LauncherClientStatus status)
+    {
+        Computer? computer = null;
+        try
+        {
+            computer = new Computer
+            {
+                IsCpuEnabled = true,
+                IsGpuEnabled = true,
+                IsMotherboardEnabled = true,
+                IsControllerEnabled = true
+            };
+            computer.Open();
+
+            var metrics = new HardwareMetrics();
+            foreach (var hardware in computer.Hardware)
+            {
+                CollectHardwareMetrics(hardware, metrics);
+            }
+
+            ApplyHardwareMetrics(status, metrics);
+            return metrics.HasAnyValue;
+        }
+        catch
+        {
+            // Hardware sensor access varies by chipset, driver, and permissions.
+            return false;
+        }
+        finally
+        {
+            try
+            {
+                computer?.Close();
+            }
+            catch
+            {
+                // Ignore shutdown failures from hardware sensor providers.
+            }
+        }
+    }
+
+    private static void CollectHardwareMetrics(IHardware hardware, HardwareMetrics metrics)
+    {
+        try
+        {
+            hardware.Update();
+            foreach (var subHardware in hardware.SubHardware)
+            {
+                CollectHardwareMetrics(subHardware, metrics);
+            }
+
+            var isCpu = hardware.HardwareType == HardwareType.Cpu;
+            var isGpu = hardware.HardwareType is HardwareType.GpuAmd or HardwareType.GpuIntel or HardwareType.GpuNvidia;
+
+            if (isCpu && string.IsNullOrWhiteSpace(metrics.CpuName))
+            {
+                metrics.CpuName = hardware.Name;
+            }
+            else if (isGpu && string.IsNullOrWhiteSpace(metrics.GpuName))
+            {
+                metrics.GpuName = hardware.Name;
+            }
+
+            foreach (var sensor in hardware.Sensors)
+            {
+                if (!sensor.Value.HasValue)
+                {
+                    continue;
+                }
+
+                var value = sensor.Value.Value;
+                if (isCpu)
+                {
+                    CaptureCpuSensor(metrics, sensor, value);
+                }
+                else if (isGpu)
+                {
+                    CaptureGpuSensor(metrics, sensor, value);
+                }
+            }
+        }
+        catch
+        {
+            // Ignore one unreadable hardware node and keep scanning the others.
+        }
+    }
+
+    private static void CaptureCpuSensor(HardwareMetrics metrics, ISensor sensor, float value)
+    {
+        if (sensor.SensorType == SensorType.Temperature && value is > 0 and < 125)
+        {
+            metrics.CpuTemperatureCelsius = Math.Max(metrics.CpuTemperatureCelsius, value);
+            return;
+        }
+
+        if (sensor.SensorType == SensorType.Load && value is >= 0 and <= 100)
+        {
+            if (sensor.Name.Contains("Total", StringComparison.OrdinalIgnoreCase) ||
+                metrics.CpuLoadPercent <= 0)
+            {
+                metrics.CpuLoadPercent = value;
+            }
+            return;
+        }
+
+        if (sensor.SensorType == SensorType.Clock && value > metrics.CpuClockMhz)
+        {
+            metrics.CpuClockMhz = value;
+        }
+    }
+
+    private static void CaptureGpuSensor(HardwareMetrics metrics, ISensor sensor, float value)
+    {
+        if (sensor.SensorType == SensorType.Temperature && value is > 0 and < 125)
+        {
+            metrics.GpuTemperatureCelsius = Math.Max(metrics.GpuTemperatureCelsius, value);
+            return;
+        }
+
+        if (sensor.SensorType == SensorType.Load && value is >= 0 and <= 100)
+        {
+            if (sensor.Name.Contains("Core", StringComparison.OrdinalIgnoreCase) ||
+                metrics.GpuLoadPercent <= 0)
+            {
+                metrics.GpuLoadPercent = value;
+            }
+            return;
+        }
+
+        if (sensor.SensorType == SensorType.Fan && value > metrics.GpuFanRpm)
+        {
+            metrics.GpuFanRpm = value;
+        }
+    }
+
+    private static void ApplyHardwareMetrics(LauncherClientStatus status, HardwareMetrics metrics)
+    {
+        status.CpuName = metrics.CpuName;
+        status.GpuName = metrics.GpuName;
+        status.CpuTemperatureCelsius = RoundPositive(metrics.CpuTemperatureCelsius);
+        status.CpuLoadPercent = RoundPositive(metrics.CpuLoadPercent);
+        status.CpuClockMhz = RoundPositive(metrics.CpuClockMhz);
+        status.GpuTemperatureCelsius = RoundPositive(metrics.GpuTemperatureCelsius);
+        status.GpuLoadPercent = RoundPositive(metrics.GpuLoadPercent);
+        status.GpuFanRpm = RoundPositive(metrics.GpuFanRpm);
+    }
+
+    private static double RoundPositive(double value)
+    {
+        return value <= 0 ? 0 : Math.Round(value, 1);
+    }
+
+    private static double TryReadWmiTemperature()
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                @"root\WMI",
+                "SELECT CurrentTemperature FROM MSAcpi_ThermalZoneTemperature");
+
+            var temperatures = new List<double>();
+            foreach (var item in searcher.Get().Cast<ManagementObject>())
+            {
+                if (item["CurrentTemperature"] is not uint rawTemperature)
+                {
+                    continue;
+                }
+
+                var celsius = (rawTemperature / 10d) - 273.15d;
+                if (celsius is > 0 and < 125)
+                {
+                    temperatures.Add(celsius);
+                }
+            }
+
+            if (temperatures.Count > 0)
+            {
+                return Math.Round(temperatures.Max(), 1);
+            }
+        }
+        catch
+        {
+            // Some client machines do not expose thermal sensors through WMI.
+        }
+
+        return 0;
     }
 
     private void PopulateNetworkMetrics(LauncherClientStatus status)
@@ -177,5 +380,34 @@ public sealed partial class MainForm
         }
 
         return builder.ToString();
+    }
+
+    private sealed class HardwareMetrics
+    {
+        public string CpuName { get; set; } = string.Empty;
+
+        public string GpuName { get; set; } = string.Empty;
+
+        public double CpuTemperatureCelsius { get; set; }
+
+        public double CpuLoadPercent { get; set; }
+
+        public double CpuClockMhz { get; set; }
+
+        public double GpuTemperatureCelsius { get; set; }
+
+        public double GpuLoadPercent { get; set; }
+
+        public double GpuFanRpm { get; set; }
+
+        public bool HasAnyValue =>
+            !string.IsNullOrWhiteSpace(CpuName) ||
+            !string.IsNullOrWhiteSpace(GpuName) ||
+            CpuTemperatureCelsius > 0 ||
+            CpuLoadPercent > 0 ||
+            CpuClockMhz > 0 ||
+            GpuTemperatureCelsius > 0 ||
+            GpuLoadPercent > 0 ||
+            GpuFanRpm > 0;
     }
 }

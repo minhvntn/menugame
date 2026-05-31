@@ -28,8 +28,8 @@ public sealed partial class MainForm : Form
         _launchService = launchService;
 
         Text = I18n.Launcher.WindowTitle;
-        Width = 1320;
-        Height = 860;
+        Width = 1570;
+        Height = 950;
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = BodyBackColor;
         MinimumSize = new Size(1000, 680);
@@ -89,6 +89,8 @@ public sealed partial class MainForm : Form
     {
         _statusHeartbeatTimer.Stop();
         _clockTimer.Stop();
+        _slideTimer.Stop();
+        _slideTimer.Dispose();
         WriteClientStatusSafe(clearPlayingGame: true);
         _headerLogoImage?.Dispose();
         _headerLogoImage = null;

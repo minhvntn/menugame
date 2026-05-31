@@ -30,6 +30,13 @@ public sealed class GameCardControl : UserControl
     private float _breathAngle;
     private readonly System.Windows.Forms.Timer _hoverTimer;
 
+    private readonly Color _startNormal;
+    private readonly Color _endNormal;
+    private readonly Color _startHover;
+    private readonly Color _endHover;
+    private readonly Color _borderNormal;
+    private readonly Color _borderHover;
+
     public LauncherGameRow Row => _row;
 
     public GameCardControl(LauncherGameRow row, Action<LauncherGameRow> playAction, bool isHotRow, string fontFamily)
@@ -38,11 +45,11 @@ public sealed class GameCardControl : UserControl
         _playAction = playAction;
         _isHotRow = isHotRow;
 
-        _iconSize = _isHotRow ? 80 : 48;
-        _tileSize = _isHotRow ? 96 : 60;
-        _cardWidth = _isHotRow ? 180 : 110;
-        _cardHeight = _isHotRow ? 220 : 140;
-        _nameFont = new Font(string.IsNullOrWhiteSpace(fontFamily) ? "Segoe UI" : fontFamily, _isHotRow ? 10.5f : 8.5f, FontStyle.Bold);
+        _iconSize = _isHotRow ? 64 : 48;
+        _tileSize = _isHotRow ? 78 : 60;
+        _cardWidth = _isHotRow ? 144 : 110;
+        _cardHeight = _isHotRow ? 176 : 140;
+        _nameFont = new Font(string.IsNullOrWhiteSpace(fontFamily) ? "Segoe UI" : fontFamily, _isHotRow ? 9f : 8.5f, FontStyle.Bold);
 
         _resolvedExecutablePath = NormalizeExecutablePath(_row.ResolvedExecutablePath);
         _iconCacheKey = BuildIconCacheKey(_resolvedExecutablePath, _iconSize);
@@ -61,6 +68,30 @@ public sealed class GameCardControl : UserControl
         Cursor = Cursors.Hand;
         DoubleBuffered = true;
         EnableDoubleBuffer(this);
+
+        // Generate card-specific colors using a stable hash of the game's name (only for hot/featured games)
+        if (_isHotRow)
+        {
+            int hash = GetStableHash(_row.Name);
+            double h1 = (Math.Abs(hash) % 360) / 360.0;
+            double h2 = ((Math.Abs(hash) % 360 + 25) % 360) / 360.0;
+
+            _startNormal = ColorFromHsl(h1, 0.28, 0.16);
+            _endNormal = ColorFromHsl(h2, 0.20, 0.08);
+            _startHover = ColorFromHsl(h1, 0.38, 0.22);
+            _endHover = ColorFromHsl(h2, 0.25, 0.11);
+            _borderNormal = ColorFromHsl(h1, 0.18, 0.20);
+            _borderHover = ColorFromHsl(h1, 0.95, 0.65);
+        }
+        else
+        {
+            _startNormal = Color.FromArgb(36, 40, 56);
+            _endNormal = Color.FromArgb(20, 22, 31);
+            _startHover = Color.FromArgb(52, 58, 82);
+            _endHover = Color.FromArgb(28, 31, 44);
+            _borderNormal = Color.FromArgb(42, 47, 61);
+            _borderHover = Color.FromArgb(139, 92, 246);
+        }
 
         BuildLayout();
         QueueIconLoadIfNeeded();
@@ -116,7 +147,7 @@ public sealed class GameCardControl : UserControl
 
         if (changed)
         {
-            _cardShell.Invalidate();
+            _cardShell.Invalidate(true);
         }
         else
         {
@@ -178,13 +209,8 @@ public sealed class GameCardControl : UserControl
 
             float t = EaseInOut(_hoverProgress) * glowFactor;
 
-            Color startNormal = Color.FromArgb(36, 40, 56);
-            Color endNormal = Color.FromArgb(20, 22, 31);
-            Color startHover = Color.FromArgb(52, 58, 82);
-            Color endHover = Color.FromArgb(28, 31, 44);
-
-            Color currentStart = InterpolateColor(startNormal, startHover, EaseInOut(_hoverProgress));
-            Color currentEnd = InterpolateColor(endNormal, endHover, EaseInOut(_hoverProgress));
+            Color currentStart = InterpolateColor(_startNormal, _startHover, EaseInOut(_hoverProgress));
+            Color currentEnd = InterpolateColor(_endNormal, _endHover, EaseInOut(_hoverProgress));
 
             using var fill = new System.Drawing.Drawing2D.LinearGradientBrush(
                 bounds,
@@ -193,9 +219,7 @@ public sealed class GameCardControl : UserControl
                 90f);
             e.Graphics.FillPath(fill, path);
 
-            Color borderNormal = Color.FromArgb(42, 47, 61);
-            Color borderHover = Color.FromArgb(139, 92, 246);
-            Color currentBorder = InterpolateColor(borderNormal, borderHover, t);
+            Color currentBorder = InterpolateColor(_borderNormal, _borderHover, t);
 
             float currentWidth = 2f + 2f * t; // normal: 2px, active: 4px
 
@@ -270,8 +294,8 @@ public sealed class GameCardControl : UserControl
                 
                 var rect = btn.ClientRectangle;
                 
-                var isButtonHover = btn.ClientRectangle.Contains(btn.PointToClient(Cursor.Position));
-                var backColor = isButtonHover ? Color.FromArgb(139, 92, 246) : Color.FromArgb(42, 47, 61);
+                var normalColor = Color.FromArgb(42, 47, 61);
+                var backColor = InterpolateColor(normalColor, _borderHover, EaseInOut(_hoverProgress));
                 
                 using (var path = CreateRoundRectPath(new Rectangle(0, 0, btn.Width - 1, btn.Height - 1), 6))
                 {
@@ -706,6 +730,47 @@ public sealed class GameCardControl : UserControl
         {
             // Ignore if reflection fails
         }
+    }
+
+    private static int GetStableHash(string str)
+    {
+        int hash = 5381;
+        foreach (char c in str)
+        {
+            hash = ((hash << 5) + hash) + c;
+        }
+        return hash;
+    }
+
+    private static Color ColorFromHsl(double h, double s, double l)
+    {
+        double r = 0, g = 0, b = 0;
+        if (s == 0)
+        {
+            r = g = b = l;
+        }
+        else
+        {
+            double q = l < 0.5 ? l * (1.0 + s) : l + s - l * s;
+            double p = 2.0 * l - q;
+            r = HueToRgb(p, q, h + 1.0 / 3.0);
+            g = HueToRgb(p, q, h);
+            b = HueToRgb(p, q, h - 1.0 / 3.0);
+        }
+        return Color.FromArgb(
+            (int)Math.Clamp(r * 255, 0, 255),
+            (int)Math.Clamp(g * 255, 0, 255),
+            (int)Math.Clamp(b * 255, 0, 255));
+    }
+
+    private static double HueToRgb(double p, double q, double t)
+    {
+        if (t < 0) t += 1.0;
+        if (t > 1) t -= 1.0;
+        if (t < 1.0 / 6.0) return p + (q - p) * 6.0 * t;
+        if (t < 1.0 / 2.0) return q;
+        if (t < 2.0 / 3.0) return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
+        return p;
     }
 }
 

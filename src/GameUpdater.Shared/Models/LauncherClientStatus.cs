@@ -20,6 +20,22 @@ public sealed class LauncherClientStatus
 
     public double MemoryUsagePercent { get; set; }
 
+    public double CpuTemperatureCelsius { get; set; }
+
+    public string CpuName { get; set; } = string.Empty;
+
+    public string GpuName { get; set; } = string.Empty;
+
+    public double CpuLoadPercent { get; set; }
+
+    public double CpuClockMhz { get; set; }
+
+    public double GpuTemperatureCelsius { get; set; }
+
+    public double GpuLoadPercent { get; set; }
+
+    public double GpuFanRpm { get; set; }
+
     public DateTime ClientStartedAtUtc { get; set; }
 
     public long UptimeSeconds { get; set; }
