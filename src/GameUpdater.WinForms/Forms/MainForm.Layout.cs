@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
@@ -16,7 +16,18 @@ public sealed partial class MainForm
 
     private void BuildLayout()
     {
-        var tabs = new TabControl
+        var mainLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            BackColor = Color.FromArgb(248, 250, 252)
+        };
+        mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+        var tabs = new HiddenHeadersTabControl
         {
             Dock = DockStyle.Fill,
             Padding = new Point(16, 9)
@@ -29,9 +40,77 @@ public sealed partial class MainForm
         // Temporarily hide the "Cập nhật" tab on server app.
         tabs.TabPages.Add(BuildLogsTab());
         tabs.TabPages.Add(BuildSettingsTab());
-        ConfigureTabIcons(tabs);
 
-        Controls.Add(tabs);
+        foreach (TabPage page in tabs.TabPages)
+        {
+            if (page.Text != I18n.Server.ServerTab)
+            {
+                page.BackColor = Color.FromArgb(248, 250, 252); // slate 50
+            }
+        }
+
+        var tabHeaderPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            BackColor = Color.FromArgb(248, 250, 252),
+            Padding = new Padding(12, 3, 12, 0),
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink
+        };
+
+        tabHeaderPanel.Paint += (s, e) =>
+        {
+            using var linePen = new Pen(Color.FromArgb(226, 232, 240), 1f);
+            e.Graphics.DrawLine(linePen, 0, tabHeaderPanel.Height - 1, tabHeaderPanel.Width, tabHeaderPanel.Height - 1);
+        };
+
+        var tabButtons = new List<ModernTabButton>();
+        var tabInfo = new[]
+        {
+            (Text: I18n.Server.GamesTab, IconFile: "tro-choi.png", Tint: Color.FromArgb(99, 102, 241)),
+            (Text: I18n.Server.ClientTab, IconFile: "dashboard-client.png", Tint: Color.FromArgb(59, 130, 246)),
+            (Text: I18n.Server.ServerTab, IconFile: "dashboard-server.png", Tint: Color.FromArgb(37, 99, 235)),
+            (Text: I18n.Server.ResourcesTab, IconFile: "tai-nguyen.png", Tint: Color.FromArgb(16, 185, 129)),
+            (Text: I18n.Server.LogsTab, IconFile: "lich-su.png", Tint: Color.FromArgb(245, 158, 11)),
+            (Text: I18n.Server.SettingsTab, IconFile: "setting.png", Tint: Color.FromArgb(99, 102, 241))
+        };
+
+        for (int i = 0; i < tabInfo.Length; i++)
+        {
+            var info = tabInfo[i];
+            var btnIndex = i;
+            var btn = new ModernTabButton
+            {
+                Text = info.Text,
+                TabIcon = TryLoadEmbeddedTabIcon(info.IconFile, new Size(20, 20)),
+                IconTintColor = info.Tint,
+                IsSelected = (i == 0)
+            };
+
+            btn.Click += (s, e) =>
+            {
+                tabs.SelectedIndex = btnIndex;
+            };
+
+            tabButtons.Add(btn);
+            tabHeaderPanel.Controls.Add(btn);
+        }
+
+        tabs.SelectedIndexChanged += (s, e) =>
+        {
+            for (int i = 0; i < tabButtons.Count; i++)
+            {
+                tabButtons[i].IsSelected = (i == tabs.SelectedIndex);
+                tabButtons[i].Invalidate();
+            }
+        };
+
+        mainLayout.Controls.Add(tabHeaderPanel, 0, 0);
+        mainLayout.Controls.Add(tabs, 0, 1);
+
+        Controls.Add(mainLayout);
     }
 
     private TabPage BuildGamesTab()
@@ -40,23 +119,28 @@ public sealed partial class MainForm
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 1
+            ColumnCount = 1,
+            BackColor = Color.Transparent
         };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
         var leftPanel = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            RowCount = 2
+            RowCount = 2,
+            BackColor = Color.Transparent
         };
-        leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
+        leftPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         leftPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var toolbar = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
             Padding = new Padding(8),
-            WrapContents = false
+            WrapContents = false,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            BackColor = Color.Transparent
         };
 
         _gamesViewModeComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -65,8 +149,30 @@ public sealed partial class MainForm
         _gamesViewModeComboBox.SelectedIndexChanged += GamesViewModeComboBox_SelectedIndexChanged;
         toolbar.Controls.Add(_gamesViewModeComboBox);
 
-        toolbar.Controls.Add(CreateButton(I18n.Server.ExportClientCatalogButton, ExportCatalogButton_Click));
-        toolbar.Controls.Add(CreateButton(I18n.Common.RefreshButton, RefreshButton_Click));
+        var addBtn = (GameUpdater.WinForms.Controls.ModernButton)CreateButton("Thêm game mới", AddGameButton_Click);
+        addBtn.ColorType = GameUpdater.WinForms.Controls.ButtonColorType.Purple;
+        addBtn.IconType = GameUpdater.WinForms.Controls.ButtonIconType.Add;
+        toolbar.Controls.Add(addBtn);
+
+        var editBtn = (GameUpdater.WinForms.Controls.ModernButton)CreateButton("Sửa game", EditGameButton_Click);
+        editBtn.ColorType = GameUpdater.WinForms.Controls.ButtonColorType.PrimaryBlue;
+        editBtn.IconType = GameUpdater.WinForms.Controls.ButtonIconType.Edit;
+        toolbar.Controls.Add(editBtn);
+
+        var deleteBtn = (GameUpdater.WinForms.Controls.ModernButton)CreateButton("Xóa game", DeleteGameButton_Click);
+        deleteBtn.ColorType = GameUpdater.WinForms.Controls.ButtonColorType.Red;
+        deleteBtn.IconType = GameUpdater.WinForms.Controls.ButtonIconType.Delete;
+        toolbar.Controls.Add(deleteBtn);
+
+        var exportBtn = (GameUpdater.WinForms.Controls.ModernButton)CreateButton(I18n.Server.ExportClientCatalogButton, ExportCatalogButton_Click);
+        exportBtn.ColorType = GameUpdater.WinForms.Controls.ButtonColorType.Green;
+        exportBtn.IconType = GameUpdater.WinForms.Controls.ButtonIconType.Export;
+        toolbar.Controls.Add(exportBtn);
+
+        var refreshBtn = (GameUpdater.WinForms.Controls.ModernButton)CreateButton(I18n.Common.RefreshButton, RefreshButton_Click);
+        refreshBtn.ColorType = GameUpdater.WinForms.Controls.ButtonColorType.Orange;
+        refreshBtn.IconType = GameUpdater.WinForms.Controls.ButtonIconType.Refresh;
+        toolbar.Controls.Add(refreshBtn);
 
         ConfigureGamesGrid();
         ConfigureGamesGridPanel();
@@ -92,17 +198,21 @@ public sealed partial class MainForm
         {
             Dock = DockStyle.Fill,
             RowCount = 3,
-            Padding = new Padding(12)
+            Padding = new Padding(12),
+            BackColor = Color.Transparent
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var toolbar = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
             Padding = new Padding(0, 8, 0, 8),
-            WrapContents = false
+            WrapContents = false,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            BackColor = Color.Transparent
         };
 
         _clientDashboardSummaryLabel.AutoSize = true;
@@ -289,16 +399,27 @@ public sealed partial class MainForm
             Dock = DockStyle.Fill,
             RowCount = 2
         };
-        leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
+        leftPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         leftPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var leftToolbar = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
             Padding = new Padding(8),
-            WrapContents = false
+            WrapContents = false,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink
         };
-        leftToolbar.Controls.Add(CreateButton(I18n.Server.RefreshResourcesButton, RefreshResourcesButton_Click));
+        
+        var refreshBtn = new GameUpdater.WinForms.Controls.ModernButton
+        {
+            Text = "Làm mới",
+            ColorType = GameUpdater.WinForms.Controls.ButtonColorType.PrimaryBlue,
+            IconType = GameUpdater.WinForms.Controls.ButtonIconType.Refresh,
+            AutoSize = true
+        };
+        refreshBtn.Click += RefreshResourcesButton_Click;
+        leftToolbar.Controls.Add(refreshBtn);
 
         BuildResourceTree();
         _resourceTree.Dock = DockStyle.Fill;
@@ -323,22 +444,25 @@ public sealed partial class MainForm
         _resourceBandwidthLimitNumeric.ValueChanged += (_, _) => _resourceBandwidthLimitMbps = Decimal.ToInt32(_resourceBandwidthLimitNumeric.Value);
 
         _browseResourceSourceButton.Text = "...";
-        _browseResourceSourceButton.Width = 36;
         _browseResourceSourceButton.Click += BrowseResourceSourceButton_Click;
+        StyleButton(_browseResourceSourceButton);
 
         _browseResourceTargetButton.Text = "...";
-        _browseResourceTargetButton.Width = 36;
         _browseResourceTargetButton.Click += BrowseResourceTargetButton_Click;
+        StyleButton(_browseResourceTargetButton);
 
         var sourceRow = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 3,
-            Padding = new Padding(0, 4, 0, 0)
+            Padding = new Padding(0, 4, 0, 0),
+            BackColor = Color.Transparent,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink
         };
-        sourceRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
+        sourceRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
         sourceRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        sourceRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 42));
+        sourceRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 70));
         sourceRow.Controls.Add(CreateFieldLabel(I18n.Server.ResourceSourceLabel), 0, 0);
         sourceRow.Controls.Add(_resourceSourceRootTextBox, 1, 0);
         sourceRow.Controls.Add(_browseResourceSourceButton, 2, 0);
@@ -347,11 +471,14 @@ public sealed partial class MainForm
         {
             Dock = DockStyle.Fill,
             ColumnCount = 3,
-            Padding = new Padding(0, 2, 0, 0)
+            Padding = new Padding(0, 2, 0, 0),
+            BackColor = Color.Transparent,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink
         };
-        targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
+        targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
         targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 42));
+        targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 70));
         targetRow.Controls.Add(CreateFieldLabel(I18n.Server.ResourceTargetLabel), 0, 0);
         targetRow.Controls.Add(_resourceTargetRootTextBox, 1, 0);
         targetRow.Controls.Add(_browseResourceTargetButton, 2, 0);
@@ -360,9 +487,12 @@ public sealed partial class MainForm
         {
             Dock = DockStyle.Fill,
             ColumnCount = 3,
-            Padding = new Padding(0, 2, 0, 0)
+            Padding = new Padding(0, 2, 0, 0),
+            BackColor = Color.Transparent,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink
         };
-        bandwidthRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
+        bandwidthRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
         bandwidthRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
         bandwidthRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         bandwidthRow.Controls.Add(CreateFieldLabel(I18n.Server.ResourceBandwidthLabel), 0, 0);
@@ -373,18 +503,27 @@ public sealed partial class MainForm
         {
             Dock = DockStyle.Fill,
             Padding = new Padding(0, 2, 0, 0),
-            WrapContents = false
+            WrapContents = false,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            BackColor = Color.Transparent
         };
         _saveResourceSettingsButton.Text = I18n.Server.ResourceSaveConfig;
         _saveResourceSettingsButton.Click += SaveResourceSettingsButton_Click;
+        _saveResourceSettingsButton.ColorType = GameUpdater.WinForms.Controls.ButtonColorType.Secondary;
+        _saveResourceSettingsButton.IconType = GameUpdater.WinForms.Controls.ButtonIconType.Save;
         StyleButton(_saveResourceSettingsButton);
 
         _checkResourceHealthButton.Text = I18n.Server.ResourceHealthCheck;
         _checkResourceHealthButton.Click += CheckResourceHealthButton_Click;
+        _checkResourceHealthButton.ColorType = GameUpdater.WinForms.Controls.ButtonColorType.Secondary;
+        _checkResourceHealthButton.IconType = GameUpdater.WinForms.Controls.ButtonIconType.Refresh;
         StyleButton(_checkResourceHealthButton);
 
         _syncSelectedResourceButton.Text = I18n.Server.ResourceSyncSelected;
         _syncSelectedResourceButton.Click += SyncSelectedResourceButton_Click;
+        _syncSelectedResourceButton.ColorType = GameUpdater.WinForms.Controls.ButtonColorType.PrimaryBlue;
+        _syncSelectedResourceButton.IconType = GameUpdater.WinForms.Controls.ButtonIconType.Refresh;
         StyleButton(_syncSelectedResourceButton, primary: true);
 
 
@@ -419,7 +558,7 @@ public sealed partial class MainForm
             RowCount = 2,
             Padding = new Padding(6, 8, 6, 6)
         };
-        listWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        listWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         listWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         listWorkspaceLayout.Controls.Add(_resourceSummaryLabel, 0, 0);
         listWorkspaceLayout.Controls.Add(contentPanel, 0, 1);
@@ -430,10 +569,10 @@ public sealed partial class MainForm
             RowCount = 5,
             Padding = new Padding(8)
         };
-        configWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        configWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        configWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        configWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
+        configWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        configWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        configWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        configWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         configWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         configWorkspaceLayout.Controls.Add(sourceRow, 0, 0);
         configWorkspaceLayout.Controls.Add(targetRow, 0, 1);
@@ -461,84 +600,80 @@ public sealed partial class MainForm
         _resourceWorkspaceTabControl.TabPages.Add(listTab);
         _resourceWorkspaceTabControl.TabPages.Add(configTab);
         _resourceWorkspaceTabControl.SelectedIndex = 0;
-        split.Panel2.Controls.Add(_resourceWorkspaceTabControl);
+
+        var subLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            BackColor = Color.FromArgb(248, 250, 252)
+        };
+        subLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        subLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        subLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+        var subHeaderPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            BackColor = Color.FromArgb(248, 250, 252),
+            Padding = new Padding(12, 2, 12, 0),
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink
+        };
+
+        subHeaderPanel.Paint += (s, e) =>
+        {
+            using var linePen = new Pen(Color.FromArgb(226, 232, 240), 1f);
+            e.Graphics.DrawLine(linePen, 0, subHeaderPanel.Height - 1, subHeaderPanel.Width, subHeaderPanel.Height - 1);
+        };
+
+        var subTabButtons = new List<ModernTabButton>();
+        var subTabInfo = new[]
+        {
+            (Text: I18n.Server.ResourceListTab, IconFile: "tro-choi.png", Tint: Color.FromArgb(99, 102, 241)),
+            (Text: I18n.Server.ResourceConfigTab, IconFile: "setting.png", Tint: Color.FromArgb(99, 102, 241))
+        };
+
+        for (int i = 0; i < subTabInfo.Length; i++)
+        {
+            var info = subTabInfo[i];
+            var btnIndex = i;
+            var btn = new ModernTabButton
+            {
+                Text = info.Text,
+                TabIcon = TryLoadEmbeddedTabIcon(info.IconFile, new Size(16, 16)),
+                IconTintColor = info.Tint,
+                IsSecondary = true,
+                IsSelected = (i == 0)
+            };
+
+            btn.Click += (s, e) =>
+            {
+                _resourceWorkspaceTabControl.SelectedIndex = btnIndex;
+            };
+
+            subTabButtons.Add(btn);
+            subHeaderPanel.Controls.Add(btn);
+        }
+
+        _resourceWorkspaceTabControl.SelectedIndexChanged += (s, e) =>
+        {
+            for (int i = 0; i < subTabButtons.Count; i++)
+            {
+                subTabButtons[i].IsSelected = (i == _resourceWorkspaceTabControl.SelectedIndex);
+                subTabButtons[i].Invalidate();
+            }
+        };
+
+        subLayout.Controls.Add(subHeaderPanel, 0, 0);
+        subLayout.Controls.Add(_resourceWorkspaceTabControl, 0, 1);
+
+        split.Panel2.Controls.Add(subLayout);
 
         page.Controls.Add(split);
         return page;
-    }
-
-    private void ConfigureTabIcons(TabControl tabs)
-    {
-        if (tabs.TabPages.Count == 0)
-        {
-            return;
-        }
-
-        var imageList = BuildTabIconImageList();
-        if (imageList.Images.Count == 0)
-        {
-            return;
-        }
-
-        tabs.ImageList = imageList;
-        tabs.Appearance = TabAppearance.Normal;
-        tabs.SizeMode = TabSizeMode.Fixed;
-        tabs.DrawMode = TabDrawMode.OwnerDrawFixed;
-        tabs.ItemSize = new Size(120, 84);
-        tabs.Padding = new Point(0, 0);
-        tabs.BackColor = Color.White;
-        tabs.Paint += (_, e) => PaintTabHeaderChrome(tabs, e.Graphics);
-        tabs.DrawItem += Tabs_DrawItem;
-
-        var iconKeys = new[]
-        {
-            "tro-choi.png",
-            "dashboard-client.png",
-            "dashboard-server.png",
-            "tai-nguyen.png",
-            "lich-su.png",
-            "setting.png"
-        };
-
-        for (var index = 0; index < Math.Min(tabs.TabPages.Count, iconKeys.Length); index++)
-        {
-            var iconKey = iconKeys[index];
-            if (imageList.Images.ContainsKey(iconKey))
-            {
-                tabs.TabPages[index].ImageKey = iconKey;
-            }
-        }
-    }
-
-    private static ImageList BuildTabIconImageList()
-    {
-        var imageList = new ImageList
-        {
-            ColorDepth = ColorDepth.Depth32Bit,
-            ImageSize = new Size(40, 40)
-        };
-
-        var iconFiles = new[]
-        {
-            "tro-choi.png",
-            "dashboard-client.png",
-            "dashboard-server.png",
-            "tai-nguyen.png",
-            "cap-nhap.png",
-            "lich-su.png",
-            "setting.png"
-        };
-
-        foreach (var iconFile in iconFiles)
-        {
-            var image = TryLoadEmbeddedTabIcon(iconFile, imageList.ImageSize);
-            if (image is not null)
-            {
-                imageList.Images.Add(iconFile, image);
-            }
-        }
-
-        return imageList;
     }
 
     private static Image? TryLoadEmbeddedTabIcon(string fileName, Size imageSize)
@@ -562,85 +697,208 @@ public sealed partial class MainForm
         return bitmap;
     }
 
-    private static void Tabs_DrawItem(object? sender, DrawItemEventArgs e)
+}
+
+public class HiddenHeadersTabControl : TabControl
+{
+    public HiddenHeadersTabControl()
     {
-        if (sender is not TabControl tabs ||
-            e.Index < 0 ||
-            e.Index >= tabs.TabPages.Count)
+        SizeMode = TabSizeMode.Fixed;
+        ItemSize = new Size(0, 1);
+    }
+}
+
+public class ModernTabButton : Control
+{
+    public bool IsSecondary { get; set; }
+    public Color IconTintColor { get; set; } = Color.Empty;
+
+    private bool _isSelected;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
         {
-            return;
+            _isSelected = value;
+            UpdateSize();
+            Invalidate();
+        }
+    }
+
+    private Image? _tabIcon;
+    public Image? TabIcon
+    {
+        get => _tabIcon;
+        set
+        {
+            _tabIcon = value;
+            UpdateSize();
+            Invalidate();
+        }
+    }
+
+    protected override void OnTextChanged(EventArgs e)
+    {
+        base.OnTextChanged(e);
+        UpdateSize();
+        Invalidate();
+    }
+
+    public ModernTabButton()
+    {
+        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
+        TabStop = false;
+        Cursor = Cursors.Hand;
+        Margin = new Padding(2, 4, 2, 4); // Margin to give a card floating look
+        Padding = new Padding(0);
+    }
+
+    protected override void OnFontChanged(EventArgs e)
+    {
+        base.OnFontChanged(e);
+        UpdateSize();
+    }
+
+    private void UpdateSize()
+    {
+        using var font = new Font(Font.FontFamily, Font.Size, IsSelected ? FontStyle.Bold : FontStyle.Regular);
+        int iconSize = IsSecondary ? 16 : 20;
+        int spacing = IsSecondary ? 6 : 8;
+        
+        var measuredText = TextRenderer.MeasureText(
+            Text,
+            font,
+            new Size(int.MaxValue, int.MaxValue),
+            TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix);
+
+        int totalWidth = (TabIcon != null ? iconSize : 0) + (TabIcon != null && !string.IsNullOrEmpty(Text) ? spacing : 0) + measuredText.Width + (IsSecondary ? 28 : 36);
+        int totalHeight = Math.Max(IsSecondary ? 40 : 52, measuredText.Height + (IsSecondary ? 12 : 16));
+        this.Size = new Size(totalWidth, totalHeight);
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var g = e.Graphics;
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        
+        // Find parent's actual opaque background color
+        Control? p = Parent;
+        Color parentBgColor = Color.FromArgb(248, 250, 252);
+        while (p != null)
+        {
+            if (p.BackColor != Color.Transparent && p.BackColor != Color.Empty)
+            {
+                parentBgColor = p.BackColor;
+                break;
+            }
+            p = p.Parent;
         }
 
-        var tabPage = tabs.TabPages[e.Index];
-        var bounds = e.Bounds;
-        var isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-
-        var backgroundColor = tabs.Parent?.BackColor ?? Color.White;
-        var textColor = isSelected ? Color.Red : Color.FromArgb(71, 85, 105);
-
-        // Tô đè nền để che border/separator mặc định của TabControl
-        var paintBounds = Rectangle.Inflate(bounds, 2, 2);
-        using var backgroundBrush = new SolidBrush(backgroundColor);
-        e.Graphics.FillRectangle(backgroundBrush, paintBounds);
-        e.Graphics.FillRectangle(
-            backgroundBrush,
-            bounds.Right - 1,
-            bounds.Top,
-            2,
-            bounds.Height);
-
-        var iconSize = tabs.ImageList?.ImageSize.Width ?? 40;
-        var iconTop = bounds.Top + 6;
-        if (!string.IsNullOrWhiteSpace(tabPage.ImageKey) &&
-            tabs.ImageList?.Images[tabPage.ImageKey] is Image icon)
+        // Draw flat background
+        Color bgColor = parentBgColor;
+        if (ClientRectangle.Contains(PointToClient(Cursor.Position)))
         {
-            var iconLeft = bounds.Left + (bounds.Width - iconSize) / 2;
-            e.Graphics.DrawImage(icon, new Rectangle(iconLeft, iconTop, iconSize, iconSize));
+            bgColor = Color.FromArgb(241, 245, 249); // slate-100 hover
         }
 
-        var textTop = iconTop + iconSize + 2;
-        using var tabTextFont = new Font(
-            "Segoe UI",
-            Math.Max(6f, tabs.Font.Size - 2f),
-            tabs.Font.Style);
-        var textRect = new Rectangle(
-            bounds.Left + 4,
-            textTop,
-            bounds.Width - 8,
-            Math.Max(1, bounds.Bottom - textTop - 2));
+        using (var brush = new SolidBrush(bgColor))
+        {
+            g.FillRectangle(brush, ClientRectangle);
+        }
+
+        // Colors
+        Color textColor = IsSelected ? Color.FromArgb(99, 102, 241) : Color.FromArgb(71, 85, 105);
+        using var font = new Font(Font.FontFamily, Font.Size, IsSelected ? FontStyle.Bold : FontStyle.Regular);
+
+        // Icon and Text layout
+        int iconSize = IsSecondary ? 16 : 20;
+        int spacing = IsSecondary ? 6 : 8;
+        
+        var measuredText = TextRenderer.MeasureText(
+            Text,
+            font,
+            new Size(int.MaxValue, int.MaxValue),
+            TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix);
+
+        int totalWidth = (TabIcon != null ? iconSize : 0) + (TabIcon != null && !string.IsNullOrEmpty(Text) ? spacing : 0) + measuredText.Width;
+        int startX = (Width - totalWidth) / 2;
+
+        if (TabIcon != null)
+        {
+            int iconY = (Height - iconSize) / 2;
+            
+            // Colorize the icon to the tint color if specified, or active text color if selected
+            Color tintColor = IsSelected ? Color.FromArgb(99, 102, 241) : Color.FromArgb(71, 85, 105);
+            if (IconTintColor != Color.Empty)
+            {
+                tintColor = IconTintColor;
+            }
+
+            using (var colorized = ColorizeImage(TabIcon, tintColor))
+            {
+                g.DrawImage(colorized, new Rectangle(startX, iconY, iconSize, iconSize));
+            }
+            startX += iconSize + spacing;
+        }
+
+        int textY = (Height - measuredText.Height) / 2;
+        var textRect = new Rectangle(startX, textY, measuredText.Width + 4, measuredText.Height);
+
         TextRenderer.DrawText(
-            e.Graphics,
-            tabPage.Text,
-            tabTextFont,
+            g,
+            Text,
+            font,
             textRect,
             textColor,
-            TextFormatFlags.HorizontalCenter |
-            TextFormatFlags.VerticalCenter |
-            TextFormatFlags.EndEllipsis |
-            TextFormatFlags.NoPrefix);
+            TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
 
-        // Intentionally skip focus rectangle to keep tabs visually borderless.
+        // Bottom accent bar for selected - full-width underline
+        if (IsSelected)
+        {
+            using (var accentBrush = new SolidBrush(Color.FromArgb(99, 102, 241)))
+            {
+                int barHeight = IsSecondary ? 2 : 3;
+                g.FillRectangle(accentBrush, 0, Height - barHeight, Width, barHeight);
+            }
+        }
     }
 
-    private static void PaintTabHeaderChrome(TabControl tabs, Graphics graphics)
+    private static Image ColorizeImage(Image original, Color color)
     {
-        if (tabs.TabCount == 0)
+        var bitmap = new Bitmap(original.Width, original.Height);
+        using (var g = Graphics.FromImage(bitmap))
         {
-            return;
+            float r = color.R / 255f;
+            float gVal = color.G / 255f;
+            float b = color.B / 255f;
+
+            var colorMatrix = new System.Drawing.Imaging.ColorMatrix(new float[][]
+            {
+                new float[] {0, 0, 0, 0, 0},
+                new float[] {0, 0, 0, 0, 0},
+                new float[] {0, 0, 0, 0, 0},
+                new float[] {0, 0, 0, 1, 0}, // Keep transparency
+                new float[] {r, gVal, b, 0, 1} // Shift color values
+            });
+
+            using (var attributes = new System.Drawing.Imaging.ImageAttributes())
+            {
+                attributes.SetColorMatrix(colorMatrix, System.Drawing.Imaging.ColorMatrixFlag.Default, System.Drawing.Imaging.ColorAdjustType.Bitmap);
+                g.DrawImage(original, new Rectangle(0, 0, original.Width, original.Height), 0, 0, original.Width, original.Height, GraphicsUnit.Pixel, attributes);
+            }
         }
-
-        using var erasePen = new Pen(Color.White, 2f);
-
-        foreach (TabPage page in tabs.TabPages)
-        {
-            var tabRect = tabs.GetTabRect(tabs.TabPages.IndexOf(page));
-            graphics.DrawRectangle(erasePen, tabRect);
-        }
-
-        var firstRect = tabs.GetTabRect(0);
-        var stripBottomY = firstRect.Bottom + 1;
-        graphics.DrawLine(erasePen, 0, stripBottomY, tabs.Width, stripBottomY);
-        graphics.DrawLine(erasePen, 0, 0, tabs.Width, 0);
+        return bitmap;
     }
 
+    protected override void OnMouseEnter(EventArgs e)
+    {
+        base.OnMouseEnter(e);
+        Invalidate();
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        base.OnMouseLeave(e);
+        Invalidate();
+    }
 }

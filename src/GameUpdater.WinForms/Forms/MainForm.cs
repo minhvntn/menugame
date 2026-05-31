@@ -14,17 +14,17 @@ namespace GameUpdater.WinForms.Forms;
 public sealed partial class MainForm : Form
 {
     private const string DownloadProgressColumnName = "downloadProgressColumn";
-    private static readonly Color AccentColor = Color.FromArgb(59, 130, 246);
-    private static readonly Color AccentHoverColor = Color.FromArgb(37, 99, 235);
-    private static readonly Color SecondaryButtonColor = Color.FromArgb(30, 41, 59);
-    private static readonly Color SecondaryButtonHoverColor = Color.FromArgb(51, 65, 85);
-    private static readonly Color SecondaryButtonTextColor = Color.FromArgb(226, 232, 240);
-    private static readonly Color ButtonBorderColor = Color.FromArgb(51, 65, 85);
-    private const int ButtonHorizontalPadding = 8;
-    private const int ButtonVerticalPadding = 2;
-    private static readonly List<Button> StyledButtons = new();
-    private static readonly Dictionary<Button, bool> StyledButtonPrimaryStates = new();
-    private static readonly Dictionary<Button, Color> StyledButtonTargetColors = new();
+    private static readonly Color AccentColor = Color.FromArgb(37, 99, 235);
+    private static readonly Color AccentHoverColor = Color.FromArgb(29, 78, 216);
+    private static readonly Color SecondaryButtonColor = Color.FromArgb(241, 245, 249);
+    private static readonly Color SecondaryButtonHoverColor = Color.FromArgb(226, 232, 240);
+    private static readonly Color SecondaryButtonTextColor = Color.FromArgb(15, 23, 42);
+    private static readonly Color ButtonBorderColor = Color.FromArgb(203, 213, 225);
+    private const int ButtonHorizontalPadding = 12;
+    private const int ButtonVerticalPadding = 6;
+    private static readonly List<Control> StyledButtons = new();
+    private static readonly Dictionary<Control, bool> StyledButtonPrimaryStates = new();
+    private static readonly Dictionary<Control, Color> StyledButtonTargetColors = new();
 
     private static readonly JsonSerializerOptions ManifestJsonOptions = new()
     {
@@ -45,7 +45,7 @@ public sealed partial class MainForm : Form
 
     private readonly DataGridView _gamesGrid = new();
     private readonly FlowLayoutPanel _gamesGridPanel = new();
-    private readonly ComboBox _gamesViewModeComboBox = new();
+    private readonly GameUpdater.WinForms.Controls.ModernComboBox _gamesViewModeComboBox = new();
     private readonly DataGridView _resourcesGrid = new();
     private readonly DataGridView _downloadMonitorGrid = new();
     private readonly DataGridView _logsGrid = new();
@@ -68,38 +68,38 @@ public sealed partial class MainForm : Form
     private readonly TextBox _updateSourceTextBox = new();
     private readonly TextBox _updateVersionTextBox = new();
     private readonly TextBox _updateOutputTextBox = new();
-    private readonly ComboBox _updateSourceKindComboBox = new();
-    private readonly ComboBox _updateGameComboBox = new();
-    private readonly ComboBox _fontSizeComboBox = new();
+    private readonly GameUpdater.WinForms.Controls.ModernComboBox _updateSourceKindComboBox = new();
+    private readonly GameUpdater.WinForms.Controls.ModernComboBox _updateGameComboBox = new();
+    private readonly GameUpdater.WinForms.Controls.ModernComboBox _fontSizeComboBox = new();
     private readonly TextBox _clientWallpaperPathTextBox = new();
     private readonly TextBox _clientCafeNameTextBox = new();
     private readonly TextBox _clientBannerMessageTextBox = new();
     private readonly TextBox _clientThemeAccentColorTextBox = new();
-    private readonly ComboBox _clientThemeFontComboBox = new();
+    private readonly GameUpdater.WinForms.Controls.ModernComboBox _clientThemeFontComboBox = new();
     private readonly TextBox _clientStatusFolderTextBox = new();
     private readonly NumericUpDown _clientHeartbeatIntervalNumeric = new();
     private readonly NumericUpDown _dashboardRefreshIntervalNumeric = new();
-    private readonly CheckBox _enableClientCloseAppHotKeyCheckBox = new();
-    private readonly CheckBox _enableClientFullscreenKioskCheckBox = new();
-    private readonly Button _browseClientWallpaperButton = new();
-    private readonly Button _clearClientWallpaperButton = new();
-    private readonly Button _saveSettingsButton = new();
-    private readonly CheckBox _backupCheckBox = new();
+    private readonly GameUpdater.WinForms.Controls.ModernCheckBox _enableClientCloseAppHotKeyCheckBox = new();
+    private readonly GameUpdater.WinForms.Controls.ModernCheckBox _enableClientFullscreenKioskCheckBox = new();
+    private readonly GameUpdater.WinForms.Controls.ModernButton _browseClientWallpaperButton = new();
+    private readonly GameUpdater.WinForms.Controls.ModernButton _clearClientWallpaperButton = new();
+    private readonly GameUpdater.WinForms.Controls.ModernButton _saveSettingsButton = new();
+    private readonly GameUpdater.WinForms.Controls.ModernCheckBox _backupCheckBox = new();
     private readonly Label _resourceSummaryLabel = new();
     private readonly TextBox _resourceSourceRootTextBox = new();
     private readonly TextBox _resourceTargetRootTextBox = new();
     private readonly NumericUpDown _resourceBandwidthLimitNumeric = new();
     private readonly ProgressBar _updateProgressBar = new();
-    private readonly Button _applyUpdateButton = new();
-    private readonly Button _browseSourceButton = new();
+    private readonly GameUpdater.WinForms.Controls.ModernButton _applyUpdateButton = new();
+    private readonly GameUpdater.WinForms.Controls.ModernButton _browseSourceButton = new();
     private readonly TreeView _resourceTree = new();
-    private readonly TabControl _resourceWorkspaceTabControl = new();
+    private readonly TabControl _resourceWorkspaceTabControl = new HiddenHeadersTabControl();
     private SplitContainer? _resourcesSplitContainer;
-    private readonly Button _browseResourceSourceButton = new();
-    private readonly Button _browseResourceTargetButton = new();
-    private readonly Button _saveResourceSettingsButton = new();
-    private readonly Button _checkResourceHealthButton = new();
-    private readonly Button _syncSelectedResourceButton = new();
+    private readonly GameUpdater.WinForms.Controls.ModernButton _browseResourceSourceButton = new();
+    private readonly GameUpdater.WinForms.Controls.ModernButton _browseResourceTargetButton = new();
+    private readonly GameUpdater.WinForms.Controls.ModernButton _saveResourceSettingsButton = new();
+    private readonly GameUpdater.WinForms.Controls.ModernButton _checkResourceHealthButton = new();
+    private readonly GameUpdater.WinForms.Controls.ModernButton _syncSelectedResourceButton = new();
 
     private readonly BindingList<DownloadMonitorRow> _downloadMonitorRows = new();
     private readonly List<ResourceGameRow> _allResourceRows = new();
@@ -154,7 +154,7 @@ public sealed partial class MainForm : Form
     private int _dashboardRefreshIntervalSeconds = 15;
     private bool _enableClientCloseApplicationHotKey = true;
     private bool _enableClientFullscreenKioskMode;
-    private UiFontSizeMode _uiFontSizeMode = UiFontSizeMode.Normal;
+    private UiFontSizeMode _uiFontSizeMode = UiFontSizeMode.Big;
     private bool _isUpdatingFontSizeSelection;
     private readonly string _settingsFilePath;
     private ResourceFilterKind _currentResourceFilter = ResourceFilterKind.All;
@@ -183,8 +183,8 @@ public sealed partial class MainForm : Form
         _autoCatalogPath = Path.Combine(AppContext.BaseDirectory, "games.catalog.json");
 
         Text = I18n.Server.MainWindowTitle;
-        Width = 1280;
-        Height = 820;
+        Width = 1570;
+        Height = 950;
         StartPosition = FormStartPosition.CenterScreen;
 
         if (File.Exists("app.ico"))

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
@@ -13,7 +13,7 @@ namespace GameUpdater.WinForms.Forms;
 public sealed partial class MainForm
 {    private async void AddGameButton_Click(object? sender, EventArgs e)
     {
-        using var editor = new GameEditorForm();
+        using var editor = new GameEditorForm(null, this.Font);
         if (editor.ShowDialog(this) != DialogResult.OK || editor.EditedGame is null)
         {
             return;
@@ -35,7 +35,7 @@ public sealed partial class MainForm
             return;
         }
 
-        using var editor = new GameEditorForm(SelectedGame);
+        using var editor = new GameEditorForm(SelectedGame, this.Font);
         if (editor.ShowDialog(this) != DialogResult.OK || editor.EditedGame is null)
         {
             return;

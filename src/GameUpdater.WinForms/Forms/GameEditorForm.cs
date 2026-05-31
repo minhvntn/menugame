@@ -8,7 +8,7 @@ public sealed class GameEditorForm : Form
     private static readonly string[] CategoryOptions = { "Online", "Offline", "Tools" };
 
     private readonly TextBox _nameTextBox = new() { Dock = DockStyle.Fill };
-    private readonly ComboBox _categoryComboBox = new()
+    private readonly GameUpdater.WinForms.Controls.ModernComboBox _categoryComboBox = new()
     {
         Dock = DockStyle.Fill,
         DropDownStyle = ComboBoxStyle.DropDownList
@@ -17,7 +17,7 @@ public sealed class GameEditorForm : Form
     private readonly TextBox _versionTextBox = new() { Dock = DockStyle.Fill };
     private readonly TextBox _launchPathTextBox = new() { Dock = DockStyle.Fill };
     private readonly TextBox _launchArgumentsTextBox = new() { Dock = DockStyle.Fill };
-    private readonly CheckBox _isHotCheckBox = new()
+    private readonly GameUpdater.WinForms.Controls.ModernCheckBox _isHotCheckBox = new()
     {
         Dock = DockStyle.Left,
         AutoSize = true,
@@ -31,38 +31,50 @@ public sealed class GameEditorForm : Form
     };
     private readonly GameRecord? _existingGame;
 
-    public GameEditorForm(GameRecord? existingGame = null)
+    public GameEditorForm(GameRecord? existingGame = null, Font? parentFont = null)
     {
         _existingGame = existingGame;
+        if (parentFont is not null)
+        {
+            this.Font = parentFont;
+        }
+        else
+        {
+            this.Font = new Font("Segoe UI", 12f);
+        }
 
         Text = existingGame is null ? I18n.Server.GameEditorAddTitle : I18n.Server.GameEditorEditTitle;
         StartPosition = FormStartPosition.CenterParent;
-        Width = 740;
-        Height = 520;
+        Width = (int)Math.Ceiling(this.Font.Size * 50);
+        Height = (int)Math.Ceiling(this.Font.Size * 35);
         MinimizeBox = false;
         MaximizeBox = false;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         ShowInTaskbar = false;
+        BackColor = Color.FromArgb(248, 250, 252); // slate 50
+
+        var rowHeight = Math.Max(38, (int)Math.Ceiling(this.Font.Size * 2.6f));
 
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 3,
             RowCount = 9,
-            Padding = new Padding(12)
+            Padding = new Padding(12),
+            BackColor = Color.Transparent
         };
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)Math.Ceiling(this.Font.Size * 10)));
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, (int)Math.Ceiling(this.Font.Size * 6.5f)));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, rowHeight));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, rowHeight));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, rowHeight));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, rowHeight));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, rowHeight));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, rowHeight));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, rowHeight));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, rowHeight + 10));
 
         root.Controls.Add(CreateLabel(I18n.Server.GameEditorName), 0, 0);
         root.Controls.Add(_nameTextBox, 1, 0);
@@ -76,12 +88,15 @@ public sealed class GameEditorForm : Form
         root.Controls.Add(CreateLabel(I18n.Server.GameEditorInstallPath), 0, 2);
         root.Controls.Add(_pathTextBox, 1, 2);
 
-        var browseInstallButton = new Button
+        var browseInstallButton = new GameUpdater.WinForms.Controls.ModernButton
         {
             Text = I18n.Common.SelectButton,
-            Dock = DockStyle.Fill
+            Dock = DockStyle.Fill,
+            ColorType = GameUpdater.WinForms.Controls.ButtonColorType.Secondary,
+            IconType = GameUpdater.WinForms.Controls.ButtonIconType.Folder
         };
         browseInstallButton.Click += BrowseInstallButton_Click;
+        StyleFormButton(browseInstallButton);
         root.Controls.Add(browseInstallButton, 2, 2);
 
         root.Controls.Add(CreateLabel(I18n.Server.GameEditorVersion), 0, 3);
@@ -91,12 +106,15 @@ public sealed class GameEditorForm : Form
         root.Controls.Add(CreateLabel(I18n.Server.GameEditorExe), 0, 4);
         root.Controls.Add(_launchPathTextBox, 1, 4);
 
-        var browseLaunchButton = new Button
+        var browseLaunchButton = new GameUpdater.WinForms.Controls.ModernButton
         {
             Text = I18n.Common.SelectButton,
-            Dock = DockStyle.Fill
+            Dock = DockStyle.Fill,
+            ColorType = GameUpdater.WinForms.Controls.ButtonColorType.Secondary,
+            IconType = GameUpdater.WinForms.Controls.ButtonIconType.Folder
         };
         browseLaunchButton.Click += BrowseLaunchButton_Click;
+        StyleFormButton(browseLaunchButton);
         root.Controls.Add(browseLaunchButton, 2, 4);
 
         root.Controls.Add(CreateLabel(I18n.Server.GameEditorLaunchArgs), 0, 5);
@@ -114,22 +132,27 @@ public sealed class GameEditorForm : Form
         var buttonsPanel = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.RightToLeft
+            FlowDirection = FlowDirection.RightToLeft,
+            BackColor = Color.Transparent
         };
 
-        var saveButton = new Button
+        var saveButton = new GameUpdater.WinForms.Controls.ModernButton
         {
             Text = I18n.Common.SaveButton,
-            Width = 90
+            ColorType = GameUpdater.WinForms.Controls.ButtonColorType.PrimaryBlue,
+            IconType = GameUpdater.WinForms.Controls.ButtonIconType.Save
         };
         saveButton.Click += SaveButton_Click;
+        StyleFormButton(saveButton, primary: true);
 
-        var cancelButton = new Button
+        var cancelButton = new GameUpdater.WinForms.Controls.ModernButton
         {
             Text = I18n.Common.CancelButton,
-            Width = 90
+            ColorType = GameUpdater.WinForms.Controls.ButtonColorType.Secondary,
+            IconType = GameUpdater.WinForms.Controls.ButtonIconType.Cancel
         };
         cancelButton.Click += (_, _) => DialogResult = DialogResult.Cancel;
+        StyleFormButton(cancelButton);
 
         buttonsPanel.Controls.Add(saveButton);
         buttonsPanel.Controls.Add(cancelButton);
@@ -154,6 +177,8 @@ public sealed class GameEditorForm : Form
             SelectCategory(I18n.Server.GameEditorDefaultCategory);
             _versionTextBox.Text = I18n.Server.GameEditorDefaultVersion;
         }
+
+        StyleControlsRecursively(Controls);
     }
 
     public GameRecord? EditedGame { get; private set; }
@@ -270,6 +295,60 @@ public sealed class GameEditorForm : Form
         if (_categoryComboBox.SelectedIndex < 0)
         {
             _categoryComboBox.SelectedIndex = 0;
+        }
+    }
+
+    private void StyleFormButton(Control button, bool primary = false)
+    {
+        if (button is GameUpdater.WinForms.Controls.ModernButton modernButton)
+        {
+            modernButton.IsPrimary = primary;
+        }
+        else if (button is Button stdButton)
+        {
+            stdButton.FlatStyle = FlatStyle.Flat;
+            stdButton.FlatAppearance.BorderSize = 1;
+            stdButton.FlatAppearance.BorderColor = primary ? Color.FromArgb(37, 99, 235) : Color.FromArgb(203, 213, 225);
+            stdButton.BackColor = primary ? Color.FromArgb(37, 99, 235) : Color.FromArgb(241, 245, 249);
+            stdButton.ForeColor = primary ? Color.White : Color.FromArgb(15, 23, 42);
+            stdButton.UseVisualStyleBackColor = false;
+        }
+        button.Cursor = Cursors.Hand;
+        button.Height = Math.Max(32, (int)Math.Ceiling(this.Font.Size * 2.5f));
+        button.Width = Math.Max(90, (int)Math.Ceiling(this.Font.Size * 7.5f));
+    }
+
+    private void StyleControlsRecursively(Control.ControlCollection controls)
+    {
+        foreach (Control c in controls)
+        {
+            if (c is TextBox textBox)
+            {
+                textBox.BorderStyle = BorderStyle.FixedSingle;
+                textBox.BackColor = Color.White;
+                textBox.ForeColor = Color.FromArgb(15, 23, 42);
+            }
+            else if (c is CheckBox checkBox)
+            {
+                checkBox.FlatStyle = FlatStyle.Flat;
+                checkBox.ForeColor = Color.FromArgb(15, 23, 42);
+                checkBox.FlatAppearance.BorderSize = 1;
+                checkBox.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+                checkBox.FlatAppearance.CheckedBackColor = Color.FromArgb(99, 102, 241);
+                checkBox.FlatAppearance.MouseDownBackColor = Color.FromArgb(79, 70, 229);
+                checkBox.FlatAppearance.MouseOverBackColor = Color.FromArgb(238, 242, 255);
+            }
+            else if (c is ComboBox comboBox)
+            {
+                comboBox.FlatStyle = FlatStyle.Flat;
+                comboBox.BackColor = Color.White;
+                comboBox.ForeColor = Color.FromArgb(15, 23, 42);
+            }
+
+            if (c.HasChildren)
+            {
+                StyleControlsRecursively(c.Controls);
+            }
         }
     }
 }

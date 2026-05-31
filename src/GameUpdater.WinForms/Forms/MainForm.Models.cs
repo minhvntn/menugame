@@ -179,6 +179,8 @@ public sealed partial class MainForm
 
     private enum UiFontSizeMode
     {
+        VerySmall,
+        Small,
         Normal,
         Big,
         VeryBig

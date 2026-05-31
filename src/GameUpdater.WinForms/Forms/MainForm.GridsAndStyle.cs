@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
@@ -30,18 +30,20 @@ public sealed partial class MainForm
         _gamesGrid.CellFormatting += GamesGrid_CellFormatting;
         _gamesGrid.CellClick -= GamesGrid_CellClick;
         _gamesGrid.CellClick += GamesGrid_CellClick;
+        _gamesGrid.CellPainting -= GamesGrid_CellPainting;
+        _gamesGrid.CellPainting += GamesGrid_CellPainting;
 
         var hotColumn = CreateCheckBoxColumn("Hot", nameof(GameRecord.IsHot), 65);
         hotColumn.Name = HotColumnName;
         _gamesGrid.Columns.Add(hotColumn);
 
-        _gamesGrid.Columns.Add(CreateTextColumn("Tên trò chơi", nameof(GameRecord.Name), 230));
-        _gamesGrid.Columns.Add(CreateTextColumn("Nhóm", nameof(GameRecord.Category), 120));
-        _gamesGrid.Columns.Add(CreateTextColumn("Tệp chạy", nameof(GameRecord.LaunchRelativePath), 220));
+        _gamesGrid.Columns.Add(CreateTextColumn("Tên trò chơi  ⇅", nameof(GameRecord.Name), 230));
+        _gamesGrid.Columns.Add(CreateTextColumn("Nhóm  ⇅", nameof(GameRecord.Category), 120));
+        _gamesGrid.Columns.Add(CreateTextColumn("Tệp chạy  ⇅", nameof(GameRecord.LaunchRelativePath), 220));
         _gamesGrid.Columns.Add(new DataGridViewTextBoxColumn
         {
             Name = GameSizeDisplayColumnName,
-            HeaderText = "Dung lượng (GB)",
+            HeaderText = "Dung lượng (GB)  ⇅",
             Width = 110,
             AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
             ReadOnly = true,
@@ -87,24 +89,105 @@ public sealed partial class MainForm
         });
     }
 
+    private Font? _gridBoldFont;
+    private float _lastFontSize = -1;
+    private string _lastFontFamily = string.Empty;
+
+    private Font GetBoldFont()
+    {
+        if (_gridBoldFont == null || _gamesGrid.Font.Size != _lastFontSize || _gamesGrid.Font.FontFamily.Name != _lastFontFamily)
+        {
+            _gridBoldFont?.Dispose();
+            _gridBoldFont = new Font(_gamesGrid.Font, FontStyle.Bold);
+            _lastFontSize = _gamesGrid.Font.Size;
+            _lastFontFamily = _gamesGrid.Font.FontFamily.Name;
+        }
+        return _gridBoldFont;
+    }
+
     private void GamesGrid_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
     {
-        if (e.RowIndex < 0 ||
-            e.ColumnIndex < 0 ||
-            _gamesGrid.Columns[e.ColumnIndex].Name != GameSizeDisplayColumnName)
+        if (e.RowIndex < 0 || e.ColumnIndex < 0 || e.CellStyle is null)
         {
             return;
         }
 
-        if (_gamesGrid.Rows[e.RowIndex].DataBoundItem is not GameRecord game)
-        {
-            e.Value = "-";
-            e.FormattingApplied = true;
-            return;
-        }
+        var col = _gamesGrid.Columns[e.ColumnIndex];
+        
+        // Define base row backgrounds
+        var isAlternating = (e.RowIndex % 2 != 0);
+        var baseBg = isAlternating ? Color.FromArgb(248, 250, 252) : Color.White;
+        var selectedBg = Color.FromArgb(238, 242, 255); // Indigo-50 (#EEF2FF)
 
-        e.Value = GetGameSizeDisplay(game);
-        e.FormattingApplied = true;
+        e.CellStyle.BackColor = baseBg;
+        e.CellStyle.SelectionBackColor = selectedBg;
+
+        // Custom formatting for specific columns
+        if (col.DataPropertyName == nameof(GameRecord.Name))
+        {
+            e.CellStyle.ForeColor = Color.FromArgb(15, 23, 42); // slate-900 (#0F172A)
+            e.CellStyle.SelectionForeColor = Color.FromArgb(99, 102, 241); // indigo-500 (#6366F1)
+            e.CellStyle.Font = GetBoldFont();
+        }
+        else if (col.DataPropertyName == nameof(GameRecord.Category))
+        {
+            var cellValue = e.Value?.ToString() ?? string.Empty;
+            Color catColor = Color.FromArgb(71, 85, 105); // slate-600 (#475569)
+            if (string.Equals(cellValue, "IDC", StringComparison.OrdinalIgnoreCase))
+            {
+                catColor = Color.FromArgb(59, 130, 246); // Blue-500 (#3B82F6)
+            }
+            else if (string.Equals(cellValue, "Offline", StringComparison.OrdinalIgnoreCase))
+            {
+                catColor = Color.FromArgb(239, 68, 68); // Red-500 (#EF4444)
+            }
+            else if (string.Equals(cellValue, "Online", StringComparison.OrdinalIgnoreCase) || 
+                     string.Equals(cellValue, "Tools", StringComparison.OrdinalIgnoreCase))
+            {
+                catColor = Color.FromArgb(16, 185, 129); // Emerald-500 (#10B981)
+            }
+
+            e.CellStyle.ForeColor = catColor;
+            e.CellStyle.SelectionForeColor = catColor;
+            e.CellStyle.Font = GetBoldFont();
+        }
+        else if (col.DataPropertyName == nameof(GameRecord.LaunchRelativePath))
+        {
+            var blueColor = Color.FromArgb(37, 99, 235); // Blue-600 (#2563EB)
+            e.CellStyle.ForeColor = blueColor;
+            e.CellStyle.SelectionForeColor = blueColor;
+        }
+        else if (col.Name == GameSizeDisplayColumnName)
+        {
+            e.CellStyle.ForeColor = Color.FromArgb(71, 85, 105); // slate-600
+            e.CellStyle.SelectionForeColor = Color.FromArgb(71, 85, 105);
+            
+            if (_gamesGrid.Rows[e.RowIndex].DataBoundItem is GameRecord game)
+            {
+                e.Value = GetGameSizeDisplay(game);
+                e.FormattingApplied = true;
+            }
+            else
+            {
+                e.Value = "-";
+                e.FormattingApplied = true;
+            }
+        }
+        else if (col.DataPropertyName == nameof(GameRecord.InstallPath))
+        {
+            e.CellStyle.ForeColor = Color.FromArgb(71, 85, 105); // slate-600
+            e.CellStyle.SelectionForeColor = Color.FromArgb(71, 85, 105);
+        }
+        else if (col.DataPropertyName == nameof(GameRecord.LastScannedAt) || col.DataPropertyName == nameof(GameRecord.LastUpdatedAt))
+        {
+            e.CellStyle.ForeColor = Color.FromArgb(100, 116, 139); // slate-500
+            e.CellStyle.SelectionForeColor = Color.FromArgb(100, 116, 139);
+        }
+        else
+        {
+            e.CellStyle.ForeColor = Color.FromArgb(30, 41, 59); // slate-800
+            e.CellStyle.SelectionForeColor = Color.FromArgb(30, 41, 59);
+        }
     }
 
     private string GetGameSizeDisplay(GameRecord game)
@@ -516,34 +599,7 @@ public sealed partial class MainForm
         }
     }
 
-    private void InitializeFontSizeSelector(FlowLayoutPanel toolbar)
-    {
-        var label = new Label
-        {
-            Text = "Co chu giao dien",
-            AutoSize = true,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Margin = new Padding(0, 5, 8, 0)
-        };
 
-        _fontSizeComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-        _fontSizeComboBox.Width = 140;
-        _fontSizeComboBox.Margin = new Padding(0, 2, 0, 0);
-        _fontSizeComboBox.DisplayMember = nameof(FontSizeOption.Name);
-        _fontSizeComboBox.ValueMember = nameof(FontSizeOption.Mode);
-        _fontSizeComboBox.DataSource = new List<FontSizeOption>
-        {
-            new() { Mode = UiFontSizeMode.Normal, Name = "Binh thuong" },
-            new() { Mode = UiFontSizeMode.Big, Name = "Lon" },
-            new() { Mode = UiFontSizeMode.VeryBig, Name = "Rat lon" }
-        };
-
-        SetFontSizeSelection(_uiFontSizeMode);
-        _fontSizeComboBox.SelectedIndexChanged += FontSizeComboBox_SelectedIndexChanged;
-
-        toolbar.Controls.Add(label);
-        toolbar.Controls.Add(_fontSizeComboBox);
-    }
 
     private async void FontSizeComboBox_SelectedIndexChanged(object? sender, EventArgs e)
     {
@@ -590,7 +646,7 @@ public sealed partial class MainForm
         try
         {
             Font = uiFont;
-            UpdateAllControlsFont(Controls, fontFamily);
+            UpdateAllControlsFont(Controls, fontFamily, uiFontSize);
 
             ApplyDataGridFont(_gamesGrid, uiFont);
             ApplyDataGridFont(_resourcesGrid, uiFont);
@@ -615,21 +671,48 @@ public sealed partial class MainForm
         }
     }
 
-    private void UpdateAllControlsFont(Control.ControlCollection controls, string fontFamily)
+    private void UpdateAllControlsFont(Control.ControlCollection controls, string fontFamily, float uiFontSize)
     {
         foreach (Control c in controls)
         {
-            if (c is Label || c is Button || c is TextBox || c is ComboBox || c is CheckBox || c is NumericUpDown)
+            if (c is Label || c is Button || c is TextBox || c is ComboBox || c is CheckBox || c is NumericUpDown || c is ModernTabButton)
             {
-                if (c == _updateOutputTextBox) continue; // Keep consolas
-                
-                var currentStyle = c.Font.Style;
-                var currentSize = c.Font.Size;
-                c.Font = new Font(fontFamily, currentSize, currentStyle);
+                if (c != _updateOutputTextBox)
+                {
+                    var currentStyle = c.Font.Style;
+                    c.Font = new Font(fontFamily, uiFontSize, currentStyle);
+                }
             }
+
+            if (c is TextBox textBox)
+            {
+                if (textBox != _updateOutputTextBox)
+                {
+                    textBox.BorderStyle = BorderStyle.FixedSingle;
+                    textBox.BackColor = Color.White;
+                    textBox.ForeColor = Color.FromArgb(15, 23, 42);
+                }
+            }
+            else if (c is NumericUpDown numeric)
+            {
+                numeric.BorderStyle = BorderStyle.FixedSingle;
+                numeric.BackColor = Color.White;
+                numeric.ForeColor = Color.FromArgb(15, 23, 42);
+            }
+            else if (c is CheckBox checkBox)
+            {
+                checkBox.FlatStyle = FlatStyle.Flat;
+                checkBox.ForeColor = Color.FromArgb(15, 23, 42);
+                checkBox.FlatAppearance.BorderSize = 1;
+                checkBox.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225); // slate-300
+                checkBox.FlatAppearance.CheckedBackColor = Color.FromArgb(99, 102, 241); // indigo-500
+                checkBox.FlatAppearance.MouseDownBackColor = Color.FromArgb(79, 70, 229);
+                checkBox.FlatAppearance.MouseOverBackColor = Color.FromArgb(238, 242, 255);
+            }
+
             if (c.HasChildren)
             {
-                UpdateAllControlsFont(c.Controls, fontFamily);
+                UpdateAllControlsFont(c.Controls, fontFamily, uiFontSize);
             }
         }
     }
@@ -637,12 +720,39 @@ public sealed partial class MainForm
     private static void ApplyDataGridFont(DataGridView grid, Font uiFont)
     {
         grid.Font = uiFont;
-        grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
-        grid.ColumnHeadersDefaultCellStyle.Font = new Font(uiFont, FontStyle.Bold); // Make header font slightly bolder for better appearance
+        grid.BackgroundColor = Color.White;
+        grid.BorderStyle = BorderStyle.None;
+        grid.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
+        grid.GridColor = Color.FromArgb(241, 245, 249); // slate-100 (subtle grid lines)
+        grid.RowHeadersVisible = false;
+        
+        // Header styles
+        grid.EnableHeadersVisualStyles = false;
+        grid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single;
+        grid.ColumnHeadersDefaultCellStyle.Font = new Font(uiFont.FontFamily, uiFont.Size, FontStyle.Bold);
+        grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252); // slate 50 (#F8FAFC)
+        grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(15, 23, 42); // slate 900 (#0F172A)
+        grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = Color.FromArgb(248, 250, 252);
+        grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = Color.FromArgb(15, 23, 42);
+        grid.ColumnHeadersDefaultCellStyle.Padding = new Padding(8, 10, 8, 10);
+        
+        // Default cell styles
         grid.DefaultCellStyle.Font = uiFont;
-        grid.DefaultCellStyle.Padding = new Padding(0, 4, 0, 4);
-        grid.RowTemplate.Height = Math.Max(34, (int)Math.Ceiling(uiFont.Size * 2.6f));
-        grid.ColumnHeadersHeight = Math.Max(46, (int)Math.Ceiling(uiFont.Size * 3.4f)); // Increased header height
+        grid.DefaultCellStyle.Padding = new Padding(10, 10, 10, 10); // slightly taller cell padding
+        grid.DefaultCellStyle.BackColor = Color.White;
+        grid.DefaultCellStyle.ForeColor = Color.FromArgb(30, 41, 59); // slate 800 (#1E293B)
+        grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(238, 242, 255); // Indigo-50 (#EEF2FF)
+        grid.DefaultCellStyle.SelectionForeColor = Color.FromArgb(99, 102, 241); // Indigo-500 (#6366F1)
+        
+        // Alternating row style
+        grid.AlternatingRowsDefaultCellStyle.Font = uiFont;
+        grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252); // slate 50 (#F8FAFC)
+        grid.AlternatingRowsDefaultCellStyle.ForeColor = Color.FromArgb(30, 41, 59); // slate 800 (#1E293B)
+        grid.AlternatingRowsDefaultCellStyle.SelectionBackColor = Color.FromArgb(238, 242, 255); // Indigo-50 (#EEF2FF)
+        grid.AlternatingRowsDefaultCellStyle.SelectionForeColor = Color.FromArgb(99, 102, 241); // Indigo-500 (#6366F1)
+
+        grid.RowTemplate.Height = Math.Max(42, (int)Math.Ceiling(uiFont.Size * 3.0f));
+        grid.ColumnHeadersHeight = Math.Max(48, (int)Math.Ceiling(uiFont.Size * 3.4f));
         EnsureColumnHeadersFit(grid);
     }
 
@@ -695,24 +805,26 @@ public sealed partial class MainForm
     {
         return mode switch
         {
-            UiFontSizeMode.Big => 14f,
-            UiFontSizeMode.VeryBig => 16f,
-            _ => 12f
+            UiFontSizeMode.VerySmall => 9.5f,
+            UiFontSizeMode.Small => 11.5f,
+            UiFontSizeMode.Big => 16f,
+            UiFontSizeMode.VeryBig => 19f,
+            _ => 13.5f
         };
     }
 
-    private static Button CreateButton(string text, EventHandler onClick)
+    private static GameUpdater.WinForms.Controls.ModernButton CreateButton(string text, EventHandler onClick, bool primary = false)
     {
-        var button = new Button
+        var button = new GameUpdater.WinForms.Controls.ModernButton
         {
             Text = text
         };
-        StyleButton(button);
+        StyleButton(button, primary);
         button.Click += onClick;
         return button;
     }
 
-    private static void StyleButton(Button button, bool primary = false)
+    private static void StyleButton(Control button, bool primary = false)
     {
         if (!StyledButtons.Contains(button))
         {
@@ -722,33 +834,42 @@ public sealed partial class MainForm
         StyledButtonPrimaryStates[button] = primary;
         StyledButtonTargetColors[button] = primary ? AccentColor : SecondaryButtonColor;
 
-        button.AutoSize = false;
-        button.FlatStyle = FlatStyle.Flat;
-        button.FlatAppearance.BorderSize = 1;
-        button.FlatAppearance.BorderColor = primary ? AccentColor : ButtonBorderColor;
-        button.FlatAppearance.MouseOverBackColor = primary ? AccentColor : SecondaryButtonColor;
-        button.FlatAppearance.MouseDownBackColor = primary ? AccentHoverColor : SecondaryButtonHoverColor;
-        button.UseVisualStyleBackColor = false;
-        button.Cursor = Cursors.Hand;
-        button.Margin = new Padding(5, 1, 7, 1);
-        button.Padding = new Padding(ButtonHorizontalPadding, ButtonVerticalPadding, ButtonHorizontalPadding, ButtonVerticalPadding);
-        button.TextAlign = ContentAlignment.MiddleCenter;
-        button.BackColor = primary ? AccentColor : SecondaryButtonColor;
-        button.ForeColor = primary ? Color.White : SecondaryButtonTextColor;
+        if (button is GameUpdater.WinForms.Controls.ModernButton modernButton)
+        {
+            modernButton.IsPrimary = primary;
+            modernButton.Disposed -= StyledButton_Disposed;
+            modernButton.Disposed += StyledButton_Disposed;
+        }
+        else if (button is Button stdButton)
+        {
+            stdButton.AutoSize = false;
+            stdButton.FlatStyle = FlatStyle.Flat;
+            stdButton.FlatAppearance.BorderSize = 1;
+            stdButton.FlatAppearance.BorderColor = primary ? AccentColor : ButtonBorderColor;
+            stdButton.FlatAppearance.MouseOverBackColor = primary ? AccentColor : SecondaryButtonColor;
+            stdButton.FlatAppearance.MouseDownBackColor = primary ? AccentHoverColor : SecondaryButtonHoverColor;
+            stdButton.UseVisualStyleBackColor = false;
+            stdButton.Cursor = Cursors.Hand;
+            stdButton.Margin = new Padding(5, 1, 7, 1);
+            stdButton.Padding = new Padding(ButtonHorizontalPadding, ButtonVerticalPadding, ButtonHorizontalPadding, ButtonVerticalPadding);
+            stdButton.TextAlign = ContentAlignment.MiddleCenter;
+            stdButton.BackColor = primary ? AccentColor : SecondaryButtonColor;
+            stdButton.ForeColor = primary ? Color.White : SecondaryButtonTextColor;
 
-        button.MouseEnter -= StyledButton_MouseEnter;
-        button.MouseLeave -= StyledButton_MouseLeave;
-        button.MouseDown -= StyledButton_MouseDown;
-        button.MouseUp -= StyledButton_MouseUp;
-        button.Disposed -= StyledButton_Disposed;
+            stdButton.MouseEnter -= StyledButton_MouseEnter;
+            stdButton.MouseLeave -= StyledButton_MouseLeave;
+            stdButton.MouseDown -= StyledButton_MouseDown;
+            stdButton.MouseUp -= StyledButton_MouseUp;
+            stdButton.Disposed -= StyledButton_Disposed;
 
-        button.MouseEnter += StyledButton_MouseEnter;
-        button.MouseLeave += StyledButton_MouseLeave;
-        button.MouseDown += StyledButton_MouseDown;
-        button.MouseUp += StyledButton_MouseUp;
-        button.Disposed += StyledButton_Disposed;
-        button.Region?.Dispose();
-        button.Region = null;
+            stdButton.MouseEnter += StyledButton_MouseEnter;
+            stdButton.MouseLeave += StyledButton_MouseLeave;
+            stdButton.MouseDown += StyledButton_MouseDown;
+            stdButton.MouseUp += StyledButton_MouseUp;
+            stdButton.Disposed += StyledButton_Disposed;
+            stdButton.Region?.Dispose();
+            stdButton.Region = null;
+        }
     }
 
     private static void ApplyButtonSizing(float uiFontSize)
@@ -790,28 +911,28 @@ public sealed partial class MainForm
 
     private static void StyledButton_MouseEnter(object? sender, EventArgs e)
     {
-        if (sender is not Button button) return;
+        if (sender is not Control button) return;
         var primary = StyledButtonPrimaryStates.TryGetValue(button, out var isPrimary) && isPrimary;
         AnimateButtonColor(button, primary ? AccentHoverColor : SecondaryButtonHoverColor);
     }
 
     private static void StyledButton_MouseLeave(object? sender, EventArgs e)
     {
-        if (sender is not Button button) return;
+        if (sender is not Control button) return;
         var primary = StyledButtonPrimaryStates.TryGetValue(button, out var isPrimary) && isPrimary;
         AnimateButtonColor(button, primary ? AccentColor : SecondaryButtonColor);
     }
 
     private static void StyledButton_MouseDown(object? sender, MouseEventArgs e)
     {
-        if (sender is not Button button) return;
+        if (sender is not Control button) return;
         var primary = StyledButtonPrimaryStates.TryGetValue(button, out var isPrimary) && isPrimary;
         AnimateButtonColor(button, primary ? Color.FromArgb(29, 78, 216) : Color.FromArgb(71, 85, 105));
     }
 
     private static void StyledButton_MouseUp(object? sender, MouseEventArgs e)
     {
-        if (sender is not Button button) return;
+        if (sender is not Control button) return;
         var primary = StyledButtonPrimaryStates.TryGetValue(button, out var isPrimary) && isPrimary;
         var isHovering = button.ClientRectangle.Contains(button.PointToClient(Cursor.Position));
         AnimateButtonColor(button, isHovering ? primary ? AccentHoverColor : SecondaryButtonHoverColor : primary ? AccentColor : SecondaryButtonColor);
@@ -819,13 +940,13 @@ public sealed partial class MainForm
 
     private static void StyledButton_Disposed(object? sender, EventArgs e)
     {
-        if (sender is not Button button) return;
+        if (sender is not Control button) return;
         StyledButtons.Remove(button);
         StyledButtonPrimaryStates.Remove(button);
         StyledButtonTargetColors.Remove(button);
     }
 
-    private static void AnimateButtonColor(Button button, Color targetColor)
+    private static void AnimateButtonColor(Control button, Color targetColor)
     {
         StyledButtonTargetColors[button] = targetColor;
         var startColor = button.BackColor;
@@ -871,6 +992,78 @@ public sealed partial class MainForm
             TextAlign = ContentAlignment.MiddleLeft,
             Dock = DockStyle.Fill
         };
+    }
+
+    private void GamesGrid_CellPainting(object? sender, DataGridViewCellPaintingEventArgs e)
+    {
+        if (e.RowIndex < 0 || e.ColumnIndex < 0 || e.Graphics is null)
+        {
+            return;
+        }
+
+        if (_gamesGrid.Columns[e.ColumnIndex].Name == HotColumnName)
+        {
+            e.PaintBackground(e.CellBounds, true);
+
+            var isChecked = false;
+            if (e.Value is bool val)
+            {
+                isChecked = val;
+            }
+
+            int size = 20;
+            int x = e.CellBounds.X + (e.CellBounds.Width - size) / 2;
+            int y = e.CellBounds.Y + (e.CellBounds.Height - size) / 2;
+            var boxRect = new Rectangle(x, y, size, size);
+
+            using var brush = new SolidBrush(isChecked ? Color.FromArgb(99, 102, 241) : Color.White); // Indigo-500 when checked
+            using var borderPen = new Pen(isChecked ? Color.FromArgb(99, 102, 241) : Color.FromArgb(203, 213, 225), 1.5f); // slate-300 when unchecked
+
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            FillRoundedRectangle(e.Graphics, brush, boxRect, 4);
+            DrawRoundedRectangle(e.Graphics, borderPen, boxRect, 4);
+
+            if (isChecked)
+            {
+                using var checkPen = new Pen(Color.White, 2.5f);
+                checkPen.StartCap = System.Drawing.Drawing2D.LineCap.Round;
+                checkPen.EndCap = System.Drawing.Drawing2D.LineCap.Round;
+                e.Graphics.DrawLine(checkPen, x + 5, y + 10, x + 9, y + 14);
+                e.Graphics.DrawLine(checkPen, x + 9, y + 14, x + 15, y + 6);
+            }
+
+            e.Handled = true;
+        }
+    }
+
+    private static void FillRoundedRectangle(Graphics g, Brush brush, Rectangle rect, int radius)
+    {
+        using var path = GetRoundedRectPath(rect, radius);
+        g.FillPath(brush, path);
+    }
+
+    private static void DrawRoundedRectangle(Graphics g, Pen pen, Rectangle rect, int radius)
+    {
+        using var path = GetRoundedRectPath(rect, radius);
+        g.DrawPath(pen, path);
+    }
+
+    private static System.Drawing.Drawing2D.GraphicsPath GetRoundedRectPath(Rectangle rect, int radius)
+    {
+        var path = new System.Drawing.Drawing2D.GraphicsPath();
+        var diameter = radius * 2;
+        var arcRect = new Rectangle(rect.X, rect.Y, diameter, diameter);
+
+        path.AddArc(arcRect, 180, 90);
+        arcRect.X = rect.Right - diameter;
+        path.AddArc(arcRect, 270, 90);
+        arcRect.Y = rect.Bottom - diameter;
+        path.AddArc(arcRect, 0, 90);
+        arcRect.X = rect.X;
+        path.AddArc(arcRect, 90, 90);
+        path.CloseFigure();
+        return path;
     }
 }
 
