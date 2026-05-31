@@ -38,8 +38,27 @@ public sealed partial class MainForm
         };
         root.Paint += (_, e) =>
         {
-            using var brush = new SolidBrush(BodyBackColor);
-            e.Graphics.FillRectangle(brush, root.ClientRectangle);
+            var bounds = root.ClientRectangle;
+            if (bounds.Width > 0 && bounds.Height > 0)
+            {
+                using var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
+                    bounds,
+                    Color.FromArgb(22, 12, 42),
+                    Color.FromArgb(8, 9, 13),
+                    45f);
+
+                var blend = new System.Drawing.Drawing2D.ColorBlend(3)
+                {
+                    Colors = new Color[] {
+                        Color.FromArgb(22, 12, 42),  // Neon purple-violet
+                        Color.FromArgb(13, 14, 25),  // Dark neon indigo/navy
+                        Color.FromArgb(8, 9, 13)     // Rich dark charcoal
+                    },
+                    Positions = new float[] { 0.0f, 0.5f, 1.0f }
+                };
+                brush.InterpolationColors = blend;
+                e.Graphics.FillRectangle(brush, bounds);
+            }
         };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 74));
@@ -59,7 +78,7 @@ public sealed partial class MainForm
         var headerPanel = new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = HeaderBackColor,
+            BackColor = Color.Transparent,
             Padding = new Padding(18, 8, 20, 8)
         };
         headerPanel.Paint += (_, e) =>
@@ -139,7 +158,7 @@ public sealed partial class MainForm
         {
             Width = 420,
             Height = 38,
-            BackColor = Color.FromArgb(21, 24, 33), // #151821
+            BackColor = Color.Transparent,
             Padding = new Padding(38, 9, 14, 9),
             Margin = new Padding(0),
             Anchor = AnchorStyles.None
@@ -148,9 +167,7 @@ public sealed partial class MainForm
         {
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             using var borderPath = CreateRoundRectPath(new Rectangle(0, 0, searchHost.Width - 1, searchHost.Height - 1), 18);
-            using var fill = new SolidBrush(Color.FromArgb(21, 24, 33)); // #151821
             using var pen = new Pen(Color.FromArgb(42, 47, 61)); // #2A2F3D
-            e.Graphics.FillPath(fill, borderPath);
             e.Graphics.DrawPath(pen, borderPath);
 
             // Draw magnifying glass icon manually
@@ -161,7 +178,7 @@ public sealed partial class MainForm
 
         _searchTextBox.Dock = DockStyle.Fill;
         _searchTextBox.BorderStyle = BorderStyle.None;
-        _searchTextBox.BackColor = Color.FromArgb(21, 24, 33);
+        _searchTextBox.BackColor = Color.FromArgb(16, 13, 31);
         _searchTextBox.ForeColor = Color.FromArgb(230, 232, 239);
         _searchTextBox.Font = new Font("Segoe UI", 10f, FontStyle.Regular);
         _searchTextBox.PlaceholderText = "T\u00ecm ki\u1ebfm game...";
@@ -194,7 +211,7 @@ public sealed partial class MainForm
             Dock = DockStyle.Fill,
             ColumnCount = 2,
             RowCount = 1,
-            BackColor = BodyBackColor
+            BackColor = Color.Transparent
         };
         body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 162f));
         body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
@@ -210,7 +227,7 @@ public sealed partial class MainForm
         var sidebar = new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = SidebarBackColor,
+            BackColor = Color.Transparent,
             Padding = new Padding(10, 16, 10, 12)
         };
         sidebar.Paint += (_, e) =>
@@ -239,7 +256,7 @@ public sealed partial class MainForm
             Dock = DockStyle.Fill,
             ColumnCount = 1,
             RowCount = 2,
-            BackColor = BodyBackColor,
+            BackColor = Color.Transparent,
             Padding = new Padding(32, 18, 22, 12)
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
@@ -252,7 +269,7 @@ public sealed partial class MainForm
         _hotCardsPanel.FlowDirection = FlowDirection.LeftToRight;
         _hotCardsPanel.Padding = new Padding(0, 8, 0, 8);
         _hotCardsPanel.Margin = new Padding(0);
-        _hotCardsPanel.BackColor = BodyBackColor;
+        _hotCardsPanel.BackColor = Color.Transparent;
         EnableDoubleBuffering(_hotCardsPanel);
 
         _normalCardsPanel.Dock = DockStyle.Fill;
@@ -261,7 +278,7 @@ public sealed partial class MainForm
         _normalCardsPanel.FlowDirection = FlowDirection.LeftToRight;
         _normalCardsPanel.Padding = new Padding(0, 8, 0, 8);
         _normalCardsPanel.Margin = new Padding(0);
-        _normalCardsPanel.BackColor = BodyBackColor;
+        _normalCardsPanel.BackColor = Color.Transparent;
         EnableDoubleBuffering(_normalCardsPanel);
 
         layout.Controls.Add(BuildSectionPanel("GAME N\u1ed4I B\u1eacT", _hotCardsPanel, _hotSortLabel), 0, 0);
@@ -274,7 +291,7 @@ public sealed partial class MainForm
         var panel = new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = BodyBackColor,
+            BackColor = Color.Transparent,
             Padding = new Padding(0),
             Margin = new Padding(0, 0, 0, 8)
         };
@@ -328,7 +345,7 @@ public sealed partial class MainForm
         var panel = new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = BodyBackColor,
+            BackColor = Color.Transparent,
             Padding = new Padding(14, 6, 14, 6)
         };
         panel.Paint += (_, e) =>
@@ -458,7 +475,7 @@ public sealed partial class MainForm
             Width = 134,
             Height = 44,
             FlatStyle = FlatStyle.Flat,
-            BackColor = SidebarBackColor,
+            BackColor = Color.Transparent,
             ForeColor = Color.White,
             Cursor = Cursors.Hand,
             Margin = new Padding(0, 0, 0, 8),
@@ -470,17 +487,10 @@ public sealed partial class MainForm
         
         button.Paint += (sender, e) =>
         {
-            var btn = (Button)sender;
+            if (sender is not Button btn) return;
             var g = e.Graphics;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-            
-            var rect = btn.ClientRectangle;
-            
-            using (var bgBrush = new SolidBrush(SidebarBackColor))
-            {
-                g.FillRectangle(bgBrush, rect);
-            }
             
             var isSelected = string.Equals(category, _selectedCategory, StringComparison.OrdinalIgnoreCase);
             
@@ -492,14 +502,14 @@ public sealed partial class MainForm
                         new Rectangle(0, 0, btn.Width, btn.Height),
                         Color.FromArgb(46, 27, 78),   // #2E1B4E (deep violet)
                         Color.FromArgb(24, 17, 36),   // #181124 (very dark violet)
-                        0f))
+                        90f))
                     {
                         g.FillPath(fill, path);
                     }
                 }
                 else if (btn.ClientRectangle.Contains(btn.PointToClient(Cursor.Position)))
                 {
-                    using (var fill = new SolidBrush(Color.FromArgb(28, 31, 41))) // #1C1F29
+                    using (var fill = new SolidBrush(Color.FromArgb(20, 255, 255, 255)))
                     {
                         g.FillPath(fill, path);
                     }
@@ -581,13 +591,13 @@ public sealed partial class MainForm
         button.FlatAppearance.BorderSize = 0;
         button.Paint += (sender, e) =>
         {
-            var btn = (Button)sender;
+            if (sender is not Button btn) return;
             var g = e.Graphics;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
             
             var rect = btn.ClientRectangle;
-            using (var bgBrush = new SolidBrush(HeaderBackColor))
+            using (var bgBrush = new SolidBrush(Color.Transparent))
             {
                 g.FillRectangle(bgBrush, rect);
             }

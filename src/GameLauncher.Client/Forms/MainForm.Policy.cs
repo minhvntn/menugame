@@ -48,10 +48,6 @@ public sealed partial class MainForm
             ? I18n.Launcher.DefaultFontFamily
             : policy.ThemeFontFamily.Trim();
 
-        if (TryParseHtmlColor(policy.ThemeAccentColor, out var accentColor))
-        {
-            _bannerMessageLabel.BackColor = accentColor;
-        }
     }
 
     private void ApplyKioskPolicy(bool enabled)

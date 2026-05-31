@@ -26,8 +26,8 @@ public sealed class GameCardControl : UserControl
     private readonly string _iconCacheKey;
 
     private Panel? _cardShell;
-    private float _dashOffset;
-    private float _pulseAngle;
+    private float _hoverProgress;
+    private float _breathAngle;
     private readonly System.Windows.Forms.Timer _hoverTimer;
 
     public LauncherGameRow Row => _row;
@@ -49,7 +49,7 @@ public sealed class GameCardControl : UserControl
 
         _hoverTimer = new System.Windows.Forms.Timer
         {
-            Interval = 30
+            Interval = 15
         };
         _hoverTimer.Tick += HoverTimer_Tick;
 
@@ -87,28 +87,55 @@ public sealed class GameCardControl : UserControl
         }
 
         var clientPos = _cardShell.PointToClient(Cursor.Position);
-        if (_cardShell.ClientRectangle.Contains(clientPos))
-        {
-            _dashOffset += 2.5f;
-            if (_dashOffset > 1000f)
-            {
-                _dashOffset -= 1000f;
-            }
+        bool targetHover = _cardShell.ClientRectangle.Contains(clientPos);
 
-            _pulseAngle += 0.15f;
-            if (_pulseAngle > (float)Math.PI * 2)
+        bool changed = false;
+        if (targetHover)
+        {
+            if (_hoverProgress < 1f)
             {
-                _pulseAngle -= (float)Math.PI * 2;
+                _hoverProgress = Math.Min(1f, _hoverProgress + 0.08f);
             }
+            
+            _breathAngle += 0.05f;
+            if (_breathAngle > (float)Math.PI * 2)
+            {
+                _breathAngle -= (float)Math.PI * 2;
+            }
+            changed = true; // Always repaint to support continuous breathing when hovered
+        }
+        else
+        {
+            if (_hoverProgress > 0f)
+            {
+                _hoverProgress = Math.Max(0f, _hoverProgress - 0.08f);
+                _breathAngle += 0.05f;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
             _cardShell.Invalidate();
         }
         else
         {
             _hoverTimer.Stop();
-            _dashOffset = 0f;
-            _pulseAngle = 0f;
-            _cardShell.Invalidate();
+            _breathAngle = 0f;
         }
+    }
+
+    private static float EaseInOut(float t)
+    {
+        return t < 0.5f ? 2f * t * t : 1f - (float)Math.Pow(-2f * t + 2f, 2f) / 2f;
+    }
+
+    private static Color InterpolateColor(Color c1, Color c2, float t)
+    {
+        int r = (int)(c1.R + (c2.R - c1.R) * t);
+        int g = (int)(c1.G + (c2.G - c1.G) * t);
+        int b = (int)(c1.B + (c2.B - c1.B) * t);
+        return Color.FromArgb(r, g, b);
     }
 
     private void BuildLayout()
@@ -142,57 +169,38 @@ public sealed class GameCardControl : UserControl
         {
             if (_cardShell == null) return;
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            var bounds = new Rectangle(0, 0, _cardShell.Width - 1, _cardShell.Height - 1);
+            // Use static inset to prevent thick border (up to 4px) from being clipped
+            var bounds = new Rectangle(2, 2, _cardShell.Width - 4, _cardShell.Height - 4);
             using var path = CreateRoundRectPath(bounds, _isHotRow ? 12 : 10);
 
-            var isHover = _cardShell.ClientRectangle.Contains(_cardShell.PointToClient(Cursor.Position));
+            float breath = 0.5f + 0.5f * (float)Math.Sin(_breathAngle);
+            float glowFactor = 0.4f + 0.6f * breath; // breathes between 0.4 and 1.0
 
-            Color baseColorStart = isHover ? Color.FromArgb(37, 41, 54) : Color.FromArgb(28, 31, 41); // #252936 / #1C1F29
-            Color baseColorEnd = isHover ? Color.FromArgb(28, 31, 41) : Color.FromArgb(21, 23, 31);
-            Color borderColor = isHover ? Color.FromArgb(139, 92, 246) : Color.FromArgb(42, 47, 61); // #8B5CF6 / #2A2F3D
+            float t = EaseInOut(_hoverProgress) * glowFactor;
+
+            Color startNormal = Color.FromArgb(36, 40, 56);
+            Color endNormal = Color.FromArgb(20, 22, 31);
+            Color startHover = Color.FromArgb(52, 58, 82);
+            Color endHover = Color.FromArgb(28, 31, 44);
+
+            Color currentStart = InterpolateColor(startNormal, startHover, EaseInOut(_hoverProgress));
+            Color currentEnd = InterpolateColor(endNormal, endHover, EaseInOut(_hoverProgress));
 
             using var fill = new System.Drawing.Drawing2D.LinearGradientBrush(
                 bounds,
-                baseColorStart,
-                baseColorEnd,
+                currentStart,
+                currentEnd,
                 90f);
             e.Graphics.FillPath(fill, path);
 
-            if (isHover)
-            {
-                // Draw normal border background so it's not transparent behind the dashed line
-                using var basePen = new Pen(Color.FromArgb(42, 47, 61), 1f);
-                e.Graphics.DrawPath(basePen, path);
+            Color borderNormal = Color.FromArgb(42, 47, 61);
+            Color borderHover = Color.FromArgb(139, 92, 246);
+            Color currentBorder = InterpolateColor(borderNormal, borderHover, t);
 
-                // Calculate pulsing alpha (neon flash intensity goes between 120 and 255)
-                int alpha = (int)(120 + 135 * (Math.Sin(_pulseAngle) + 1.0) / 2.0);
-                alpha = Math.Clamp(alpha, 0, 255);
+            float currentWidth = 2f + 2f * t; // normal: 2px, active: 4px
 
-                float baseWidth = _isHotRow ? 2.0f : 1.6f;
-                // Pulsing glow width
-                float glowWidth = (float)(baseWidth + 0.8 * (Math.Sin(_pulseAngle) + 1.0) / 2.0);
-
-                // Draw outer neon bloom (wider, softer)
-                using var bloomPen = new Pen(Color.FromArgb(alpha / 4, 139, 92, 246), glowWidth * 2.5f);
-                bloomPen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
-                bloomPen.DashPattern = _isHotRow ? new float[] { 70f, 200f } : new float[] { 45f, 120f };
-                bloomPen.DashOffset = -_dashOffset;
-                bloomPen.DashCap = System.Drawing.Drawing2D.DashCap.Round;
-                e.Graphics.DrawPath(bloomPen, path);
-
-                // Draw inner core neon line (thinner, brighter core)
-                using var glowPen = new Pen(Color.FromArgb(alpha, 168, 120, 255), glowWidth);
-                glowPen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
-                glowPen.DashPattern = _isHotRow ? new float[] { 70f, 200f } : new float[] { 45f, 120f };
-                glowPen.DashOffset = -_dashOffset;
-                glowPen.DashCap = System.Drawing.Drawing2D.DashCap.Round;
-                e.Graphics.DrawPath(glowPen, path);
-            }
-            else
-            {
-                using var pen = new Pen(borderColor, 1f);
-                e.Graphics.DrawPath(pen, path);
-            }
+            using var pen = new Pen(currentBorder, currentWidth);
+            e.Graphics.DrawPath(pen, path);
         };
 
         var hostPanel = new Panel
@@ -231,11 +239,9 @@ public sealed class GameCardControl : UserControl
             Font = _nameFont,
             TextAlign = ContentAlignment.TopCenter,
             AutoEllipsis = false,
-            ForeColor = Color.FromArgb(230, 232, 239), // #E6E8EF
+            ForeColor = Color.FromArgb(230, 232, 239),
             Padding = new Padding(1, 1, 1, 0)
         };
-
-
 
         root.Controls.Add(hostPanel, 0, 0);
         root.Controls.Add(nameLabel, 0, 1);
@@ -248,7 +254,7 @@ public sealed class GameCardControl : UserControl
                 Dock = DockStyle.Fill,
                 Height = 30,
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(42, 47, 61), // #2A2F3D
+                BackColor = Color.FromArgb(42, 47, 61),
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI Semibold", 8.5f, FontStyle.Bold),
                 Cursor = Cursors.Hand,
@@ -265,7 +271,7 @@ public sealed class GameCardControl : UserControl
                 var rect = btn.ClientRectangle;
                 
                 var isButtonHover = btn.ClientRectangle.Contains(btn.PointToClient(Cursor.Position));
-                var backColor = isButtonHover ? Color.FromArgb(139, 92, 246) : Color.FromArgb(42, 47, 61); // #8B5CF6 / #2A2F3D
+                var backColor = isButtonHover ? Color.FromArgb(139, 92, 246) : Color.FromArgb(42, 47, 61);
                 
                 using (var path = CreateRoundRectPath(new Rectangle(0, 0, btn.Width - 1, btn.Height - 1), 6))
                 {
@@ -289,8 +295,6 @@ public sealed class GameCardControl : UserControl
             root.Controls.Add(playButton, 0, 2);
             WireCardHover(playButton, _cardShell);
         }
-
-
 
         _cardShell.Controls.Add(root);
         Controls.Add(_cardShell);
@@ -322,6 +326,10 @@ public sealed class GameCardControl : UserControl
         };
         control.MouseLeave += (s, e) =>
         {
+            if (_hoverTimer != null && !_hoverTimer.Enabled)
+            {
+                _hoverTimer.Start();
+            }
             cardShell.Invalidate();
         };
     }
