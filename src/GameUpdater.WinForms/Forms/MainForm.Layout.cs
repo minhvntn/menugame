@@ -14,6 +14,101 @@ public sealed partial class MainForm
 {
     private GameRecord? SelectedGame => _gamesBinding.Current as GameRecord;
 
+    private void UpdateResourceTargetRootPathFromUi()
+    {
+        var paths = new List<string>();
+        foreach (Control c in _targetsContainer.Controls)
+        {
+            if (c is TableLayoutPanel tlp && tlp.Controls.Count > 1 && tlp.Controls[1] is TextBox tb)
+            {
+                paths.Add(tb.Text.Trim());
+            }
+        }
+        _resourceTargetRootPath = string.Join(";", paths.Where(p => !string.IsNullOrWhiteSpace(p)));
+    }
+
+    private void AddTargetRowUi(string path)
+    {
+        var row = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            ColumnCount = 4,
+            Padding = new Padding(0, 2, 0, 0),
+            BackColor = Color.Transparent,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink
+        };
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 40));
+        row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 40));
+
+        int count = _targetsContainer.Controls.OfType<TableLayoutPanel>().Count() + 1;
+        var label = CreateFieldLabel($"Đích máy chủ ổ cứng {count}");
+        var textBox = new TextBox { Dock = DockStyle.Fill, Text = path };
+        
+        textBox.TextChanged += (_, _) => UpdateResourceTargetRootPathFromUi();
+
+        var browseBtn = new GameUpdater.WinForms.Controls.ModernButton { Text = "...", Size = new Size(30, 25), Margin = new Padding(0, 0, 5, 0), CornerRadius = 4, ColorType = GameUpdater.WinForms.Controls.ButtonColorType.Secondary };
+        browseBtn.Click += (_, _) =>
+        {
+            using var dialog = new FolderBrowserDialog();
+            if (!string.IsNullOrWhiteSpace(textBox.Text))
+                dialog.SelectedPath = textBox.Text;
+            if (dialog.ShowDialog() == DialogResult.OK)
+                textBox.Text = dialog.SelectedPath;
+        };
+
+        var removeBtn = new GameUpdater.WinForms.Controls.ModernButton { Text = "X", Size = new Size(30, 25), Margin = new Padding(0), CornerRadius = 4, ColorType = GameUpdater.WinForms.Controls.ButtonColorType.Red };
+        removeBtn.Click += (_, _) =>
+        {
+            _targetsContainer.Controls.Remove(row);
+            UpdateResourceTargetRootPathFromUi();
+            
+            // Update labels
+            int i = 1;
+            foreach (Control c in _targetsContainer.Controls)
+            {
+                if (c is TableLayoutPanel tlp && tlp.Controls.Count > 0 && tlp.Controls[0] is Label lbl)
+                {
+                    lbl.Text = $"Đích máy chủ ổ cứng {i++}";
+                }
+            }
+        };
+
+        row.Controls.Add(label, 0, 0);
+        row.Controls.Add(textBox, 1, 0);
+        row.Controls.Add(browseBtn, 2, 0);
+        row.Controls.Add(removeBtn, 3, 0);
+
+        _targetsContainer.Controls.Add(row);
+    }
+
+    private void BuildTargetsUi()
+    {
+        _targetsContainer.Controls.Clear();
+        var paths = _resourceTargetRootPath.Split(';', StringSplitOptions.RemoveEmptyEntries)
+            .Select(p => p.Trim())
+            .ToList();
+            
+        if (paths.Count == 0) paths.Add("");
+
+        foreach (var path in paths)
+        {
+            AddTargetRowUi(path);
+        }
+
+        var addBtn = new GameUpdater.WinForms.Controls.ModernButton { Text = "Thêm đích máy chủ", Size = new Size(150, 25), Margin = new Padding(180, 5, 0, 0), CornerRadius = 4, ColorType = GameUpdater.WinForms.Controls.ButtonColorType.Secondary };
+        addBtn.Click += (_, _) => 
+        {
+            _targetsContainer.Controls.Remove(addBtn);
+            AddTargetRowUi("");
+            _targetsContainer.Controls.Add(addBtn);
+            UpdateResourceTargetRootPathFromUi();
+        };
+        _targetsContainer.Controls.Add(addBtn);
+    }
+
     private void BuildLayout()
     {
         var mainLayout = new TableLayoutPanel
@@ -381,6 +476,128 @@ public sealed partial class MainForm
         return card;
     }
 
+    private TableLayoutPanel BuildResourceSummaryCards()
+    {
+        var cardsLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            RowCount = 1,
+            ColumnCount = 6,
+            Padding = new Padding(0, 0, 0, 8),
+            BackColor = Color.FromArgb(248, 250, 252) // slate-50
+        };
+        cardsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        for (int i = 0; i < 6; i++)
+        {
+            cardsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16.66f));
+        }
+
+        // 1. Display Count
+        var card1 = CreateStatCard("Hiển thị 0/0 trò chơi", "Tổng số game", "🖥️", Color.FromArgb(59, 130, 246), _statDisplayCountLabel);
+        // 2. Downloaded
+        var card2 = CreateStatCard("Đã tải 0 trò chơi", "Hoàn tất", "✅", Color.FromArgb(16, 185, 129), _statDownloadedLabel);
+        // 3. Missing
+        var card3 = CreateStatCard("Chưa tải 0 trò chơi", "Cần tải về", "📦", Color.FromArgb(245, 158, 11), _statMissingLabel);
+        // 4. Size Needed
+        var card4 = CreateStatCard("Cần thêm 0.0 GB", "Dung lượng tải", "💾", Color.FromArgb(139, 92, 246), _statSizeLabel);
+        // 5. Source OK
+        var card5 = CreateStatCard("Nguồn IDC OK", "Trạng thái", "🌐", Color.FromArgb(99, 102, 241), _statSourceOkLabel);
+        // 6. Target OK (with progress bar)
+        var card6 = CreateStatCard("Ổ game trống", "100/100 GB (100%)", "💿", Color.FromArgb(236, 72, 153), _statTargetOkLabel, true);
+
+        cardsLayout.Controls.Add(card1, 0, 0);
+        cardsLayout.Controls.Add(card2, 1, 0);
+        cardsLayout.Controls.Add(card3, 2, 0);
+        cardsLayout.Controls.Add(card4, 3, 0);
+        cardsLayout.Controls.Add(card5, 4, 0);
+        cardsLayout.Controls.Add(card6, 5, 0);
+
+        return cardsLayout;
+    }
+
+    private GameUpdater.WinForms.Controls.CardPanel CreateStatCard(string title, string subtitle, string iconText, Color iconColor, Label titleLabelRef, bool hasProgress = false)
+    {
+        var card = new GameUpdater.WinForms.Controls.CardPanel
+        {
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 0, 8, 0),
+            Padding = new Padding(12),
+            CardBackColor = Color.White,
+            AutoSize = true
+        };
+
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            RowCount = hasProgress ? 3 : 2,
+            ColumnCount = 2,
+            AutoSize = true
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        if (hasProgress) layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        var iconContainer = new Panel
+        {
+            Width = 36,
+            Height = 36,
+            Margin = new Padding(0, 0, 12, 0),
+            BackColor = Color.FromArgb(30, iconColor.R, iconColor.G, iconColor.B)
+        };
+        iconContainer.Paint += (s, e) =>
+        {
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var brush = new SolidBrush(Color.FromArgb(30, iconColor.R, iconColor.G, iconColor.B));
+            e.Graphics.FillEllipse(brush, new Rectangle(0, 0, 36, 36));
+            TextRenderer.DrawText(e.Graphics, iconText, new Font("Segoe UI Emoji", 14), new Rectangle(0, 0, 36, 36), iconColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        };
+
+        titleLabelRef.Text = title;
+        titleLabelRef.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+        titleLabelRef.ForeColor = Color.FromArgb(30, 41, 59); // slate-800
+        titleLabelRef.AutoSize = true;
+        titleLabelRef.Dock = DockStyle.Left;
+        titleLabelRef.Margin = new Padding(0, 2, 0, 0);
+
+        Label subtitleLabel;
+        if (hasProgress)
+        {
+            // For the last card, _statDiskProgressLabel will be the subtitle
+            subtitleLabel = _statDiskProgressLabel;
+        }
+        else
+        {
+            subtitleLabel = new Label();
+        }
+
+        subtitleLabel.Text = subtitle;
+        subtitleLabel.Font = new Font("Segoe UI", 8.5f);
+        subtitleLabel.ForeColor = Color.FromArgb(100, 116, 139); // slate-500
+        subtitleLabel.AutoSize = true;
+        subtitleLabel.Dock = DockStyle.Left;
+        subtitleLabel.Margin = new Padding(0, 4, 0, 0);
+
+        layout.Controls.Add(iconContainer, 0, 0);
+        layout.SetRowSpan(iconContainer, 2);
+        layout.Controls.Add(titleLabelRef, 1, 0);
+        layout.Controls.Add(subtitleLabel, 1, 1);
+
+        if (hasProgress)
+        {
+            _statDiskProgressBar.Dock = DockStyle.Top;
+            _statDiskProgressBar.Height = 4;
+            _statDiskProgressBar.Margin = new Padding(0, 8, 0, 0);
+            _statDiskProgressBar.Value = 100;
+            layout.Controls.Add(_statDiskProgressBar, 0, 2);
+            layout.SetColumnSpan(_statDiskProgressBar, 2);
+        }
+
+        card.Controls.Add(layout);
+        return card;
+    }
+
     private TabPage BuildResourcesTab()
     {
         var page = new TabPage(I18n.Server.ResourcesTab);
@@ -397,10 +614,11 @@ public sealed partial class MainForm
         var leftPanel = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            RowCount = 2
+            RowCount = 3
         };
         leftPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         leftPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        leftPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         var leftToolbar = new FlowLayoutPanel
         {
@@ -423,17 +641,67 @@ public sealed partial class MainForm
 
         BuildResourceTree();
         _resourceTree.Dock = DockStyle.Fill;
+        _resourceTree.BorderStyle = BorderStyle.None;
+
+        var guideCard = new GameUpdater.WinForms.Controls.CardPanel
+        {
+            Dock = DockStyle.Fill,
+            Margin = new Padding(12),
+            Padding = new Padding(12),
+            CardBackColor = Color.FromArgb(248, 250, 252), // slate-50
+            AutoSize = true
+        };
+        var guideLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            RowCount = 2,
+            ColumnCount = 2,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink
+        };
+        guideLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 20));
+        guideLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        guideLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        guideLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        var iconLabel = new Label
+        {
+            Text = "ⓘ",
+            Font = new Font("Segoe UI", 12),
+            ForeColor = Color.FromArgb(37, 99, 235), // blue-600
+            AutoSize = true,
+            Margin = new Padding(0)
+        };
+        var guideTitleLabel = new Label
+        {
+            Text = "Hướng dẫn",
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+            ForeColor = Color.FromArgb(37, 99, 235), // blue-600
+            AutoSize = true,
+            Margin = new Padding(4, 2, 0, 0)
+        };
+        var descLabel = new Label
+        {
+            Text = "Chọn một trò chơi để xem chi tiết hoặc thực hiện các thao tác.",
+            Font = new Font("Segoe UI", 9.5f),
+            ForeColor = Color.FromArgb(100, 116, 139), // slate-500
+            AutoSize = true,
+            Margin = new Padding(0, 8, 0, 0)
+        };
+        guideLayout.Controls.Add(iconLabel, 0, 0);
+        guideLayout.Controls.Add(guideTitleLabel, 1, 0);
+        guideLayout.Controls.Add(descLabel, 0, 1);
+        guideLayout.SetColumnSpan(descLabel, 2);
+        guideCard.Controls.Add(guideLayout);
 
         leftPanel.Controls.Add(leftToolbar, 0, 0);
         leftPanel.Controls.Add(_resourceTree, 0, 1);
+        leftPanel.Controls.Add(guideCard, 0, 2);
         split.Panel1.Controls.Add(leftPanel);
 
         _resourceSourceRootTextBox.Dock = DockStyle.Fill;
         _resourceSourceRootTextBox.Text = _resourceSourceRootPath;
         _resourceSourceRootTextBox.TextChanged += (_, _) => _resourceSourceRootPath = _resourceSourceRootTextBox.Text.Trim();
-        _resourceTargetRootTextBox.Dock = DockStyle.Fill;
-        _resourceTargetRootTextBox.Text = _resourceTargetRootPath;
-        _resourceTargetRootTextBox.TextChanged += (_, _) => _resourceTargetRootPath = _resourceTargetRootTextBox.Text.Trim();
 
         _resourceBandwidthLimitNumeric.Dock = DockStyle.Left;
         _resourceBandwidthLimitNumeric.Width = 120;
@@ -447,9 +715,6 @@ public sealed partial class MainForm
         _browseResourceSourceButton.Click += BrowseResourceSourceButton_Click;
         StyleButton(_browseResourceSourceButton);
 
-        _browseResourceTargetButton.Text = "...";
-        _browseResourceTargetButton.Click += BrowseResourceTargetButton_Click;
-        StyleButton(_browseResourceTargetButton);
 
         var sourceRow = new TableLayoutPanel
         {
@@ -467,21 +732,13 @@ public sealed partial class MainForm
         sourceRow.Controls.Add(_resourceSourceRootTextBox, 1, 0);
         sourceRow.Controls.Add(_browseResourceSourceButton, 2, 0);
 
-        var targetRow = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 3,
-            Padding = new Padding(0, 2, 0, 0),
-            BackColor = Color.Transparent,
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink
-        };
-        targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
-        targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 70));
-        targetRow.Controls.Add(CreateFieldLabel(I18n.Server.ResourceTargetLabel), 0, 0);
-        targetRow.Controls.Add(_resourceTargetRootTextBox, 1, 0);
-        targetRow.Controls.Add(_browseResourceTargetButton, 2, 0);
+        _targetsContainer.Dock = DockStyle.Fill;
+        _targetsContainer.AutoSize = true;
+        _targetsContainer.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        _targetsContainer.FlowDirection = FlowDirection.TopDown;
+        _targetsContainer.WrapContents = false;
+        _targetsContainer.Padding = new Padding(0);
+        BuildTargetsUi();
 
         var bandwidthRow = new TableLayoutPanel
         {
@@ -555,12 +812,14 @@ public sealed partial class MainForm
         var listWorkspaceLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
+            ColumnCount = 1,
             RowCount = 2,
             Padding = new Padding(6, 8, 6, 6)
         };
-        listWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        listWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        listWorkspaceLayout.Controls.Add(_resourceSummaryLabel, 0, 0);
+        listWorkspaceLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        listWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 100f));
+        listWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        listWorkspaceLayout.Controls.Add(BuildResourceSummaryCards(), 0, 0);
         listWorkspaceLayout.Controls.Add(contentPanel, 0, 1);
 
         var configWorkspaceLayout = new TableLayoutPanel
@@ -575,7 +834,7 @@ public sealed partial class MainForm
         configWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         configWorkspaceLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         configWorkspaceLayout.Controls.Add(sourceRow, 0, 0);
-        configWorkspaceLayout.Controls.Add(targetRow, 0, 1);
+        configWorkspaceLayout.Controls.Add(_targetsContainer, 0, 1);
         configWorkspaceLayout.Controls.Add(bandwidthRow, 0, 2);
         configWorkspaceLayout.Controls.Add(actionsRow, 0, 3);
         configWorkspaceLayout.Controls.Add(
@@ -612,21 +871,34 @@ public sealed partial class MainForm
         subLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         subLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
-        var subHeaderPanel = new FlowLayoutPanel
+        var subHeaderPanel = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.LeftToRight,
-            WrapContents = false,
+            ColumnCount = 2,
+            RowCount = 1,
             BackColor = Color.FromArgb(248, 250, 252),
             Padding = new Padding(12, 2, 12, 0),
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink
         };
+        subHeaderPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        subHeaderPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        subHeaderPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         subHeaderPanel.Paint += (s, e) =>
         {
             using var linePen = new Pen(Color.FromArgb(226, 232, 240), 1f);
             e.Graphics.DrawLine(linePen, 0, subHeaderPanel.Height - 1, subHeaderPanel.Width, subHeaderPanel.Height - 1);
+        };
+
+        var tabsFlowPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Margin = new Padding(0)
         };
 
         var subTabButtons = new List<ModernTabButton>();
@@ -655,8 +927,26 @@ public sealed partial class MainForm
             };
 
             subTabButtons.Add(btn);
-            subHeaderPanel.Controls.Add(btn);
+            tabsFlowPanel.Controls.Add(btn);
         }
+        
+        var searchBox = new TextBox
+        {
+            PlaceholderText = "Tìm kiếm trò chơi...",
+            Width = 200,
+            Margin = new Padding(0, 10, 0, 0),
+            Font = new Font("Segoe UI", 9.5f)
+        };
+        searchBox.TextChanged += (s, e) =>
+        {
+             // Trigger search filter
+             _resourceSearchQuery = searchBox.Text;
+             _filterResourceDebounceTimer.Stop();
+             _filterResourceDebounceTimer.Start();
+        };
+
+        subHeaderPanel.Controls.Add(tabsFlowPanel, 0, 0);
+        subHeaderPanel.Controls.Add(searchBox, 1, 0);
 
         _resourceWorkspaceTabControl.SelectedIndexChanged += (s, e) =>
         {

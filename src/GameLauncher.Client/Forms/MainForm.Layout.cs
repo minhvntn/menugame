@@ -205,9 +205,9 @@ public sealed partial class MainForm
             WrapContents = false,
             Padding = new Padding(0, 6, 0, 0)
         };
-        quickActions.Controls.Add(CreateHeaderLinkButton(I18n.Launcher.QuickLinkYoutubeText, I18n.Launcher.QuickLinkYoutubeTooltip, I18n.Launcher.QuickLinkYoutubeUrl));
-        quickActions.Controls.Add(CreateHeaderLinkButton(I18n.Launcher.QuickLinkFacebookText, I18n.Launcher.QuickLinkFacebookTooltip, I18n.Launcher.QuickLinkFacebookUrl));
-        quickActions.Controls.Add(CreateHeaderLinkButton(I18n.Launcher.QuickLinkWebText, I18n.Launcher.QuickLinkWebTooltip, I18n.Launcher.QuickLinkWebUrl));
+        quickActions.Controls.Add(CreateHeaderLinkButton(I18n.Launcher.QuickLinkYoutubeText, I18n.Launcher.QuickLinkYoutubeTooltip, I18n.Launcher.QuickLinkYoutubeUrl, Color.FromArgb(239, 68, 68), Color.FromArgb(185, 28, 28))); // red
+        quickActions.Controls.Add(CreateHeaderLinkButton(I18n.Launcher.QuickLinkFacebookText, I18n.Launcher.QuickLinkFacebookTooltip, I18n.Launcher.QuickLinkFacebookUrl, Color.FromArgb(59, 130, 246), Color.FromArgb(29, 78, 216))); // blue
+        quickActions.Controls.Add(CreateHeaderLinkButton(I18n.Launcher.QuickLinkWebText, I18n.Launcher.QuickLinkWebTooltip, I18n.Launcher.QuickLinkWebUrl, Color.FromArgb(16, 185, 129), Color.FromArgb(4, 120, 87))); // emerald
 
         headerLayout.Controls.Add(leftPanel, 0, 0);
         headerLayout.Controls.Add(searchCenterPanel, 1, 0);
@@ -693,7 +693,7 @@ public sealed partial class MainForm
         return "\uE712";
     }
 
-    private static Button CreateHeaderLinkButton(string text, string tooltip, string url)
+    private static Button CreateHeaderLinkButton(string text, string tooltip, string url, Color gradientStart, Color gradientEnd)
     {
         var button = new Button
         {
@@ -702,12 +702,14 @@ public sealed partial class MainForm
             Height = 32,
             FlatStyle = FlatStyle.Flat,
             Margin = new Padding(8, 0, 0, 0),
-            BackColor = Color.FromArgb(28, 31, 41), // #1C1F29
-            ForeColor = Color.FromArgb(230, 232, 239), // #E6E8EF
+            BackColor = Color.Transparent,
+            ForeColor = Color.White,
             Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold),
             Cursor = Cursors.Hand
         };
         button.FlatAppearance.BorderSize = 0;
+        button.FlatAppearance.MouseOverBackColor = Color.Transparent;
+        button.FlatAppearance.MouseDownBackColor = Color.Transparent;
         button.Paint += (sender, e) =>
         {
             if (sender is not Button btn) return;
@@ -722,19 +724,25 @@ public sealed partial class MainForm
             }
             
             var isHover = btn.ClientRectangle.Contains(btn.PointToClient(Cursor.Position));
-            var backColor = isHover ? Color.FromArgb(139, 92, 246) : Color.FromArgb(28, 31, 41); // #8B5CF6 / #1C1F29
-            var borderColor = isHover ? Color.FromArgb(139, 92, 246) : Color.FromArgb(42, 47, 61); // #8B5CF6 / #2A2F3D
             
             using (var path = CreateRoundRectPath(new Rectangle(0, 0, btn.Width - 1, btn.Height - 1), 6))
             {
-                using (var fill = new SolidBrush(backColor))
+                // Draw base gradient
+                using (var fill = new System.Drawing.Drawing2D.LinearGradientBrush(btn.ClientRectangle, gradientStart, gradientEnd, 45f))
                 {
                     g.FillPath(fill, path);
                 }
-                using (var pen = new Pen(borderColor, 1))
+                
+                // Add hover overlay
+                if (isHover)
                 {
-                    g.DrawPath(pen, path);
+                    using (var hoverOverlay = new SolidBrush(Color.FromArgb(40, 255, 255, 255)))
+                    {
+                        g.FillPath(hoverOverlay, path);
+                    }
                 }
+                
+
             }
             
             var textSize = g.MeasureString(btn.Text, btn.Font);

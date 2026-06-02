@@ -85,9 +85,22 @@ public sealed partial class MainForm : Form
     private readonly GameUpdater.WinForms.Controls.ModernButton _clearClientWallpaperButton = new();
     private readonly GameUpdater.WinForms.Controls.ModernButton _saveSettingsButton = new();
     private readonly GameUpdater.WinForms.Controls.ModernCheckBox _backupCheckBox = new();
+    
+    // Original summary label kept for backward compatibility if needed, but not docked
     private readonly Label _resourceSummaryLabel = new();
+    
+    // New Stat Card Labels
+    private readonly Label _statDisplayCountLabel = new();
+    private readonly Label _statDownloadedLabel = new();
+    private readonly Label _statMissingLabel = new();
+    private readonly Label _statSizeLabel = new();
+    private readonly Label _statSourceOkLabel = new();
+    private readonly Label _statTargetOkLabel = new();
+    private readonly ProgressBar _statDiskProgressBar = new();
+    private readonly Label _statDiskProgressLabel = new();
     private readonly TextBox _resourceSourceRootTextBox = new();
-    private readonly TextBox _resourceTargetRootTextBox = new();
+    private readonly FlowLayoutPanel _targetsContainer = new();
+    private readonly Button _addTargetDriveButton = new();
     private readonly NumericUpDown _resourceBandwidthLimitNumeric = new();
     private readonly ProgressBar _updateProgressBar = new();
     private readonly GameUpdater.WinForms.Controls.ModernButton _applyUpdateButton = new();
@@ -96,7 +109,7 @@ public sealed partial class MainForm : Form
     private readonly TabControl _resourceWorkspaceTabControl = new HiddenHeadersTabControl();
     private SplitContainer? _resourcesSplitContainer;
     private readonly GameUpdater.WinForms.Controls.ModernButton _browseResourceSourceButton = new();
-    private readonly GameUpdater.WinForms.Controls.ModernButton _browseResourceTargetButton = new();
+
     private readonly GameUpdater.WinForms.Controls.ModernButton _saveResourceSettingsButton = new();
     private readonly GameUpdater.WinForms.Controls.ModernButton _checkResourceHealthButton = new();
     private readonly GameUpdater.WinForms.Controls.ModernButton _syncSelectedResourceButton = new();
@@ -342,9 +355,8 @@ public sealed partial class MainForm : Form
         _checkResourceHealthButton.Enabled = true;
         _syncSelectedResourceButton.Enabled = enabled;
         _browseResourceSourceButton.Enabled = true;
-        _browseResourceTargetButton.Enabled = true;
+
         _resourceSourceRootTextBox.Enabled = true;
-        _resourceTargetRootTextBox.Enabled = true;
         _resourceBandwidthLimitNumeric.Enabled = true;
         _resourceTree.Enabled = true;
         _resourcesGrid.Enabled = true;

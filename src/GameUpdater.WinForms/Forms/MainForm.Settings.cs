@@ -59,7 +59,7 @@ public sealed partial class MainForm
             }
 
             _resourceSourceRootTextBox.Text = _resourceSourceRootPath;
-            _resourceTargetRootTextBox.Text = _resourceTargetRootPath;
+            BuildTargetsUi();
             _resourceBandwidthLimitNumeric.Value = Math.Min(_resourceBandwidthLimitNumeric.Maximum, _resourceBandwidthLimitMbps);
             _clientWallpaperPathTextBox.Text = _clientWindowsWallpaperPath;
             _clientCafeNameTextBox.Text = _clientCafeDisplayName;

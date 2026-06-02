@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
@@ -15,9 +15,99 @@ public sealed partial class MainForm
     private Image? _resourceStatusActiveIcon;
     private Image? _resourceStatusInactiveIcon;
 
+    private int _resourceDownloadedCount = 0;
+    private int _resourceMissingCount = 0;
+
+    private string _resourceSearchQuery = string.Empty;
+    private System.Windows.Forms.Timer _filterResourceDebounceTimer = new System.Windows.Forms.Timer { Interval = 300 };
+
+    private void ResourceTree_DrawNode(object? sender, DrawTreeNodeEventArgs e)
+    {
+        var g = e.Graphics;
+        var node = e.Node;
+        if (node == null || _resourceTree.Font == null) return;
+
+        bool isSelected = (e.State & TreeNodeStates.Selected) != 0;
+        bool isHovered = false; // TreeView doesn't easily provide hover state for nodes without mouse tracking, but standard selection is fine
+
+        var backColor = isSelected ? Color.FromArgb(243, 232, 255) : _resourceTree.BackColor; // purple-100 for selection
+        var textColor = isSelected ? Color.FromArgb(126, 34, 206) : Color.FromArgb(71, 85, 105); // purple-700 or slate-600
+
+        // Draw Background
+        var bounds = e.Bounds;
+        using (var brush = new SolidBrush(backColor))
+        {
+            g.FillRectangle(brush, bounds);
+        }
+
+        // Draw Text
+        var textFont = isSelected ? new Font(_resourceTree.Font, FontStyle.Bold) : _resourceTree.Font;
+        
+        // Calculate indent
+        int indent = node.Level * 20 + 24; 
+        
+        // If it's a root node, make it bold and slate-800
+        if (node.Level == 0)
+        {
+            textColor = Color.FromArgb(30, 41, 59); // slate-800
+            textFont = new Font(_resourceTree.Font, FontStyle.Bold);
+            indent = 8;
+        }
+
+        var textRect = new Rectangle(bounds.Left + indent, bounds.Top, bounds.Width - indent - 40, bounds.Height);
+        TextRenderer.DrawText(g, node.Text, textFont, textRect, textColor, TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
+
+        // Draw Badge
+        if (node.Level > 0 && node.Tag is ResourceFilterKind filterKind)
+        {
+            int count = -1;
+            if (filterKind == ResourceFilterKind.Missing) count = _resourceMissingCount;
+            if (filterKind == ResourceFilterKind.Downloaded) count = _resourceDownloadedCount;
+
+            if (count >= 0)
+            {
+                string countText = count.ToString();
+                var badgeFont = new Font(_resourceTree.Font.FontFamily, _resourceTree.Font.Size - 1.5f, FontStyle.Bold);
+                var textSize = TextRenderer.MeasureText(countText, badgeFont);
+                
+                int badgeWidth = Math.Max(24, textSize.Width + 12);
+                int badgeHeight = 20;
+                int badgeX = bounds.Right - badgeWidth - 12;
+                int badgeY = bounds.Top + (bounds.Height - badgeHeight) / 2;
+
+                var badgeRect = new Rectangle(badgeX, badgeY, badgeWidth, badgeHeight);
+                var badgeBackColor = isSelected ? Color.FromArgb(233, 213, 255) : Color.FromArgb(241, 245, 249); // purple-200 or slate-100
+                var badgeTextColor = isSelected ? Color.FromArgb(126, 34, 206) : Color.FromArgb(100, 116, 139); // purple-700 or slate-500
+
+                using (var path = GameUpdater.WinForms.Controls.CardPanel.GetRoundedRectPath(badgeRect, 10))
+                {
+                    using (var badgeBrush = new SolidBrush(badgeBackColor))
+                    {
+                        g.FillPath(badgeBrush, path);
+                    }
+                }
+
+                TextRenderer.DrawText(g, countText, badgeFont, badgeRect, badgeTextColor, TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter);
+                badgeFont.Dispose();
+            }
+        }
+        
+        if (isSelected && node.Level == 0)
+        {
+           textFont.Dispose(); 
+        }
+    }
+
     private void BuildResourceTree()
     {
         _resourceTree.AfterSelect -= ResourceTree_AfterSelect;
+        _resourceTree.DrawMode = TreeViewDrawMode.OwnerDrawAll;
+        _resourceTree.DrawNode -= ResourceTree_DrawNode;
+        _resourceTree.DrawNode += ResourceTree_DrawNode;
+
+        _filterResourceDebounceTimer.Tick -= FilterResourceDebounceTimer_Tick;
+        _filterResourceDebounceTimer.Tick += FilterResourceDebounceTimer_Tick;
+
         _resourceTree.Nodes.Clear();
 
         var resourceRoot = new TreeNode(I18n.Server.ResourceTreeRoot)
@@ -86,20 +176,7 @@ public sealed partial class MainForm
         }
     }
 
-    private void BrowseResourceTargetButton_Click(object? sender, EventArgs e)
-    {
-        using var dialog = new FolderBrowserDialog
-        {
-            Description = I18n.Server.ResourceTargetPickerDescription,
-            UseDescriptionForTitle = true,
-            SelectedPath = _resourceTargetRootTextBox.Text
-        };
 
-        if (dialog.ShowDialog(this) == DialogResult.OK)
-        {
-            _resourceTargetRootTextBox.Text = dialog.SelectedPath;
-        }
-    }
 
     private async void SaveResourceSettingsButton_Click(object? sender, EventArgs e)
     {
@@ -150,7 +227,8 @@ public sealed partial class MainForm
 
     private async Task RunResourceSyncForRowsAsync(
         IReadOnlyList<ResourceGameRow> rows,
-        ResourceSyncMode syncMode)
+        ResourceSyncMode syncMode,
+        string? overrideTargetRoot = null)
     {
         if (rows.Count == 0)
         {
@@ -174,7 +252,7 @@ public sealed partial class MainForm
 
                 try
                 {
-                    var gameId = await SyncResourceRowAsync(row, syncMode);
+                    var gameId = await SyncResourceRowAsync(row, syncMode, overrideTargetRoot);
                     if (gameId.HasValue)
                     {
                         selectedGameId = gameId.Value;
@@ -194,6 +272,8 @@ public sealed partial class MainForm
 
     private async Task SyncGameFromResourceLegacyAsync(GameRecord game)
     {
+        var targetRoot = GetConfiguredResourceTargetRoots().FirstOrDefault(r => game.InstallPath.StartsWith(r, StringComparison.OrdinalIgnoreCase)) ?? GetConfiguredResourceTargetRoots().FirstOrDefault() ?? "E:\\GameOnline";
+        
         var monitorRow = StartDownloadMonitor(game.Name, game.Id > 0 ? game.Id : null, resourceKey: ResolveSourceKeyForGame(game));
         var syncControl = new ResourceSyncTaskControl();
         var syncMode = ResourceSyncMode.Incremental;
@@ -207,10 +287,6 @@ public sealed partial class MainForm
                 {
                     return;
                 }
-                if (syncControl.IsPaused)
-                {
-                    return;
-                }
 
                 UpdateDownloadMonitor(monitorRow, info.Percent, I18n.Server.UpdateRunningStatus, info.Message, info);
             });
@@ -218,7 +294,7 @@ public sealed partial class MainForm
             var result = await _resourceSyncService.SyncGameAsync(
                 game,
                 _resourceSourceRootPath,
-                _resourceTargetRootPath,
+                targetRoot,
                 progress);
 
             var successMessage = syncMode == ResourceSyncMode.MissingOnly
@@ -258,6 +334,7 @@ public sealed partial class MainForm
 
     private async Task SyncGameFromResourceAsync(
         GameRecord game,
+        string targetRootPath,
         ResourceSyncMode syncMode = ResourceSyncMode.Incremental,
         IReadOnlyList<string>? sourceRoots = null,
         string? resourceKey = null)
@@ -289,6 +366,7 @@ public sealed partial class MainForm
             var result = await SyncGameWithMirrorFallbackAsync(
                 game,
                 sourceRootCandidates,
+                targetRootPath,
                 progress,
                 syncMode,
                 syncControl);
@@ -353,6 +431,7 @@ public sealed partial class MainForm
     private async Task<ResourceSyncResult> SyncGameWithMirrorFallbackAsync(
         GameRecord game,
         IReadOnlyList<string> sourceRoots,
+        string targetRootPath,
         IProgress<UpdateProgressInfo> progress,
         ResourceSyncMode syncMode,
         ResourceSyncTaskControl syncControl)
@@ -381,7 +460,7 @@ public sealed partial class MainForm
                     () => _resourceSyncService.SyncGameAsync(
                         game,
                         sourceRoot,
-                        _resourceTargetRootPath,
+                        targetRootPath,
                         progress,
                         maxBytesPerSecond: null,
                         waitIfPausedAsync: syncControl.WaitIfPausedAsync,
@@ -394,14 +473,19 @@ public sealed partial class MainForm
             {
                 throw;
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
-                lastException = exception;
-                AppendUpdateMessage(I18n.Server.ResourceSourceError(sourceRoot, exception.Message));
+                lastException = ex;
+                if (index < sourceRoots.Count - 1)
+                {
+                    progress.Report(UpdateProgressInfo.Create(
+                        5,
+                        I18n.Server.ResourceSourceError(sourceRoot, ex.Message)));
+                }
             }
         }
 
-        throw lastException ?? new InvalidOperationException(I18n.Server.ResourceSyncAllSourcesFailed);
+        throw lastException ?? new InvalidOperationException("Sync failed without exceptions");
     }
 
     private GameRecord? FindGameById(int gameId)
@@ -446,7 +530,7 @@ public sealed partial class MainForm
         };
     }
 
-    private async Task<int?> SyncResourceRowAsync(ResourceGameRow row, ResourceSyncMode syncMode = ResourceSyncMode.Incremental)
+    private async Task<int?> SyncResourceRowAsync(ResourceGameRow row, ResourceSyncMode syncMode = ResourceSyncMode.Incremental, string? overrideTargetRoot = null)
     {
         if (!await ConfirmDiskSpaceForResourceSyncAsync(row))
         {
@@ -458,9 +542,22 @@ public sealed partial class MainForm
             ? FindGameById(row.ManagedGameId.Value)
             : FindGameByInstallPath(row.InstallPath);
 
+        // Figure out the correct target root:
+        // If it's an update, use the existing InstallPath's root.
+        // If it's new, use overrideTargetRoot OR the auto-balanced one from ResolveTargetPathForSourceKey.
+        string targetRoot;
+        if (row.IsDownloaded)
+        {
+            targetRoot = GetConfiguredResourceTargetRoots().FirstOrDefault(r => row.InstallPath.StartsWith(r, StringComparison.OrdinalIgnoreCase)) ?? GetConfiguredResourceTargetRoots().FirstOrDefault() ?? "E:\\GameOnline";
+        }
+        else
+        {
+            targetRoot = overrideTargetRoot ?? GetConfiguredResourceTargetRoots().FirstOrDefault(r => row.InstallPath.StartsWith(r, StringComparison.OrdinalIgnoreCase)) ?? GetConfiguredResourceTargetRoots().FirstOrDefault() ?? "E:\\GameOnline";
+        }
+
         var game = existingGame ?? BuildTransientGameRecordFromResourceRow(row);
         var sourceRoots = GetCandidateSourceRootsForRow(row);
-        await SyncGameFromResourceAsync(game, syncMode, sourceRoots, resourceKey: row.SourceKey);
+        await SyncGameFromResourceAsync(game, targetRoot, syncMode, sourceRoots, resourceKey: row.SourceKey);
         return await EnsureManagedGameRegistrationAsync(game, row);
     }
 
@@ -579,21 +676,36 @@ public sealed partial class MainForm
             messages.Add(sourceOk ? I18n.Server.ResourceSourceStatusOk : I18n.Server.ResourceSourceStatusUnavailable);
         }
 
-        var targetOk = Directory.Exists(_resourceTargetRootPath);
-        var targetWritable = targetOk && CanWriteToFolder(_resourceTargetRootPath);
+        var targetRoots = GetConfiguredResourceTargetRoots();
+        var targetWritableCount = targetRoots.Count(root => Directory.Exists(root) && CanWriteToFolder(root));
+        var targetWritable = targetWritableCount > 0;
         messages.Add(targetWritable ? I18n.Server.ResourceTargetStatusOk : I18n.Server.ResourceTargetStatusNotWritable);
 
-        if (targetOk)
+        if (targetWritable)
         {
-            var root = Path.GetPathRoot(Path.GetFullPath(_resourceTargetRootPath));
-            if (!string.IsNullOrWhiteSpace(root))
+            double totalFreeGb = 0;
+            double totalTotalGb = 0;
+            foreach (var rootStr in targetRoots.Where(r => Directory.Exists(r)))
             {
-                var drive = new DriveInfo(root);
-                var freeGb = drive.AvailableFreeSpace / 1024d / 1024d / 1024d;
-                var totalGb = drive.TotalSize / 1024d / 1024d / 1024d;
-                var usedPercent = totalGb <= 0 ? 0 : (totalGb - freeGb) * 100d / totalGb;
-                var warning = freeGb < 100 || usedPercent >= 90 ? " !" : string.Empty;
-                messages.Add(I18n.Server.ResourceDiskFreeSummary(freeGb, totalGb, usedPercent, warning));
+                var root = Path.GetPathRoot(Path.GetFullPath(rootStr));
+                if (!string.IsNullOrWhiteSpace(root))
+                {
+                    try
+                    {
+                        var drive = new DriveInfo(root);
+                        if (drive.IsReady)
+                        {
+                            totalFreeGb += drive.AvailableFreeSpace / 1024d / 1024d / 1024d;
+                            totalTotalGb += drive.TotalSize / 1024d / 1024d / 1024d;
+                        }
+                    } catch {}
+                }
+            }
+            if (totalTotalGb > 0)
+            {
+                var usedPercent = (totalTotalGb - totalFreeGb) * 100d / totalTotalGb;
+                var warning = totalFreeGb < 100 || usedPercent >= 90 ? " !" : string.Empty;
+                messages.Add(I18n.Server.ResourceDiskFreeSummary(totalFreeGb, totalTotalGb, usedPercent, warning));
             }
         }
 
@@ -724,7 +836,7 @@ public sealed partial class MainForm
     private void UpdateResourceRootsFromInputs()
     {
         _resourceSourceRootPath = _resourceSourceRootTextBox.Text.Trim();
-        _resourceTargetRootPath = _resourceTargetRootTextBox.Text.Trim();
+        UpdateResourceTargetRootPathFromUi();
         _resourceBandwidthLimitMbps = Decimal.ToInt32(_resourceBandwidthLimitNumeric.Value);
 
         if (GetConfiguredResourceSourceRoots().Count == 0)
@@ -951,7 +1063,22 @@ public sealed partial class MainForm
             return;
         }
 
-        await RunResourceSyncForRowsAsync(selectedRows, ResourceSyncMode.Incremental);
+        string? overrideTargetRoot = null;
+        var targetRoots = GetConfiguredResourceTargetRoots();
+        if (targetRoots.Count > 1 && selectedRows.Any(r => !r.IsDownloaded))
+        {
+            using var form = new TargetDriveSelectionForm(targetRoots);
+            if (form.ShowDialog(this) == DialogResult.OK)
+            {
+                overrideTargetRoot = form.SelectedDrive;
+            }
+            else
+            {
+                return; // User cancelled
+            }
+        }
+
+        await RunResourceSyncForRowsAsync(selectedRows, ResourceSyncMode.Incremental, overrideTargetRoot);
     }
 
     private void PauseSelectedResourcesMenuItem_Click(object? sender, EventArgs e)
@@ -1415,20 +1542,73 @@ public sealed partial class MainForm
         }
     }
 
+    private IReadOnlyList<string> GetConfiguredResourceTargetRoots()
+    {
+        if (string.IsNullOrWhiteSpace(_resourceTargetRootPath))
+            return Array.Empty<string>();
+
+        return _resourceTargetRootPath.Split(';', StringSplitOptions.RemoveEmptyEntries)
+            .Select(p => p.Trim())
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .ToList();
+    }
+
     private string ResolveTargetPathForSourceKey(string sourceKey)
     {
+        var targetRoots = GetConfiguredResourceTargetRoots();
+        if (targetRoots.Count == 0)
+        {
+            return string.Empty;
+        }
+
         if (string.IsNullOrWhiteSpace(sourceKey))
         {
-            return _resourceTargetRootPath;
+            return targetRoots[0];
+        }
+
+        // 1. If the game ALREADY exists in one of the configured drives, we must return that path (so it updates in-place)
+        foreach (var root in targetRoots)
+        {
+            try
+            {
+                var combined = Path.GetFullPath(Path.Combine(root, sourceKey));
+                if (Directory.Exists(combined) && Directory.EnumerateFileSystemEntries(combined).Any())
+                {
+                    return combined;
+                }
+            }
+            catch { }
+        }
+
+        // 2. If it does not exist anywhere, we should pick the drive with the MOST available free space.
+        string bestRoot = targetRoots[0];
+        long maxFreeSpace = -1;
+
+        foreach (var root in targetRoots)
+        {
+            try
+            {
+                var driveRoot = Path.GetPathRoot(Path.GetFullPath(root));
+                if (driveRoot != null)
+                {
+                    var driveInfo = new DriveInfo(driveRoot);
+                    if (driveInfo.IsReady && driveInfo.AvailableFreeSpace > maxFreeSpace)
+                    {
+                        maxFreeSpace = driveInfo.AvailableFreeSpace;
+                        bestRoot = root;
+                    }
+                }
+            }
+            catch { }
         }
 
         try
         {
-            return Path.GetFullPath(Path.Combine(_resourceTargetRootPath, sourceKey));
+            return Path.GetFullPath(Path.Combine(bestRoot, sourceKey));
         }
         catch
         {
-            return Path.Combine(_resourceTargetRootPath, sourceKey);
+            return Path.Combine(bestRoot, sourceKey);
         }
     }
 
@@ -1854,8 +2034,22 @@ public sealed partial class MainForm
             _ => _allResourceRows.ToList()
         };
 
+        if (!string.IsNullOrWhiteSpace(_resourceSearchQuery))
+        {
+            var lowerQuery = _resourceSearchQuery.ToLowerInvariant();
+            filtered = filtered.Where(row => 
+                (row.Name?.ToLowerInvariant().Contains(lowerQuery) == true) || 
+                (row.Category?.ToLowerInvariant().Contains(lowerQuery) == true)).ToList();
+        }
+
         _resourcesBinding.DataSource = filtered;
         UpdateResourceSummary(filtered);
+    }
+
+    private void FilterResourceDebounceTimer_Tick(object? sender, EventArgs e)
+    {
+        _filterResourceDebounceTimer.Stop();
+        ApplyResourceFilter(_currentResourceFilter);
     }
 
     private void RefreshResourceRowsFromFileSystem()
@@ -1891,7 +2085,68 @@ public sealed partial class MainForm
         var totalRequiredGb = _allResourceRows
             .Where(row => row.RequiredAdditionalBytes.HasValue)
             .Sum(row => row.RequiredAdditionalBytes!.Value) / 1024d / 1024d / 1024d;
+            
         _resourceSummaryLabel.Text = I18n.Server.ResourceSummaryText(filteredRows.Count, total, downloaded, missing, totalRequiredGb, BuildResourceHealthSummary());
+
+        // Update Stat Cards
+        _statDisplayCountLabel.Text = $"Hiển thị {filteredRows.Count}/{total} trò chơi";
+        _statDownloadedLabel.Text = $"Đã tải {downloaded} trò chơi";
+        _statMissingLabel.Text = $"Chưa tải {missing} trò chơi";
+        _statSizeLabel.Text = $"Cần thêm {totalRequiredGb:0.0} GB";
+        
+        var healthSummary = BuildResourceHealthSummary();
+        _statSourceOkLabel.Text = string.IsNullOrWhiteSpace(healthSummary) ? "Đang kiểm tra" : healthSummary.Split(',')[0];
+        
+        // Disk size logic
+        try
+        {
+            var targetRoots = GetConfiguredResourceTargetRoots();
+            double totalGb = 0;
+            double freeGb = 0;
+            int readyDrives = 0;
+            foreach (var rootStr in targetRoots.Where(r => Directory.Exists(r)))
+            {
+                try
+                {
+                    var driveInfo = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(rootStr)) ?? "C:\\");
+                    if (driveInfo.IsReady)
+                    {
+                        totalGb += driveInfo.TotalSize / 1024d / 1024d / 1024d;
+                        freeGb += driveInfo.AvailableFreeSpace / 1024d / 1024d / 1024d;
+                        readyDrives++;
+                    }
+                }
+                catch {}
+            }
+            
+            if (readyDrives > 0)
+            {
+                double usedGb = totalGb - freeGb;
+                double percent = totalGb > 0 ? (usedGb / totalGb) * 100d : 0;
+                
+                _statDiskProgressLabel.Text = $"{freeGb:0.0}/{totalGb:0.0} GB ({100 - percent:0}%)";
+                _statDiskProgressBar.Value = Math.Max(0, Math.Min(100, (int)percent));
+                _statTargetOkLabel.Text = "Ổ game sẵn sàng";
+            }
+            else
+            {
+                throw new Exception("No ready drives");
+            }
+        }
+        catch
+        {
+            _statDiskProgressLabel.Text = "Không xác định";
+            _statDiskProgressBar.Value = 0;
+            _statTargetOkLabel.Text = "Lỗi ổ đĩa";
+        }
+
+        // Update tree badge counts
+        if (_resourceDownloadedCount != downloaded || _resourceMissingCount != missing)
+        {
+            _resourceDownloadedCount = downloaded;
+            _resourceMissingCount = missing;
+            _resourceTree.Invalidate();
+        }
     }
 
     private void UpdateDownloadSummary()

@@ -55,6 +55,7 @@ public sealed partial class MainForm
     private void InitializeCards()
     {
         BuildCategoryButtons(_allRows
+            .Where(IsGameInstallAvailable)
             .Select(row => row.Category?.Trim() ?? string.Empty)
             .Where(category => !string.IsNullOrWhiteSpace(category)));
         ApplyFiltersAndRenderCards();
@@ -120,6 +121,7 @@ public sealed partial class MainForm
         _normalCards.Clear();
 
         var filteredRows = _allRows
+            .Where(IsGameInstallAvailable)
             .Where(row => MatchesCategory(row))
             .Where(row => MatchesSearch(row))
             .ToList();
@@ -209,6 +211,23 @@ public sealed partial class MainForm
                (row.Category?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false);
     }
 
+    private static bool IsGameInstallAvailable(LauncherGameRow row)
+    {
+        if (string.IsNullOrWhiteSpace(row.InstallPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            return Directory.Exists(Path.GetFullPath(row.InstallPath));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private Label CreateEmptyStateLabel(string message)
     {
         return new Label
@@ -233,6 +252,12 @@ public sealed partial class MainForm
 
     private void PlayGame(LauncherGameRow row)
     {
+        if (!IsGameInstallAvailable(row))
+        {
+            ApplyFiltersAndRenderCards();
+            return;
+        }
+
         _ = ExecuteWithErrorHandlingAsync(async () =>
         {
             var process = _launchService.Launch(row);

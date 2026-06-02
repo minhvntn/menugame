@@ -82,7 +82,8 @@ public sealed partial class MainForm
 
     private static void PopulateHardwareMetrics(LauncherClientStatus status)
     {
-        if (!TryReadHardwareMonitorMetrics(status))
+        TryReadHardwareMonitorMetrics(status);
+        if (status.CpuTemperatureCelsius <= 0)
         {
             var wmiTemperature = TryReadWmiTemperature();
             if (wmiTemperature > 0)
@@ -171,12 +172,31 @@ public sealed partial class MainForm
                 {
                     CaptureGpuSensor(metrics, sensor, value);
                 }
+                else if (sensor.SensorType == SensorType.Temperature &&
+                         value is > 0 and < 125 &&
+                         IsLikelyCpuTemperatureSensor(sensor.Name))
+                {
+                    metrics.CpuTemperatureCelsius = Math.Max(metrics.CpuTemperatureCelsius, value);
+                }
             }
         }
         catch
         {
             // Ignore one unreadable hardware node and keep scanning the others.
         }
+    }
+
+    private static bool IsLikelyCpuTemperatureSensor(string? sensorName)
+    {
+        if (string.IsNullOrWhiteSpace(sensorName))
+        {
+            return false;
+        }
+
+        return sensorName.Contains("CPU", StringComparison.OrdinalIgnoreCase) ||
+               sensorName.Contains("Package", StringComparison.OrdinalIgnoreCase) ||
+               sensorName.Contains("Tctl", StringComparison.OrdinalIgnoreCase) ||
+               sensorName.Contains("Tdie", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void CaptureCpuSensor(HardwareMetrics metrics, ISensor sensor, float value)

@@ -57,7 +57,7 @@ public class CardPanel : Panel
         }
     }
 
-    private static GraphicsPath GetRoundedRectPath(Rectangle rect, int radius)
+    public static GraphicsPath GetRoundedRectPath(Rectangle rect, int radius)
     {
         var path = new GraphicsPath();
         var diameter = Math.Min(radius * 2, Math.Min(rect.Width, rect.Height));
