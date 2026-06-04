@@ -34,6 +34,10 @@ public sealed class LauncherClientStatus
 
     public double GpuLoadPercent { get; set; }
 
+    public double CpuPowerDrawWatt { get; set; }
+
+    public double GpuPowerDrawWatt { get; set; }
+
     public double GpuFanRpm { get; set; }
 
     public DateTime ClientStartedAtUtc { get; set; }

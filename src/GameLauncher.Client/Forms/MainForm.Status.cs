@@ -220,6 +220,14 @@ public sealed partial class MainForm
         if (sensor.SensorType == SensorType.Clock && value > metrics.CpuClockMhz)
         {
             metrics.CpuClockMhz = value;
+            return;
+        }
+
+        if (sensor.SensorType == SensorType.Power && value > 0 &&
+            (sensor.Name.Contains("Package", StringComparison.OrdinalIgnoreCase) ||
+             sensor.Name.Contains("Core", StringComparison.OrdinalIgnoreCase)))
+        {
+            metrics.CpuPowerDrawWatt = Math.Max(metrics.CpuPowerDrawWatt, value);
         }
     }
 
@@ -244,6 +252,12 @@ public sealed partial class MainForm
         if (sensor.SensorType == SensorType.Fan && value > metrics.GpuFanRpm)
         {
             metrics.GpuFanRpm = value;
+            return;
+        }
+
+        if (sensor.SensorType == SensorType.Power && value > 0)
+        {
+            metrics.GpuPowerDrawWatt = Math.Max(metrics.GpuPowerDrawWatt, value);
         }
     }
 
@@ -254,9 +268,11 @@ public sealed partial class MainForm
         status.CpuTemperatureCelsius = RoundPositive(metrics.CpuTemperatureCelsius);
         status.CpuLoadPercent = RoundPositive(metrics.CpuLoadPercent);
         status.CpuClockMhz = RoundPositive(metrics.CpuClockMhz);
+        status.CpuPowerDrawWatt = RoundPositive(metrics.CpuPowerDrawWatt);
         status.GpuTemperatureCelsius = RoundPositive(metrics.GpuTemperatureCelsius);
         status.GpuLoadPercent = RoundPositive(metrics.GpuLoadPercent);
         status.GpuFanRpm = RoundPositive(metrics.GpuFanRpm);
+        status.GpuPowerDrawWatt = RoundPositive(metrics.GpuPowerDrawWatt);
     }
 
     private static double RoundPositive(double value)
@@ -417,6 +433,10 @@ public sealed partial class MainForm
         public double GpuTemperatureCelsius { get; set; }
 
         public double GpuLoadPercent { get; set; }
+
+        public double CpuPowerDrawWatt { get; set; }
+
+        public double GpuPowerDrawWatt { get; set; }
 
         public double GpuFanRpm { get; set; }
 

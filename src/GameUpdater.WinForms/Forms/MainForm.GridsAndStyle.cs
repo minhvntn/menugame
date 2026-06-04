@@ -249,6 +249,7 @@ public sealed partial class MainForm
         _clientStatusGrid.Columns.Add(CreateTextColumn("Tên CPU", nameof(ClientDashboardRow.CpuName), 170));
         _clientStatusGrid.Columns.Add(CreateTextColumn("Tên Card", nameof(ClientDashboardRow.GpuName), 170));
         _clientStatusGrid.Columns.Add(CreateTextColumn("Nhiệt CPU", nameof(ClientDashboardRow.CpuTemperatureText), 95));
+        _clientStatusGrid.Columns.Add(CreateTextColumn("Nguồn CPU", nameof(ClientDashboardRow.CpuPowerText), 95));
         _clientStatusGrid.Columns.Add(CreateTextColumn("VGA Load", nameof(ClientDashboardRow.VgaLoadText), 150));
         _clientStatusGrid.Columns.Add(CreateTextColumn("CPU Load", nameof(ClientDashboardRow.CpuLoadText), 150));
         _clientStatusGrid.Columns.Add(CreateTextColumn("Đang chơi", nameof(ClientDashboardRow.CurrentGameName), 200));

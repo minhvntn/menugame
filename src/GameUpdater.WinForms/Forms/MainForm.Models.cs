@@ -237,6 +237,10 @@ public sealed partial class MainForm
 
         public double GpuLoadPercent { get; init; }
 
+        public double CpuPowerDrawWatt { get; init; }
+
+        public double GpuPowerDrawWatt { get; init; }
+
         public double GpuFanRpm { get; init; }
 
         public DateTime ClientStartedAtUtc { get; init; }
@@ -274,6 +278,10 @@ public sealed partial class MainForm
         public string CpuTemperatureText => CpuTemperatureCelsius <= 0
             ? "-"
             : $"{CpuTemperatureCelsius:0.#}\u00b0C";
+
+        public string CpuPowerText => CpuPowerDrawWatt <= 0
+            ? "-"
+            : $"{CpuPowerDrawWatt:0.#}W";
 
         public string VgaLoadText
         {
@@ -354,8 +362,10 @@ public sealed partial class MainForm
                 CpuTemperatureCelsius = status.CpuTemperatureCelsius,
                 CpuLoadPercent = status.CpuLoadPercent,
                 CpuClockMhz = status.CpuClockMhz,
+                CpuPowerDrawWatt = status.CpuPowerDrawWatt,
                 GpuTemperatureCelsius = status.GpuTemperatureCelsius,
                 GpuLoadPercent = status.GpuLoadPercent,
+                GpuPowerDrawWatt = status.GpuPowerDrawWatt,
                 GpuFanRpm = status.GpuFanRpm,
                 ClientStartedAtUtc = status.ClientStartedAtUtc,
                 UptimeSeconds = status.UptimeSeconds,

@@ -72,7 +72,7 @@ public sealed partial class MainForm
             }
         };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 74));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 130));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
 
@@ -105,21 +105,19 @@ public sealed partial class MainForm
             ColumnCount = 3,
             RowCount = 1
         };
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 290));
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 380));
         headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 270));
         headerLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
         _headerLogoImage = BuildHeaderLogoImage();
-        var logoBox = new Label
+        var logoBox = new PictureBox
         {
-            Width = 44,
-            Height = 44,
+            Width = 160,
+            Height = 100,
             Margin = new Padding(0, 3, 0, 0),
-            Font = new Font("Segoe MDL2 Assets", 22f, FontStyle.Regular),
-            ForeColor = Color.White,
-            Text = "\uE7FC",
-            TextAlign = ContentAlignment.MiddleCenter,
+            Image = _headerLogoImage,
+            SizeMode = PictureBoxSizeMode.Zoom,
             BackColor = Color.Transparent
         };
 
@@ -138,7 +136,7 @@ public sealed partial class MainForm
             Dock = DockStyle.Fill,
             ColumnCount = 1,
             RowCount = 2,
-            Margin = new Padding(10, 3, 0, 0)
+            Margin = new Padding(10, 28, 0, 0)
         };
         cafeTextPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         cafeTextPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 55f));
@@ -556,25 +554,15 @@ public sealed partial class MainForm
 
     private static Image BuildHeaderLogoImage()
     {
-        const int size = 40;
         var assembly = typeof(MainForm).Assembly;
-        using var stream = assembly.GetManifestResourceStream("GameLauncher.Client.Resources.game-logo.png");
+        using var stream = assembly.GetManifestResourceStream("GameLauncher.Client.Resources.logo-client.png");
         if (stream is not null)
         {
             using var source = Image.FromStream(stream);
-            var bitmap = new Bitmap(size, size);
-            using var graphics = Graphics.FromImage(bitmap);
-            graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
-            graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
-            graphics.Clear(Color.Transparent);
-            const int leftRightInset = 2;
-            const int topInset = 1;
-            const int bottomInset = 6;
-            graphics.DrawImage(source, leftRightInset, topInset, size - (leftRightInset * 2), size - topInset - bottomInset);
-            return bitmap;
+            return new Bitmap(source);
         }
 
+        const int size = 40;
         using var fallback = SystemIcons.Shield.ToBitmap();
         var fallbackBitmap = new Bitmap(size, size);
         using var fallbackGraphics = Graphics.FromImage(fallbackBitmap);
