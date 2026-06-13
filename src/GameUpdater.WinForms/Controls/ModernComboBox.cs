@@ -9,6 +9,20 @@ public class ModernComboBox : ComboBox
 {
     private bool _isMouseOver = false;
 
+    private bool _showBorder = true;
+    public bool ShowBorder
+    {
+        get => _showBorder;
+        set
+        {
+            if (_showBorder != value)
+            {
+                _showBorder = value;
+                Invalidate();
+            }
+        }
+    }
+
     public ModernComboBox()
     {
         DrawMode = DrawMode.OwnerDrawFixed;
@@ -88,13 +102,16 @@ public class ModernComboBox : ComboBox
             {
                 g.SmoothingMode = SmoothingMode.AntiAlias;
 
-                var borderActive = Focused || _isMouseOver;
-                var borderColor = borderActive ? Color.FromArgb(99, 102, 241) : Color.FromArgb(203, 213, 225);
-
-                // Draw custom flat border
-                using (var pen = new Pen(borderColor, 1.5f))
+                if (ShowBorder)
                 {
-                    g.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+                    var borderActive = Focused || _isMouseOver;
+                    var borderColor = borderActive ? Color.FromArgb(99, 102, 241) : Color.FromArgb(203, 213, 225);
+
+                    // Draw custom flat border
+                    using (var pen = new Pen(borderColor, 1.5f))
+                    {
+                        g.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+                    }
                 }
 
                 // Draw dropdown arrow area cover

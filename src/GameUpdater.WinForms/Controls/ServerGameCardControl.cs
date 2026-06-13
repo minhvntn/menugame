@@ -153,7 +153,7 @@ public sealed class ServerGameCardControl : UserControl
         }
     }
 
-    private static Image LoadGameImage(GameRecord row)
+    internal static Image LoadGameImage(GameRecord row)
     {
         var exePath = ResolveExecutablePath(row);
         var cacheKey = string.IsNullOrWhiteSpace(exePath) ? "__default__" : exePath;

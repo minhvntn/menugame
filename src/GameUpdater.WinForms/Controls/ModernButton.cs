@@ -12,7 +12,8 @@ public enum ButtonColorType
     Purple,
     Red,
     Green,
-    Orange
+    Orange,
+    DashedPurple
 }
 
 public enum ButtonIconType
@@ -284,15 +285,24 @@ public class ModernButton : Control
         else
         {
             textColor = ColorType == ButtonColorType.Secondary ? SecondaryTextColor : ActiveTextColor;
-            if (ColorType == ButtonColorType.Secondary)
+            if (ColorType == ButtonColorType.Secondary || ColorType == ButtonColorType.DashedPurple)
             {
-                currBorderColor = SecondaryBorderColor;
-                if (_isPressed)
-                    backColor = SecondaryPressedColor;
-                else if (_isHovered)
-                    backColor = SecondaryHoverColor;
+                if (ColorType == ButtonColorType.DashedPurple)
+                {
+                    textColor = Color.FromArgb(88, 50, 228);
+                    currBorderColor = Color.FromArgb(199, 210, 254);
+                    backColor = _isPressed ? Color.FromArgb(240, 237, 252) : (_isHovered ? Color.FromArgb(248, 250, 255) : Color.Transparent);
+                }
                 else
-                    backColor = SecondaryColor;
+                {
+                    currBorderColor = SecondaryBorderColor;
+                    if (_isPressed)
+                        backColor = SecondaryPressedColor;
+                    else if (_isHovered)
+                        backColor = SecondaryHoverColor;
+                    else
+                        backColor = SecondaryColor;
+                }
             }
             else
             {
@@ -326,10 +336,12 @@ public class ModernButton : Control
             }
 
             // Draw border if Secondary
-            if (ColorType == ButtonColorType.Secondary && currBorderColor != Color.Transparent)
+            if (ColorType == ButtonColorType.Secondary || ColorType == ButtonColorType.DashedPurple && currBorderColor != Color.Transparent)
             {
                 using (var pen = new Pen(currBorderColor, 1.5f))
                 {
+                    if (ColorType == ButtonColorType.DashedPurple)
+                        pen.DashStyle = DashStyle.Dash;
                     g.DrawPath(pen, path);
                 }
             }

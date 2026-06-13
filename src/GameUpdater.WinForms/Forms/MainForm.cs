@@ -98,7 +98,7 @@ public sealed partial class MainForm : Form
     private readonly Label _statTargetOkLabel = new();
     private readonly ProgressBar _statDiskProgressBar = new();
     private readonly Label _statDiskProgressLabel = new();
-    private readonly TextBox _resourceSourceRootTextBox = new();
+    private readonly FlowLayoutPanel _sourcesContainer = new();
     private readonly FlowLayoutPanel _targetsContainer = new();
     private readonly Button _addTargetDriveButton = new();
     private readonly NumericUpDown _resourceBandwidthLimitNumeric = new();
@@ -108,7 +108,6 @@ public sealed partial class MainForm : Form
     private readonly TreeView _resourceTree = new();
     private readonly TabControl _resourceWorkspaceTabControl = new HiddenHeadersTabControl();
     private SplitContainer? _resourcesSplitContainer;
-    private readonly GameUpdater.WinForms.Controls.ModernButton _browseResourceSourceButton = new();
 
     private readonly GameUpdater.WinForms.Controls.ModernButton _saveResourceSettingsButton = new();
     private readonly GameUpdater.WinForms.Controls.ModernButton _checkResourceHealthButton = new();
@@ -354,9 +353,7 @@ public sealed partial class MainForm : Form
         _saveResourceSettingsButton.Enabled = true;
         _checkResourceHealthButton.Enabled = true;
         _syncSelectedResourceButton.Enabled = enabled;
-        _browseResourceSourceButton.Enabled = true;
-
-        _resourceSourceRootTextBox.Enabled = true;
+        _sourcesContainer.Enabled = true;
         _resourceBandwidthLimitNumeric.Enabled = true;
         _resourceTree.Enabled = true;
         _resourcesGrid.Enabled = true;

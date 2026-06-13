@@ -46,7 +46,7 @@ public sealed class GameEditorForm : Form
 
         Text = existingGame is null ? I18n.Server.GameEditorAddTitle : I18n.Server.GameEditorEditTitle;
         StartPosition = FormStartPosition.CenterParent;
-        ClientSize = new Size(850, 750); // Use ClientSize to guarantee no scrollbar
+        ClientSize = new Size(850, 710); // Use ClientSize to guarantee no scrollbar
         MinimizeBox = false;
         MaximizeBox = false;
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -98,28 +98,24 @@ public sealed class GameEditorForm : Form
         mainPanel.Controls.Add(headerPanel);
 
         // --- Footer ---
-        var footerPanel = new Panel { Dock = DockStyle.Bottom, Height = 100 };
+        var footerPanel = new Panel { Dock = DockStyle.Bottom, Height = 80 };
         footerPanel.Paint += (s, e) => {
             using var pen = new Pen(ColorBorder);
             e.Graphics.DrawLine(pen, 0, 0, footerPanel.Width, 0);
         };
 
         _isClientCheckBox.Text = "Hiển thị client";
+        _isClientCheckBox.Location = new Point(30, 30);
         _isClientCheckBox.AutoSize = true;
 
         _isHotCheckBox.Text = "Hiển thị trong Hot game (client)";
+        _isHotCheckBox.Location = new Point(200, 30);
         _isHotCheckBox.AutoSize = true;
 
         var saveBtn = new ModernButton { Text = I18n.Common.SaveButton, Width = 140, Height = 42, ColorType = ButtonColorType.Purple, IconType = ButtonIconType.Save, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold) };
-        
-        // Handle layout when footerPanel resizes or initially
-        footerPanel.Layout += (s, e) => {
-            _isClientCheckBox.Location = new Point(30, (footerPanel.Height - _isClientCheckBox.Height) / 2);
-            _isHotCheckBox.Location = new Point(200, (footerPanel.Height - _isHotCheckBox.Height) / 2);
-            saveBtn.Location = new Point(footerPanel.Width - saveBtn.Width - 40, (footerPanel.Height - saveBtn.Height) / 2);
-        };
-
+        saveBtn.Location = new Point(Width - saveBtn.Width - 40, 20);
         saveBtn.Click += SaveButton_Click;
+
         footerPanel.Controls.Add(_isClientCheckBox);
         footerPanel.Controls.Add(_isHotCheckBox);
         footerPanel.Controls.Add(saveBtn);
@@ -218,7 +214,6 @@ public sealed class GameEditorForm : Form
             tb.BorderStyle = BorderStyle.None;
         } else if (innerControl is ComboBox cb) {
             cb.FlatStyle = FlatStyle.Flat;
-            if (cb is ModernComboBox mcb) mcb.ShowBorder = false;
         }
         
         pnl.Controls.Add(innerControl);

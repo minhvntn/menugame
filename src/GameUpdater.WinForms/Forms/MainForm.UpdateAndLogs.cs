@@ -361,46 +361,30 @@ public sealed partial class MainForm
         _fontSizeComboBox.SelectedIndexChanged -= FontSizeComboBox_SelectedIndexChanged;
         _fontSizeComboBox.SelectedIndexChanged += FontSizeComboBox_SelectedIndexChanged;
         
-        _fontSizeComboBox.Dock = DockStyle.Fill;
-        _fontSizeComboBox.Margin = new Padding(0, 10, 0, 10);
-        settingsPanel.Controls.Add(_fontSizeComboBox, 1, 0);
+        var fontModeWrapper = WrapComboBox(_fontSizeComboBox);
+        fontModeWrapper.Margin = new Padding(0, 8, 0, 8);
+        settingsPanel.Controls.Add(fontModeWrapper, 1, 0);
 
         // 1. Cafe name
         settingsPanel.Controls.Add(CreateFieldLabel(I18n.Server.SettingCafeName), 0, 1);
-        _clientCafeNameTextBox.Dock = DockStyle.Fill;
         _clientCafeNameTextBox.Text = _clientCafeDisplayName;
         _clientCafeNameTextBox.TextChanged -= ClientCafeNameTextBox_TextChanged;
         _clientCafeNameTextBox.TextChanged += ClientCafeNameTextBox_TextChanged;
-        _clientCafeNameTextBox.Margin = new Padding(0, 10, 0, 10);
-        settingsPanel.Controls.Add(_clientCafeNameTextBox, 1, 1);
+        var cafeNameWrapper = WrapTextBox(_clientCafeNameTextBox);
+        cafeNameWrapper.Margin = new Padding(0, 8, 0, 8);
+        settingsPanel.Controls.Add(cafeNameWrapper, 1, 1);
 
         // 2. Banner msg
         settingsPanel.Controls.Add(CreateFieldLabel(I18n.Server.SettingBanner), 0, 2);
-        _clientBannerMessageTextBox.Dock = DockStyle.Fill;
         _clientBannerMessageTextBox.Text = _clientBannerMessage;
         _clientBannerMessageTextBox.TextChanged -= ClientBannerMessageTextBox_TextChanged;
         _clientBannerMessageTextBox.TextChanged += ClientBannerMessageTextBox_TextChanged;
-        _clientBannerMessageTextBox.Margin = new Padding(0, 10, 0, 10);
-        settingsPanel.Controls.Add(_clientBannerMessageTextBox, 1, 2);
+        var bannerWrapper = WrapTextBox(_clientBannerMessageTextBox);
+        bannerWrapper.Margin = new Padding(0, 8, 0, 8);
+        settingsPanel.Controls.Add(bannerWrapper, 1, 2);
 
         // 3. Theme color with preview
         settingsPanel.Controls.Add(CreateFieldLabel(I18n.Server.SettingThemeColor), 0, 3);
-
-        var colorInputLayout = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 3,
-            RowCount = 1,
-            BackColor = Color.Transparent,
-            Margin = new Padding(0, 10, 0, 10),
-            Height = 32,
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink
-        };
-        colorInputLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 32));
-        colorInputLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        colorInputLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 40));
-        colorInputLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var colorPreview = new Panel
         {
@@ -416,12 +400,12 @@ public sealed partial class MainForm
             Text = "",
             ColorType = GameUpdater.WinForms.Controls.ButtonColorType.Secondary,
             IconType = GameUpdater.WinForms.Controls.ButtonIconType.Edit,
-            Width = 32,
-            Height = 32,
-            Margin = new Padding(8, 0, 0, 0)
+            Width = 42,
+            Height = 42,
+            Margin = new Padding(8, 8, 0, 8)
         };
+        StyleButton(colorPickerBtn);
 
-        _clientThemeAccentColorTextBox.Dock = DockStyle.Fill;
         _clientThemeAccentColorTextBox.Text = _clientThemeAccentColor;
         _clientThemeAccentColorTextBox.TextChanged -= ClientThemeAccentColorTextBox_TextChanged;
         _clientThemeAccentColorTextBox.TextChanged += ClientThemeAccentColorTextBox_TextChanged;
@@ -461,15 +445,29 @@ public sealed partial class MainForm
         }
         catch { }
 
-        colorInputLayout.Controls.Add(colorPreview, 0, 0);
-        colorInputLayout.Controls.Add(_clientThemeAccentColorTextBox, 1, 0);
-        colorInputLayout.Controls.Add(colorPickerBtn, 2, 0);
+        var colorWrapper = WrapTextBox(_clientThemeAccentColorTextBox, colorPreview);
+        colorWrapper.Margin = new Padding(0, 8, 0, 8);
+
+        var colorInputLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            BackColor = Color.Transparent,
+            Margin = Padding.Empty,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink
+        };
+        colorInputLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        colorInputLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 50));
+        colorInputLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        colorInputLayout.Controls.Add(colorWrapper, 0, 0);
+        colorInputLayout.Controls.Add(colorPickerBtn, 1, 0);
         settingsPanel.Controls.Add(colorInputLayout, 1, 3);
 
         // 4. Font Row
         settingsPanel.Controls.Add(CreateFieldLabel(I18n.Server.SettingThemeFont), 0, 4);
-        _clientThemeFontComboBox.Dock = DockStyle.Fill;
-        _clientThemeFontComboBox.Margin = new Padding(0, 10, 0, 10);
         _clientThemeFontComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
         _clientThemeFontComboBox.Items.Clear();
         _clientThemeFontComboBox.Items.AddRange(new object[] { "Segoe UI", "Cambria", "sans-serif", "Tahoma", "Roboto", "Helvetica", "Arial", "Calibri", "Open Sans", "Quicksand", "Peace Sans" });
@@ -483,7 +481,10 @@ public sealed partial class MainForm
         }
         _clientThemeFontComboBox.SelectedIndexChanged -= ClientThemeFontComboBox_SelectedIndexChanged;
         _clientThemeFontComboBox.SelectedIndexChanged += ClientThemeFontComboBox_SelectedIndexChanged;
-        settingsPanel.Controls.Add(_clientThemeFontComboBox, 1, 4);
+        
+        var fontWrapper = WrapComboBox(_clientThemeFontComboBox);
+        fontWrapper.Margin = new Padding(0, 8, 0, 8);
+        settingsPanel.Controls.Add(fontWrapper, 1, 4);
 
         // 5. Wallpaper
         settingsPanel.Controls.Add(CreateFieldLabel(I18n.Server.SettingWallpaper), 0, 5);
@@ -502,10 +503,12 @@ public sealed partial class MainForm
         _clearClientWallpaperButton.IsPrimary = true;
         StyleButton(_clearClientWallpaperButton, primary: true);
 
-        _clientWallpaperPathTextBox.Dock = DockStyle.Fill;
         _clientWallpaperPathTextBox.Text = _clientWindowsWallpaperPath;
         _clientWallpaperPathTextBox.TextChanged -= ClientWallpaperPathTextBox_TextChanged;
         _clientWallpaperPathTextBox.TextChanged += ClientWallpaperPathTextBox_TextChanged;
+        
+        var wallpaperWrapper = WrapTextBox(_clientWallpaperPathTextBox);
+        wallpaperWrapper.Margin = new Padding(0, 8, 0, 8);
 
         var wallpaperInputLayout = new TableLayoutPanel
         {
@@ -513,8 +516,7 @@ public sealed partial class MainForm
             ColumnCount = 3,
             RowCount = 1,
             BackColor = Color.Transparent,
-            Margin = new Padding(0, 10, 0, 10),
-            Height = 32,
+            Margin = Padding.Empty,
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink
         };
@@ -523,46 +525,55 @@ public sealed partial class MainForm
         wallpaperInputLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80));
         wallpaperInputLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-        _browseClientWallpaperButton.Margin = new Padding(8, 0, 0, 0);
-        _clearClientWallpaperButton.Margin = new Padding(8, 0, 0, 0);
+        _browseClientWallpaperButton.Margin = new Padding(8, 8, 0, 8);
+        _clearClientWallpaperButton.Margin = new Padding(8, 8, 0, 8);
 
-        wallpaperInputLayout.Controls.Add(_clientWallpaperPathTextBox, 0, 0);
+        wallpaperInputLayout.Controls.Add(wallpaperWrapper, 0, 0);
         wallpaperInputLayout.Controls.Add(_browseClientWallpaperButton, 1, 0);
         wallpaperInputLayout.Controls.Add(_clearClientWallpaperButton, 2, 0);
         settingsPanel.Controls.Add(wallpaperInputLayout, 1, 5);
 
         // 6. Status folder
         settingsPanel.Controls.Add(CreateFieldLabel(I18n.Server.SettingStatusFolder), 0, 6);
-        _clientStatusFolderTextBox.Dock = DockStyle.Fill;
         _clientStatusFolderTextBox.Text = _clientStatusFolderPath;
         _clientStatusFolderTextBox.TextChanged -= ClientStatusFolderTextBox_TextChanged;
         _clientStatusFolderTextBox.TextChanged += ClientStatusFolderTextBox_TextChanged;
-        _clientStatusFolderTextBox.Margin = new Padding(0, 10, 0, 10);
-        settingsPanel.Controls.Add(_clientStatusFolderTextBox, 1, 6);
+        var statusWrapper = WrapTextBox(_clientStatusFolderTextBox);
+        statusWrapper.Margin = new Padding(0, 8, 0, 8);
+        settingsPanel.Controls.Add(statusWrapper, 1, 6);
 
         // 7. Heartbeat
         settingsPanel.Controls.Add(CreateFieldLabel("Chu kỳ máy trạm gửi tín hiệu duy trì kết nối báo trạng thái (giây)"), 0, 7);
-        _clientHeartbeatIntervalNumeric.Dock = DockStyle.Fill;
         _clientHeartbeatIntervalNumeric.Minimum = 5;
         _clientHeartbeatIntervalNumeric.Maximum = 300;
         _clientHeartbeatIntervalNumeric.DecimalPlaces = 0;
         _clientHeartbeatIntervalNumeric.Value = _clientHeartbeatIntervalSeconds;
         _clientHeartbeatIntervalNumeric.ValueChanged -= HeartbeatIntervalNumeric_ValueChanged;
         _clientHeartbeatIntervalNumeric.ValueChanged += HeartbeatIntervalNumeric_ValueChanged;
-        _clientHeartbeatIntervalNumeric.Margin = new Padding(0, 10, 0, 10);
-        settingsPanel.Controls.Add(_clientHeartbeatIntervalNumeric, 1, 7);
+        var hbWrapper = WrapNumericUpDown(_clientHeartbeatIntervalNumeric);
+        hbWrapper.Margin = new Padding(0, 8, 0, 8);
+        settingsPanel.Controls.Add(hbWrapper, 1, 7);
 
         // 8. Dashboard refresh
         settingsPanel.Controls.Add(CreateFieldLabel("Chu kỳ tự động tải lại dữ liệu trên trang giám sát quản trị (giây)"), 0, 8);
-        _dashboardRefreshIntervalNumeric.Dock = DockStyle.Fill;
         _dashboardRefreshIntervalNumeric.Minimum = 3;
         _dashboardRefreshIntervalNumeric.Maximum = 300;
         _dashboardRefreshIntervalNumeric.DecimalPlaces = 0;
         _dashboardRefreshIntervalNumeric.Value = _dashboardRefreshIntervalSeconds;
         _dashboardRefreshIntervalNumeric.ValueChanged -= DashboardRefreshIntervalNumeric_ValueChanged;
         _dashboardRefreshIntervalNumeric.ValueChanged += DashboardRefreshIntervalNumeric_ValueChanged;
-        _dashboardRefreshIntervalNumeric.Margin = new Padding(0, 10, 0, 10);
-        settingsPanel.Controls.Add(_dashboardRefreshIntervalNumeric, 1, 8);
+        var dashWrapper = WrapNumericUpDown(_dashboardRefreshIntervalNumeric);
+        dashWrapper.Margin = new Padding(0, 8, 0, 8);
+        settingsPanel.Controls.Add(dashWrapper, 1, 8);
+
+        settingsPanel.CellPaint += (s, e) =>
+        {
+            if (e.Row < settingsPanel.RowCount - 1)
+            {
+                using var pen = new Pen(Color.FromArgb(241, 245, 249)); // slate-100
+                e.Graphics.DrawLine(pen, e.CellBounds.Left, e.CellBounds.Bottom - 1, e.CellBounds.Right, e.CellBounds.Bottom - 1);
+            }
+        };
 
         // 4. Checkboxes Panel
         var checkboxesPanel = new TableLayoutPanel
@@ -758,38 +769,101 @@ public sealed partial class MainForm
         _enableClientFullscreenKioskMode = _enableClientFullscreenKioskCheckBox.Checked;
     }
 
-    private static TableLayoutPanel CreateTextSettingRow(string labelText, TextBox textBox)
+    private Panel WrapTextBox(TextBox tb, Control? leftAddon = null)
     {
-        var row = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            BackColor = Color.Transparent,
-            Margin = Padding.Empty
+        var wrapper = new Panel { BackColor = Color.White, Height = 42, Dock = DockStyle.Fill };
+        wrapper.Paint += (s, e) => {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using var pen = new Pen(Color.FromArgb(226, 232, 240));
+            e.Graphics.DrawPath(pen, GameEditorForm.GetRoundedRectPath(new Rectangle(0,0,wrapper.Width-1,wrapper.Height-1), 6));
         };
-        row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 320));
-        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        row.Controls.Add(CreateFieldLabel(labelText), 0, 0);
-        row.Controls.Add(textBox, 1, 0);
-        textBox.Margin = new Padding(0, 6, 0, 6);
-        return row;
+        
+        tb.BorderStyle = BorderStyle.None;
+        tb.Dock = DockStyle.None;
+        tb.Font = new Font("Segoe UI", 10.5f);
+        
+        var clip = new Panel { BackColor = Color.White };
+        clip.Controls.Add(tb);
+        wrapper.Controls.Add(clip);
+        
+        if (leftAddon != null)
+        {
+            leftAddon.Dock = DockStyle.None;
+            wrapper.Controls.Add(leftAddon);
+        }
+        
+        wrapper.Layout += (s, e) => {
+            int leftPadding = 12;
+            if (leftAddon != null)
+            {
+                leftAddon.Location = new Point(12, (wrapper.Height - leftAddon.Height) / 2);
+                leftPadding = leftAddon.Right + 8;
+            }
+            
+            int borderSize = 2;
+            clip.Height = tb.Height - (borderSize * 2);
+            clip.Width = wrapper.Width - leftPadding - 12;
+            clip.Location = new Point(leftPadding, (wrapper.Height - clip.Height) / 2);
+            tb.Location = new Point(-borderSize, -borderSize);
+            tb.Width = clip.Width + (borderSize * 2);
+        };
+        return wrapper;
     }
 
-    private static TableLayoutPanel CreateNumericSettingRow(string labelText, NumericUpDown input)
+    private Panel WrapComboBox(ComboBox cb)
     {
-        var row = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            BackColor = Color.Transparent,
-            Margin = Padding.Empty
+        var wrapper = new Panel { BackColor = Color.White, Height = 42, Dock = DockStyle.Fill };
+        wrapper.Paint += (s, e) => {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using var pen = new Pen(Color.FromArgb(226, 232, 240));
+            e.Graphics.DrawPath(pen, GameEditorForm.GetRoundedRectPath(new Rectangle(0,0,wrapper.Width-1,wrapper.Height-1), 6));
         };
-        row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 320));
-        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        row.Controls.Add(CreateFieldLabel(labelText), 0, 0);
-        row.Controls.Add(input, 1, 0);
-        input.Margin = new Padding(0, 6, 0, 6);
-        return row;
+        
+        cb.FlatStyle = FlatStyle.Flat;
+        cb.Dock = DockStyle.None;
+        cb.Font = new Font("Segoe UI", 10.5f);
+        
+        var clip = new Panel { BackColor = Color.White };
+        clip.Controls.Add(cb);
+        wrapper.Controls.Add(clip);
+        
+        wrapper.Layout += (s, e) => {
+            int borderSize = 1;
+            clip.Height = cb.Height - (borderSize * 2);
+            clip.Width = wrapper.Width - 24;
+            clip.Location = new Point(12, (wrapper.Height - clip.Height) / 2);
+            cb.Location = new Point(-borderSize, -borderSize);
+            cb.Width = clip.Width + (borderSize * 2);
+        };
+        return wrapper;
+    }
+
+    private Panel WrapNumericUpDown(NumericUpDown num)
+    {
+        var wrapper = new Panel { BackColor = Color.White, Height = 42, Dock = DockStyle.Fill };
+        wrapper.Paint += (s, e) => {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using var pen = new Pen(Color.FromArgb(226, 232, 240));
+            e.Graphics.DrawPath(pen, GameEditorForm.GetRoundedRectPath(new Rectangle(0,0,wrapper.Width-1,wrapper.Height-1), 6));
+        };
+        
+        num.BorderStyle = BorderStyle.None;
+        num.Dock = DockStyle.None;
+        num.Font = new Font("Segoe UI", 10.5f);
+        
+        var clip = new Panel { BackColor = Color.White };
+        clip.Controls.Add(num);
+        wrapper.Controls.Add(clip);
+        
+        wrapper.Layout += (s, e) => {
+            int borderSize = 2;
+            clip.Height = num.Height - (borderSize * 2);
+            clip.Width = wrapper.Width - 24;
+            clip.Location = new Point(12, (wrapper.Height - clip.Height) / 2);
+            num.Location = new Point(-borderSize, -borderSize);
+            num.Width = clip.Width + (borderSize * 2);
+        };
+        return wrapper;
     }
 
     [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]

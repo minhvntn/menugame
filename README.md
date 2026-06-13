@@ -44,6 +44,10 @@ dotnet build "I:\servermanagergame\GameUpdater.sln" -c Release
 http-server E:\GameOnlineIDC -p 9090 -a 0.0.0.0
 Access URL: http://14.187.93.143:9090/
 
+## Public server folder game 2
+http-server G:\Games -p 9091 -a 0.0.0.0
+Access URL: http://169.254.83.107:9091/
+
 File EXE:
 
 - Server: `src\GameUpdater.WinForms\bin\Release\net8.0-windows\GameUpdater.WinForms.exe`

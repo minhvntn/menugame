@@ -37,6 +37,15 @@ public sealed partial class MainForm
         hotColumn.Name = HotColumnName;
         _gamesGrid.Columns.Add(hotColumn);
 
+        var iconColumn = new DataGridViewImageColumn
+        {
+            Name = "GameIconColumn",
+            HeaderText = "Icon",
+            Width = 60,
+            ImageLayout = DataGridViewImageCellLayout.Zoom
+        };
+        _gamesGrid.Columns.Add(iconColumn);
+
         _gamesGrid.Columns.Add(CreateTextColumn("Tên trò chơi  ⇅", nameof(GameRecord.Name), 230));
         _gamesGrid.Columns.Add(CreateTextColumn("Nhóm  ⇅", nameof(GameRecord.Category), 120));
         _gamesGrid.Columns.Add(CreateTextColumn("Tệp chạy  ⇅", nameof(GameRecord.LaunchRelativePath), 220));
@@ -156,6 +165,14 @@ public sealed partial class MainForm
             var blueColor = Color.FromArgb(37, 99, 235); // Blue-600 (#2563EB)
             e.CellStyle.ForeColor = blueColor;
             e.CellStyle.SelectionForeColor = blueColor;
+        }
+        else if (col.Name == "GameIconColumn")
+        {
+            if (_gamesGrid.Rows[e.RowIndex].DataBoundItem is GameRecord game)
+            {
+                e.Value = GameUpdater.WinForms.Controls.ServerGameCardControl.LoadGameImage(game);
+                e.FormattingApplied = true;
+            }
         }
         else if (col.Name == GameSizeDisplayColumnName)
         {

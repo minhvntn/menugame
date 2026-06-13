@@ -45,7 +45,7 @@ public sealed class GameCardControl : UserControl
         _playAction = playAction;
         _isHotRow = isHotRow;
 
-        _iconSize = _isHotRow ? 64 : 48;
+        _iconSize = _isHotRow ? 64 : 40;
         _tileSize = _isHotRow ? 78 : 60;
         _cardWidth = _isHotRow ? 144 : 110;
         _cardHeight = _isHotRow ? 176 : 140;

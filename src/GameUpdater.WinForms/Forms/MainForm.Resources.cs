@@ -161,20 +161,7 @@ public sealed partial class MainForm
         });
     }
 
-    private void BrowseResourceSourceButton_Click(object? sender, EventArgs e)
-    {
-        using var dialog = new FolderBrowserDialog
-        {
-            Description = I18n.Server.ResourceSourcePickerDescription,
-            UseDescriptionForTitle = true,
-            SelectedPath = _resourceSourceRootTextBox.Text
-        };
 
-        if (dialog.ShowDialog(this) == DialogResult.OK)
-        {
-            _resourceSourceRootTextBox.Text = dialog.SelectedPath;
-        }
-    }
 
 
 
@@ -835,7 +822,7 @@ public sealed partial class MainForm
 
     private void UpdateResourceRootsFromInputs()
     {
-        _resourceSourceRootPath = _resourceSourceRootTextBox.Text.Trim();
+        UpdateResourceSourceRootPathFromUi();
         UpdateResourceTargetRootPathFromUi();
         _resourceBandwidthLimitMbps = Decimal.ToInt32(_resourceBandwidthLimitNumeric.Value);
 

@@ -123,8 +123,25 @@ public sealed partial class MainForm
 
         _cafeNameLabel.Text = CafeDisplayName.ToUpper();
         _cafeNameLabel.AutoSize = true;
-        _cafeNameLabel.ForeColor = Color.FromArgb(230, 232, 239); // #E6E8EF
-        _cafeNameLabel.Font = new Font("Segoe UI", 14f, FontStyle.Bold);
+        _cafeNameLabel.UseCompatibleTextRendering = true;
+        _cafeNameLabel.ForeColor = Color.Transparent;
+        _cafeNameLabel.Font = new Font("Segoe UI", 22f, FontStyle.Bold);
+        _cafeNameLabel.Paint += (sender, e) =>
+        {
+            var lbl = (Label)sender;
+            if (lbl.Width <= 0 || lbl.Height <= 0 || string.IsNullOrEmpty(lbl.Text)) return;
+            
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            
+            using var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
+                lbl.ClientRectangle,
+                Color.White,
+                Color.FromArgb(216, 180, 254),
+                System.Drawing.Drawing2D.LinearGradientMode.Vertical);
+                
+            e.Graphics.DrawString(lbl.Text, lbl.Font, brush, 0, 0);
+        };
 
         _headerSectionLabel.Text = I18n.Launcher.HeaderSectionTitle;
         _headerSectionLabel.AutoSize = true;
@@ -136,11 +153,11 @@ public sealed partial class MainForm
             Dock = DockStyle.Fill,
             ColumnCount = 1,
             RowCount = 2,
-            Margin = new Padding(10, 28, 0, 0)
+            Margin = new Padding(10, 16, 0, 0)
         };
         cafeTextPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        cafeTextPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 55f));
-        cafeTextPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 45f));
+        cafeTextPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        cafeTextPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
         cafeTextPanel.Controls.Add(_cafeNameLabel, 0, 0);
         cafeTextPanel.Controls.Add(_headerSectionLabel, 0, 1);
 
@@ -206,6 +223,15 @@ public sealed partial class MainForm
         quickActions.Controls.Add(CreateHeaderLinkButton(I18n.Launcher.QuickLinkYoutubeText, I18n.Launcher.QuickLinkYoutubeTooltip, I18n.Launcher.QuickLinkYoutubeUrl, Color.FromArgb(239, 68, 68), Color.FromArgb(185, 28, 28))); // red
         quickActions.Controls.Add(CreateHeaderLinkButton(I18n.Launcher.QuickLinkFacebookText, I18n.Launcher.QuickLinkFacebookTooltip, I18n.Launcher.QuickLinkFacebookUrl, Color.FromArgb(59, 130, 246), Color.FromArgb(29, 78, 216))); // blue
         quickActions.Controls.Add(CreateHeaderLinkButton(I18n.Launcher.QuickLinkWebText, I18n.Launcher.QuickLinkWebTooltip, I18n.Launcher.QuickLinkWebUrl, Color.FromArgb(16, 185, 129), Color.FromArgb(4, 120, 87))); // emerald
+        
+        quickActions.Controls.Add(CreateHeaderIconLabel("\uE962", "C\u00e0i \u0111\u1eb7t chu\u1ed9t", () =>
+        {
+            try { Process.Start(new ProcessStartInfo("control", "main.cpl") { UseShellExecute = true }); } catch { }
+        })); // Mouse
+        quickActions.Controls.Add(CreateHeaderIconLabel("\uE767", "C\u00e0i \u0111\u1eb7t \u00e2m thanh", () =>
+        {
+            try { Process.Start(new ProcessStartInfo("sndvol") { UseShellExecute = true }); } catch { }
+        })); // Volume
 
         headerLayout.Controls.Add(leftPanel, 0, 0);
         headerLayout.Controls.Add(searchCenterPanel, 1, 0);
@@ -246,6 +272,80 @@ public sealed partial class MainForm
             e.Graphics.DrawLine(pen, sidebar.Width - 1, 0, sidebar.Width - 1, sidebar.Height);
         };
 
+        var vipPanel = new Panel
+        {
+            Dock = DockStyle.Bottom,
+            Height = 150,
+            BackColor = Color.Transparent
+        };
+        vipPanel.Paint += (sender, e) =>
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var path = CreateRoundRectPath(new Rectangle(0, 0, vipPanel.Width - 1, vipPanel.Height - 1), 8);
+            using var fill = new System.Drawing.Drawing2D.LinearGradientBrush(
+                vipPanel.ClientRectangle,
+                Color.FromArgb(30, 245, 158, 11), // Amber/Gold tint
+                Color.FromArgb(10, 245, 158, 11),
+                90f);
+            g.FillPath(fill, path);
+
+            using var pen = new Pen(Color.FromArgb(80, 245, 158, 11), 1f);
+            g.DrawPath(pen, path);
+        };
+
+        var vipLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 3,
+            BackColor = Color.Transparent,
+            Padding = new Padding(8, 12, 8, 8)
+        };
+        vipLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28f));
+        vipLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22f));
+        vipLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        vipLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+
+        var vipIcon = new Label
+        {
+            Text = "\uE735", // Star
+            Font = new Font("Segoe MDL2 Assets", 15f, FontStyle.Regular),
+            ForeColor = Color.FromArgb(252, 211, 77),
+            AutoSize = false,
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Margin = new Padding(0)
+        };
+
+        var vipTitle = new Label
+        {
+            Text = "H\u1ed8I VI\u00caN VIP",
+            Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold),
+            ForeColor = Color.FromArgb(252, 211, 77),
+            AutoSize = false,
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Margin = new Padding(0)
+        };
+
+        var vipDesc = new Label
+        {
+            Text = "Tr\u1edf th\u00e0nh h\u1ed9i vi\u00ean\nnh\u1eadn nhi\u1ec1u \u01b0u \u0111\u00e3i h\u01a1n v\u1ec1\ngi\u1edd ch\u01a1i v\u00e0 \u0111i\u1ec3m t\u00edch l\u0169y.",
+            Font = new Font("Segoe UI", 8.5f, FontStyle.Regular),
+            ForeColor = Color.FromArgb(200, 205, 215),
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.TopCenter,
+            Margin = new Padding(0, 2, 0, 0)
+        };
+
+        vipLayout.Controls.Add(vipIcon, 0, 0);
+        vipLayout.Controls.Add(vipTitle, 0, 1);
+        vipLayout.Controls.Add(vipDesc, 0, 2);
+        vipPanel.Controls.Add(vipLayout);
+
+        var spacer = new Panel { Dock = DockStyle.Bottom, Height = 12, BackColor = Color.Transparent };
+
         _categoryListPanel.Dock = DockStyle.Fill;
         _categoryListPanel.FlowDirection = FlowDirection.TopDown;
         _categoryListPanel.WrapContents = false;
@@ -255,6 +355,8 @@ public sealed partial class MainForm
         EnableDoubleBuffering(_categoryListPanel);
 
         sidebar.Controls.Add(_categoryListPanel);
+        sidebar.Controls.Add(spacer);
+        sidebar.Controls.Add(vipPanel);
         BuildCategoryButtons(Array.Empty<string>());
         return sidebar;
     }
@@ -290,14 +392,35 @@ public sealed partial class MainForm
         hotTopBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         hotTopBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
-        var hotTitleLabel = new Label
+        var hotTitlePanel = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
-            Text = "GAME N\u1ed4I B\u1eacT",
-            ForeColor = Color.White,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Font = new Font("Segoe UI Semibold", 12f, FontStyle.Bold)
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            Margin = new Padding(0),
+            Padding = new Padding(0)
         };
+
+        var fireIcon = new Label
+        {
+            Text = "🔥",
+            ForeColor = Color.FromArgb(255, 87, 34), // Fiery Red/Orange
+            AutoSize = true,
+            Font = new Font("Segoe UI Emoji", 13f, FontStyle.Regular),
+            Margin = new Padding(0, 6, 4, 0)
+        };
+
+        var hotTitleText = new Label
+        {
+            Text = "ĐỀ XUẤT CHO BẠN",
+            ForeColor = Color.White,
+            AutoSize = true,
+            Font = new Font("Segoe UI Semibold", 12f, FontStyle.Bold),
+            Margin = new Padding(0, 8, 0, 0)
+        };
+
+        hotTitlePanel.Controls.Add(fireIcon);
+        hotTitlePanel.Controls.Add(hotTitleText);
 
         _hotSortLabel.AutoSize = true;
         _hotSortLabel.Anchor = AnchorStyles.Right;
@@ -307,7 +430,7 @@ public sealed partial class MainForm
         _hotSortLabel.Click += (_, _) => ToggleSortOrder();
         _hotSortLabel.Visible = false;
 
-        hotTopBar.Controls.Add(hotTitleLabel, 0, 0);
+        hotTopBar.Controls.Add(hotTitlePanel, 0, 0);
         hotTopBar.Controls.Add(_hotSortLabel, 1, 0);
 
         _hotCardsViewport.Location = new Point(32, 42);
@@ -658,27 +781,55 @@ public sealed partial class MainForm
     {
         if (string.Equals(text, I18n.Launcher.DefaultCategory, StringComparison.OrdinalIgnoreCase))
         {
-            return "\uE990"; // Filled gamepad icon
+            return "\uE8A9"; // All apps icon
         }
         if (string.Equals(text, "Hot", StringComparison.OrdinalIgnoreCase))
         {
-            return "\uE734";
+            return "\uE735"; // Star
         }
         if (text.Contains("Online", StringComparison.OrdinalIgnoreCase))
         {
-            return "\uE774"; // Globe icon
+            return "\uE12B"; // Cloud icon
         }
         if (text.Contains("Offline", StringComparison.OrdinalIgnoreCase))
         {
-            return "\uE779"; // PC / Local Network icon
+            return "\uEA14"; // PC / Desktop icon
         }
         if (text.Contains("Tools", StringComparison.OrdinalIgnoreCase) ||
             text.Contains("Cong cu", StringComparison.OrdinalIgnoreCase) ||
             text.Contains("C\u00f4ng c\u1ee5", StringComparison.OrdinalIgnoreCase))
         {
-            return "\uE812"; // Wrench/Tool icon
+            return "\uE713"; // Settings gear icon
         }
-        return "\uE712";
+        return "\uE712"; // More/Dot
+    }
+
+    private static Label CreateHeaderIconLabel(string iconGlyph, string tooltip, Action onClick)
+    {
+        var lbl = new Label
+        {
+            Text = iconGlyph,
+            Width = 32,
+            Height = 32,
+            AutoSize = false,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Margin = new Padding(8, 0, 0, 0),
+            BackColor = Color.Transparent,
+            ForeColor = Color.FromArgb(139, 147, 167),
+            Font = new Font("Segoe MDL2 Assets", 14f, FontStyle.Regular),
+            Cursor = Cursors.Hand
+        };
+        
+        lbl.MouseEnter += (s, e) => lbl.ForeColor = Color.White;
+        lbl.MouseLeave += (s, e) => lbl.ForeColor = Color.FromArgb(139, 147, 167);
+        
+        var tt = new ToolTip();
+        tt.SetToolTip(lbl, tooltip);
+        
+        // Example placeholders for click events - these can be wired up later
+        lbl.Click += (s, e) => onClick?.Invoke();
+        
+        return lbl;
     }
 
     private static Button CreateHeaderLinkButton(string text, string tooltip, string url, Color gradientStart, Color gradientEnd)
