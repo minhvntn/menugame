@@ -12,7 +12,7 @@ namespace GameUpdater.WinForms.Forms;
 
 public sealed partial class MainForm
 {
-    private void RefreshServerDashboard()
+    private async Task RefreshServerDashboardAsync()
     {
         try
         {
@@ -25,7 +25,7 @@ public sealed partial class MainForm
             var runningTasks = _downloadMonitorRows.Count(row =>
                 string.Equals(row.Status, I18n.Server.UpdateRunningStatus, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(row.Status, I18n.Server.UpdatePausedStatus, StringComparison.OrdinalIgnoreCase));
-            var clientRows = LoadClientDashboardRows();
+            var clientRows = await Task.Run(() => LoadClientDashboardRows());
             var onlineClients = clientRows.Count(row => row.IsOnline);
             var playingClients = clientRows.Count(row => row.IsPlaying);
             var process = Process.GetCurrentProcess();
@@ -176,7 +176,7 @@ public sealed partial class MainForm
 
         try
         {
-            var rows = LoadClientDashboardRows();
+            var rows = await Task.Run(() => LoadClientDashboardRows());
             if (forceNetworkProbe && rows.Count > 0)
             {
                 await ProbeClientReachabilityAsync(rows);

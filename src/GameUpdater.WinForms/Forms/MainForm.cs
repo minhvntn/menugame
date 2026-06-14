@@ -8,6 +8,8 @@ using GameUpdater.Core.Abstractions;
 using GameUpdater.Core.Services;
 using GameUpdater.Shared.Localization;
 using GameUpdater.Shared.Models;
+using GameUpdater.WinForms.Controls;
+using System.Collections.Concurrent;
 
 namespace GameUpdater.WinForms.Forms;
 
@@ -115,7 +117,8 @@ public sealed partial class MainForm : Form
 
     private readonly BindingList<DownloadMonitorRow> _downloadMonitorRows = new();
     private readonly List<ResourceGameRow> _allResourceRows = new();
-    private readonly Dictionary<string, string> _gameSizeDisplayCache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, string> _gameSizeDisplayCache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, bool> _gameSizeDisplayLoading = new(StringComparer.Ordinal);
     private readonly Dictionary<DownloadMonitorRow, ResourceSyncTaskControl> _activeResourceSyncControls = new();
     private readonly ContextMenuStrip _resourcesContextMenu = new();
     private readonly ToolStripMenuItem _downloadSelectedResourcesMenuItem = new(I18n.Server.ResourceContextDownloadSelected);
@@ -209,7 +212,7 @@ public sealed partial class MainForm : Form
         _clientDashboardRefreshTimer.Interval = ToTimerIntervalMilliseconds(_dashboardRefreshIntervalSeconds, 15);
         _clientDashboardRefreshTimer.Tick += async (_, _) => await RefreshClientDashboardAsync();
         _serverDashboardRefreshTimer.Interval = ToTimerIntervalMilliseconds(_dashboardRefreshIntervalSeconds, 15);
-        _serverDashboardRefreshTimer.Tick += (_, _) => RefreshServerDashboard();
+        _serverDashboardRefreshTimer.Tick += async (_, _) => await RefreshServerDashboardAsync();
 
         BuildLayout();
         ApplyUiFontSize(_uiFontSizeMode);
@@ -247,9 +250,10 @@ public sealed partial class MainForm : Form
         await ReloadAllAsync();
         ApplyResourcesSplitDistance();
         await RefreshClientDashboardAsync(forceNetworkProbe: true);
-        RefreshServerDashboard();
+        await RefreshServerDashboardAsync();
         _clientDashboardRefreshTimer.Start();
-        _serverDashboardRefreshTimer.Start();
+        // Server dashboard refresh is now manual
+        // _serverDashboardRefreshTimer.Start();
     }
 
     private async void GamesBinding_CurrentChanged(object? sender, EventArgs e)

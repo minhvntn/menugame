@@ -37,32 +37,24 @@ public sealed partial class MainForm
         hotColumn.Name = HotColumnName;
         _gamesGrid.Columns.Add(hotColumn);
 
-        var iconColumn = new DataGridViewImageColumn
-        {
-            Name = "GameIconColumn",
-            HeaderText = "Icon",
-            Width = 60,
-            ImageLayout = DataGridViewImageCellLayout.Zoom
-        };
-        _gamesGrid.Columns.Add(iconColumn);
-
         _gamesGrid.Columns.Add(CreateTextColumn("Tên trò chơi  ⇅", nameof(GameRecord.Name), 230));
         _gamesGrid.Columns.Add(CreateTextColumn("Nhóm  ⇅", nameof(GameRecord.Category), 120));
         _gamesGrid.Columns.Add(CreateTextColumn("Tệp chạy  ⇅", nameof(GameRecord.LaunchRelativePath), 220));
+
         _gamesGrid.Columns.Add(new DataGridViewTextBoxColumn
         {
             Name = GameSizeDisplayColumnName,
-            HeaderText = "Dung lượng (GB)  ⇅",
-            Width = 110,
+            HeaderText = "GB  ⇅",
+            Width = 65,
             AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
             ReadOnly = true,
             SortMode = DataGridViewColumnSortMode.NotSortable,
-            DefaultCellStyle = new DataGridViewCellStyle
-            {
-                Alignment = DataGridViewContentAlignment.MiddleRight
-            }
+            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight }
         });
-        _gamesGrid.Columns.Add(CreateTextColumn("Đường dẫn cài đặt", nameof(GameRecord.InstallPath), 320, null, true));
+
+        var installPathColumn = CreateTextColumn("Đường dẫn cài đặt", nameof(GameRecord.InstallPath), 300);
+        installPathColumn.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+        _gamesGrid.Columns.Add(installPathColumn);
         _gamesGrid.Columns.Add(CreateTextColumn("Quét gần nhất", nameof(GameRecord.LastScannedAt), 140, "yyyy-MM-dd HH:mm:ss"));
         _gamesGrid.Columns.Add(CreateTextColumn("Cập nhật gần nhất", nameof(GameRecord.LastUpdatedAt), 140, "yyyy-MM-dd HH:mm:ss"));
     }
@@ -166,27 +158,13 @@ public sealed partial class MainForm
             e.CellStyle.ForeColor = blueColor;
             e.CellStyle.SelectionForeColor = blueColor;
         }
-        else if (col.Name == "GameIconColumn")
-        {
-            if (_gamesGrid.Rows[e.RowIndex].DataBoundItem is GameRecord game)
-            {
-                e.Value = GameUpdater.WinForms.Controls.ServerGameCardControl.LoadGameImage(game);
-                e.FormattingApplied = true;
-            }
-        }
         else if (col.Name == GameSizeDisplayColumnName)
         {
             e.CellStyle.ForeColor = Color.FromArgb(71, 85, 105); // slate-600
             e.CellStyle.SelectionForeColor = Color.FromArgb(71, 85, 105);
-            
             if (_gamesGrid.Rows[e.RowIndex].DataBoundItem is GameRecord game)
             {
                 e.Value = GetGameSizeDisplay(game);
-                e.FormattingApplied = true;
-            }
-            else
-            {
-                e.Value = "-";
                 e.FormattingApplied = true;
             }
         }
@@ -215,21 +193,42 @@ public sealed partial class MainForm
             return cached;
         }
 
-        var manifest = TryLoadManifest(game);
-        if (manifest?.Files is null || manifest.Files.Count == 0)
+        if (_gameSizeDisplayLoading.TryAdd(key, true))
         {
-            _gameSizeDisplayCache[key] = "-";
-            return "-";
+            Task.Run(() =>
+            {
+                var manifest = TryLoadManifest(game);
+                string display = "-";
+                if (manifest?.Files != null && manifest.Files.Count > 0)
+                {
+                    var totalBytes = manifest.Files.Where(file => file.Size > 0).Sum(file => file.Size);
+                    if (totalBytes > 0)
+                    {
+                        display = (totalBytes / 1024d / 1024d / 1024d).ToString("N2");
+                    }
+                }
+                
+                _gameSizeDisplayCache[key] = display;
+                _gameSizeDisplayLoading.TryRemove(key, out _);
+
+                try
+                {
+                    if (!IsDisposed && IsHandleCreated)
+                    {
+                        BeginInvoke(new Action(() =>
+                        {
+                            if (!IsDisposed)
+                            {
+                                _gamesGrid.Invalidate();
+                            }
+                        }));
+                    }
+                }
+                catch { }
+            });
         }
 
-        var totalBytes = manifest.Files
-            .Where(file => file.Size > 0)
-            .Sum(file => file.Size);
-        var display = totalBytes <= 0
-            ? "-"
-            : (totalBytes / 1024d / 1024d / 1024d).ToString("N2");
-        _gameSizeDisplayCache[key] = display;
-        return display;
+        return "...";
     }
 
     private Image? _onlineIcon;
@@ -744,6 +743,10 @@ public sealed partial class MainForm
         grid.GridColor = Color.FromArgb(241, 245, 249); // slate-100 (subtle grid lines)
         grid.RowHeadersVisible = false;
         
+        typeof(DataGridView).InvokeMember("DoubleBuffered", 
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.SetProperty, 
+            null, grid, new object[] { true });
+
         // Header styles
         grid.EnableHeadersVisualStyles = false;
         grid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single;

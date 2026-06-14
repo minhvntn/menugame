@@ -1313,36 +1313,72 @@ public sealed partial class MainForm
     private async Task RebuildResourceRowsAsync(IReadOnlyList<GameRecord> games)
     {
         _allResourceRows.Clear();
-        var sourceFolders = await GetSourceFolderEntriesAsync();
-        var sourceFoldersByKey = sourceFolders
-            .GroupBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
 
-        foreach (var game in games.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+        var runningSyncs = new HashSet<int>();
+        var runningSyncNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var monitorRow in _downloadMonitorRows)
         {
-            _allResourceRows.Add(CreateResourceRow(game, sourceFoldersByKey));
+            if (IsResourceSyncRunning(monitorRow))
+            {
+                if (monitorRow.GameId.HasValue) runningSyncs.Add(monitorRow.GameId.Value);
+                if (!string.IsNullOrEmpty(monitorRow.GameName)) runningSyncNames.Add(monitorRow.GameName);
+            }
         }
 
-        var existingSourceKeys = new HashSet<string>(
-            _allResourceRows
-                .Where(row => !string.IsNullOrWhiteSpace(row.SourceKey))
-                .Select(row => row.SourceKey),
-            StringComparer.OrdinalIgnoreCase);
-
-        foreach (var sourceFolder in sourceFolders)
+        var newRows = await Task.Run(async () =>
         {
-            if (existingSourceKeys.Contains(sourceFolder.Key))
+            var rows = new List<ResourceGameRow>();
+            var sourceFolders = await GetSourceFolderEntriesAsync();
+            var sourceFoldersByKey = sourceFolders
+                .GroupBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+            foreach (var game in games.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
             {
-                continue;
+                rows.Add(CreateResourceRow(game, sourceFoldersByKey));
             }
 
-            _allResourceRows.Add(CreateSourceOnlyResourceRow(sourceFolder));
-        }
+            var existingSourceKeys = new HashSet<string>(
+                rows
+                    .Where(row => !string.IsNullOrWhiteSpace(row.SourceKey))
+                    .Select(row => row.SourceKey),
+                StringComparer.OrdinalIgnoreCase);
 
-        await RefreshResourceCompletionStatesAsync(games);
+            foreach (var sourceFolder in sourceFolders)
+            {
+                if (existingSourceKeys.Contains(sourceFolder.Key))
+                {
+                    continue;
+                }
 
-        _allResourceRows.Sort((left, right) => StringComparer.OrdinalIgnoreCase.Compare(left.Name, right.Name));
+                rows.Add(CreateSourceOnlyResourceRow(sourceFolder));
+            }
 
+            var gamesById = games
+                .GroupBy(g => g.Id)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            foreach (var row in rows)
+            {
+                bool isRunning = (row.ManagedGameId.HasValue && runningSyncs.Contains(row.ManagedGameId.Value)) ||
+                                 (!string.IsNullOrEmpty(row.Name) && runningSyncNames.Contains(row.Name));
+                
+                if (isRunning) continue;
+
+                var isDownloaded = await DetermineResourceDownloadedStateAsync(row, gamesById);
+                row.IsDownloaded = isDownloaded;
+                row.DownloadStatus = isDownloaded ? I18n.Server.DownloadStatusDownloaded : I18n.Server.DownloadStatusMissing;
+                row.DownloadSpeedDisplay = "-";
+                row.RunStatus = isDownloaded
+                    ? GetRunStatusAfterSync(row)
+                    : (row.IsManaged ? I18n.Server.RunStatusMissingExe : I18n.Server.RunStatusNotConfiguredExe);
+            }
+
+            rows.Sort((left, right) => StringComparer.OrdinalIgnoreCase.Compare(left.Name, right.Name));
+            return rows;
+        });
+
+        _allResourceRows.AddRange(newRows);
         ApplyResourceFilter(_currentResourceFilter);
     }
 
@@ -1723,29 +1759,6 @@ public sealed partial class MainForm
         };
     }
 
-    private async Task RefreshResourceCompletionStatesAsync(IReadOnlyList<GameRecord> games)
-    {
-        var gamesById = games
-            .GroupBy(game => game.Id)
-            .ToDictionary(group => group.Key, group => group.First());
-
-        foreach (var row in _allResourceRows)
-        {
-            var monitorRow = FindActiveMonitorRowForResource(row);
-            if (monitorRow is not null && IsResourceSyncRunning(monitorRow))
-            {
-                continue;
-            }
-
-            var isDownloaded = await DetermineResourceDownloadedStateAsync(row, gamesById);
-            row.IsDownloaded = isDownloaded;
-            row.DownloadStatus = isDownloaded ? I18n.Server.DownloadStatusDownloaded : I18n.Server.DownloadStatusMissing;
-            row.DownloadSpeedDisplay = "-";
-            row.RunStatus = isDownloaded
-                ? GetRunStatusAfterSync(row)
-                : (row.IsManaged ? I18n.Server.RunStatusMissingExe : I18n.Server.RunStatusNotConfiguredExe);
-        }
-    }
 
     private async Task<bool> DetermineResourceDownloadedStateAsync(
         ResourceGameRow row,
@@ -1995,7 +2008,7 @@ public sealed partial class MainForm
         }
     }
 
-    private void ApplyResourceFilter(ResourceFilterKind filterKind)
+    private async void ApplyResourceFilter(ResourceFilterKind filterKind)
     {
         _currentResourceFilter = filterKind;
 
@@ -2008,7 +2021,7 @@ public sealed partial class MainForm
             return;
         }
 
-        RefreshResourceRowsFromFileSystem();
+        await RefreshResourceRowsFromFileSystemAsync();
 
         _downloadMonitorGrid.Visible = false;
         _resourcesGrid.Visible = true;
@@ -2039,28 +2052,54 @@ public sealed partial class MainForm
         ApplyResourceFilter(_currentResourceFilter);
     }
 
-    private void RefreshResourceRowsFromFileSystem()
+    private async Task RefreshResourceRowsFromFileSystemAsync()
     {
+        var pathsToCheck = _allResourceRows
+            .Select(r => r.InstallPath)
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var ioResults = await Task.Run(() =>
+        {
+            var results = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            foreach (var path in pathsToCheck)
+            {
+                if (path != null)
+                {
+                    results[path] = HasAnyFileSystemEntry(path);
+                }
+            }
+            return results;
+        });
+
         foreach (var row in _allResourceRows)
         {
-            var hasDownloadedData = HasAnyFileSystemEntry(row.InstallPath);
-            if (!hasDownloadedData)
-            {
-                row.IsDownloaded = false;
-            }
-
-            var activeMonitor = FindActiveMonitorRowForResource(row);
-            var isSyncRunning = activeMonitor is not null && IsResourceSyncRunning(activeMonitor);
-            if (isSyncRunning)
+            if (string.IsNullOrWhiteSpace(row.InstallPath))
             {
                 continue;
             }
 
-            row.DownloadStatus = row.IsDownloaded ? I18n.Server.DownloadStatusDownloaded : I18n.Server.DownloadStatusMissing;
-            row.DownloadSpeedDisplay = "-";
-            row.RunStatus = row.IsDownloaded
-                ? GetRunStatusAfterSync(row)
-                : (row.IsManaged ? I18n.Server.RunStatusMissingExe : I18n.Server.RunStatusNotConfiguredExe);
+            if (ioResults.TryGetValue(row.InstallPath, out var hasDownloadedData))
+            {
+                if (!hasDownloadedData)
+                {
+                    row.IsDownloaded = false;
+                }
+
+                var activeMonitor = FindActiveMonitorRowForResource(row);
+                var isSyncRunning = activeMonitor is not null && IsResourceSyncRunning(activeMonitor);
+                if (isSyncRunning)
+                {
+                    continue;
+                }
+
+                row.DownloadStatus = row.IsDownloaded ? I18n.Server.DownloadStatusDownloaded : I18n.Server.DownloadStatusMissing;
+                row.DownloadSpeedDisplay = "-";
+                row.RunStatus = row.IsDownloaded
+                    ? GetRunStatusAfterSync(row)
+                    : (row.IsManaged ? I18n.Server.RunStatusMissingExe : I18n.Server.RunStatusNotConfiguredExe);
+            }
         }
     }
 

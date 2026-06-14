@@ -7,6 +7,7 @@ using GameUpdater.Core.Abstractions;
 using GameUpdater.Core.Services;
 using GameUpdater.Shared.Localization;
 using GameUpdater.Shared.Models;
+using GameUpdater.WinForms.Controls;
 
 namespace GameUpdater.WinForms.Forms;
 
@@ -510,11 +511,23 @@ public sealed partial class MainForm
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 220));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
+        var headerPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent, Padding = new Padding(0, 0, 0, 0) };
+        
+        var refreshBtn = new ModernButton { Text = I18n.Common.RefreshButton, Width = 110, Height = 36, ColorType = ButtonColorType.Secondary, IconType = ButtonIconType.Refresh, Dock = DockStyle.Right };
+        refreshBtn.Click += async (s, e) => {
+            refreshBtn.Enabled = false;
+            await RefreshServerDashboardAsync();
+            refreshBtn.Enabled = true;
+        };
+
         _serverDashboardSummaryLabel.Dock = DockStyle.Fill;
         _serverDashboardSummaryLabel.Font = new Font("Segoe UI Semibold", 12f, FontStyle.Bold);
         _serverDashboardSummaryLabel.ForeColor = DashboardSummaryColor;
         _serverDashboardSummaryLabel.TextAlign = ContentAlignment.MiddleLeft;
         _serverDashboardSummaryLabel.Text = I18n.Server.ServerDashboardLoading;
+
+        headerPanel.Controls.Add(refreshBtn);
+        headerPanel.Controls.Add(_serverDashboardSummaryLabel);
 
         var metricCards = new TableLayoutPanel
         {
@@ -553,7 +566,7 @@ public sealed partial class MainForm
         bottom.Controls.Add(CreateServerInfoCard(I18n.Server.ServerCardServices, _serverDashboardServiceLabel), 0, 0);
         bottom.Controls.Add(CreateServerInfoCard(I18n.Server.ServerCardRecommendation, _serverDashboardRecommendationLabel), 1, 0);
 
-        root.Controls.Add(_serverDashboardSummaryLabel, 0, 0);
+        root.Controls.Add(headerPanel, 0, 0);
         root.Controls.Add(metricCards, 0, 1);
         root.Controls.Add(details, 0, 2);
         root.Controls.Add(bottom, 0, 3);
