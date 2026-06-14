@@ -41,7 +41,26 @@ public sealed partial class MainForm
 
         public string FileCountDisplay { get; init; } = "-";
 
-        public string SizeGbDisplay { get; init; } = "-";
+        public string VersionLocal { get; set; } = string.Empty;
+        
+        public string VersionIdc { get; set; } = string.Empty;
+
+        public int ProgressPercent { get; set; }
+
+        public double? SizeLocalGb { get; set; }
+
+        public double? SizeIdcGb { get; set; }
+
+        public double? SizeMissingGb { get; set; }
+
+        public string SizeLocalGbDisplay => SizeLocalGb.HasValue && SizeLocalGb.Value > 0 ? $"{SizeLocalGb.Value:N2} GB" : "-";
+        
+        public string SizeIdcGbDisplay => SizeIdcGb.HasValue && SizeIdcGb.Value > 0 ? $"{SizeIdcGb.Value:N2} GB" : "-";
+        
+        public string SizeMissingGbDisplay => SizeMissingGb.HasValue && SizeMissingGb.Value > 0 ? $"{SizeMissingGb.Value:N2} GB" : "-";
+        
+        // Wait, the screenshot shows "330 MB" if it's less than 1GB.
+        public string SizeMissingDisplay => FormatSizeDynamic(SizeMissingGb);
 
         public DateTime? LastUpdatedAt { get; init; }
 
@@ -53,11 +72,18 @@ public sealed partial class MainForm
 
         public bool HasSource { get; init; }
 
-        public long? RequiredAdditionalBytes { get; init; }
+        public long? RequiredAdditionalBytes { get; set; }
 
-        public string RequiredAdditionalGbDisplay => RequiredAdditionalBytes.HasValue
-            ? (RequiredAdditionalBytes.Value / 1024d / 1024d / 1024d).ToString("N2")
-            : "-";
+        private static string FormatSizeDynamic(double? sizeGb)
+        {
+            if (!sizeGb.HasValue || sizeGb.Value <= 0) return "-";
+            if (sizeGb.Value < 1.0)
+            {
+                var mb = sizeGb.Value * 1024;
+                return $"{mb:N0} MB";
+            }
+            return $"{sizeGb.Value:N2} GB";
+        }
     }
 
     private sealed class SourceFolderEntry

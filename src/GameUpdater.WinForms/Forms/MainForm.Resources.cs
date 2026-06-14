@@ -848,9 +848,18 @@ public sealed partial class MainForm
         _resourcesGrid.ReadOnly = true;
         _resourcesGrid.RowHeadersVisible = false;
         _resourcesGrid.DataSource = _resourcesBinding;
+        
+        _resourcesGrid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+        _resourcesGrid.ColumnHeadersHeight = 50; 
+        
+        _resourcesGrid.CellPainting -= ResourcesGrid_CellPainting;
+        _resourcesGrid.CellPainting += ResourcesGrid_CellPainting;
+
         _resourcesGrid.CellFormatting -= ResourcesGrid_CellFormatting;
         _resourcesGrid.CellFormatting += ResourcesGrid_CellFormatting;
 
+        _resourcesGrid.Columns.Clear();
+        
         _resourcesGrid.Columns.Add(new DataGridViewImageColumn
         {
             Name = "ResourceStatusIcon",
@@ -859,18 +868,188 @@ public sealed partial class MainForm
             Width = 84,
             ImageLayout = DataGridViewImageCellLayout.Zoom
         });
+
         _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderGameName, nameof(ResourceGameRow.Name), 180));
+        
+        _resourcesGrid.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            Name = "ColStatus",
+            HeaderText = "Trạng thái",
+            DataPropertyName = nameof(ResourceGameRow.DownloadStatus),
+            Width = 160
+        });
+
+        _resourcesGrid.Columns.Add(CreateTextColumn("Ngày cập nhật", nameof(ResourceGameRow.LastUpdatedAt), 150, "dd/MM/yyyy HH:mm"));
+
+        _resourcesGrid.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            Name = "ColSizeLocal",
+            HeaderText = "Local",
+            DataPropertyName = nameof(ResourceGameRow.SizeLocalGbDisplay),
+            Width = 90
+        });
+
+        _resourcesGrid.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            Name = "ColSizeIdc",
+            HeaderText = "IDC",
+            DataPropertyName = nameof(ResourceGameRow.SizeIdcGbDisplay),
+            Width = 90
+        });
+
+        _resourcesGrid.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            Name = "ColSizeMissing",
+            HeaderText = "Thiếu",
+            DataPropertyName = nameof(ResourceGameRow.SizeMissingDisplay),
+            Width = 90
+        });
+
         _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderCategory, nameof(ResourceGameRow.Category), 120));
-        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderSource, nameof(ResourceGameRow.SourceStatus), 110));
-        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderDownloadStatus, nameof(ResourceGameRow.DownloadStatus), 160));
-        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderSpeed, nameof(ResourceGameRow.DownloadSpeedDisplay), 100));
-        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderRunStatus, nameof(ResourceGameRow.RunStatus), 130));
-        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderFileCount, nameof(ResourceGameRow.FileCountDisplay), 90));
-        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderSizeGb, nameof(ResourceGameRow.SizeGbDisplay), 110));
-        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderRequiredGb, nameof(ResourceGameRow.RequiredAdditionalGbDisplay), 110));
-        _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderLastUpdated, nameof(ResourceGameRow.LastUpdatedAt), 150, "yyyy-MM-dd HH:mm:ss"));
         _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderSourcePath, nameof(ResourceGameRow.SourcePath), 260));
         _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderInstallPath, nameof(ResourceGameRow.InstallPath), 400, fill: true));
+    }
+
+    private void ResourcesGrid_CellPainting(object? sender, DataGridViewCellPaintingEventArgs e)
+    {
+        if (e.RowIndex == -1 && e.ColumnIndex >= 0)
+        {
+            var colName = _resourcesGrid.Columns[e.ColumnIndex].Name;
+            bool isGroupedCol = colName == "ColSizeLocal" || colName == "ColSizeIdc" || colName == "ColSizeMissing";
+
+            if (isGroupedCol)
+            {
+                e.PaintBackground(e.ClipBounds, true);
+                
+                var colLocal = _resourcesGrid.Columns["ColSizeLocal"];
+                var colIdc = _resourcesGrid.Columns["ColSizeIdc"];
+                var colMissing = _resourcesGrid.Columns["ColSizeMissing"];
+
+                if (colLocal != null && colIdc != null && colMissing != null)
+                {
+                    var r1 = _resourcesGrid.GetCellDisplayRectangle(colLocal.Index, -1, true);
+                    var r3 = _resourcesGrid.GetCellDisplayRectangle(colMissing.Index, -1, true);
+                    
+                    if (r1.Width > 0 && r3.Width > 0)
+                    {
+                        var groupRect = new Rectangle(r1.X, r1.Y, r3.Right - r1.Left, r1.Height / 2);
+                        var sfGroup = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                        e.Graphics.DrawString("Dung lượng", e.CellStyle.Font, Brushes.Black, groupRect, sfGroup);
+                        
+                        var pen = new Pen(Color.LightGray);
+                        e.Graphics.DrawLine(pen, groupRect.Left, groupRect.Bottom, groupRect.Right, groupRect.Bottom);
+                    }
+
+                    var subRect = new Rectangle(e.CellBounds.X, e.CellBounds.Y + e.CellBounds.Height / 2, e.CellBounds.Width, e.CellBounds.Height / 2);
+                    var sfSub = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                    e.Graphics.DrawString(e.Value?.ToString(), e.CellStyle.Font, Brushes.Gray, subRect, sfSub);
+
+                    if (e.ColumnIndex != colMissing.Index)
+                    {
+                        var pen = new Pen(Color.LightGray);
+                        e.Graphics.DrawLine(pen, e.CellBounds.Right - 1, subRect.Top, e.CellBounds.Right - 1, subRect.Bottom);
+                    }
+
+                    e.Handled = true;
+                    return;
+                }
+            }
+            return;
+        }
+
+        if (e.RowIndex < 0) return;
+
+        var row = _resourcesBinding[e.RowIndex] as ResourceGameRow;
+        if (row == null) return;
+
+        var col = _resourcesGrid.Columns[e.ColumnIndex].Name;
+
+        if (col == "ColStatus")
+        {
+            e.PaintBackground(e.CellBounds, true);
+            var rect = e.CellBounds;
+            rect.X += 5;
+
+            var sf = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center };
+            var monitorRow = FindActiveMonitorRowForResource(row);
+            bool isDownloading = monitorRow is not null && IsResourceSyncRunning(monitorRow);
+
+            string icon = "✔️";
+            Color color = Color.MediumSeaGreen;
+            string text = row.DownloadStatus;
+
+            if (isDownloading)
+            {
+                icon = "☁️";
+                color = Color.DodgerBlue;
+                text = "Đang tải";
+            }
+            else if (row.DownloadStatus == I18n.Server.DownloadStatusMissing)
+            {
+                if (row.HasSource)
+                {
+                    icon = "📦";
+                    color = Color.DarkOrange;
+                    text = "Chưa tải";
+                }
+                else
+                {
+                    icon = "❌";
+                    color = Color.Crimson;
+                    text = "Lỗi";
+                }
+            }
+            else if (row.RequiredAdditionalBytes.GetValueOrDefault() > 0)
+            {
+                icon = "⚠️";
+                color = Color.Goldenrod;
+                text = "Cần cập nhật";
+            }
+            else
+            {
+                icon = "✔️";
+                color = Color.MediumSeaGreen;
+                text = "Đã tải";
+            }
+
+            using var symbolFont = new Font("Segoe UI Emoji", e.CellStyle.Font.Size + 2, FontStyle.Regular);
+            using var brush = new SolidBrush(color);
+            e.Graphics.DrawString(icon, symbolFont, brush, rect, sf);
+
+            var iconSize = e.Graphics.MeasureString(icon, symbolFont);
+            rect.X += (int)iconSize.Width + 5;
+            
+            using var boldFont = new Font(e.CellStyle.Font, FontStyle.Bold);
+            e.Graphics.DrawString(text, boldFont, brush, rect, sf);
+
+            if (isDownloading && monitorRow != null)
+            {
+                var textSize = e.Graphics.MeasureString(text, boldFont);
+                rect.X += (int)textSize.Width + 10;
+                e.Graphics.DrawString($"{monitorRow.ProgressPercent}%", boldFont, brush, rect, sf);
+            }
+
+            e.Handled = true;
+        }
+
+        else if (col == "ColSizeMissing")
+        {
+            e.PaintBackground(e.CellBounds, true);
+            var text = row.SizeMissingDisplay;
+            Brush brush = text == "-" ? Brushes.Gray : Brushes.Red;
+            var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+            using var boldFont = new Font(e.CellStyle.Font, FontStyle.Bold);
+            e.Graphics.DrawString(text, text == "-" ? e.CellStyle.Font : boldFont, brush, e.CellBounds, sf);
+            e.Handled = true;
+        }
+        else if (col == "ColSizeLocal" || col == "ColSizeIdc")
+        {
+            e.PaintBackground(e.CellBounds, true);
+            var text = col == "ColSizeLocal" ? row.SizeLocalGbDisplay : row.SizeIdcGbDisplay;
+            var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+            e.Graphics.DrawString(text, e.CellStyle.Font, Brushes.Gray, e.CellBounds, sf);
+            e.Handled = true;
+        }
     }
 
     private void EnsureResourceStatusIconsLoaded()
@@ -887,19 +1066,6 @@ public sealed partial class MainForm
             ?? TryLoadEmbeddedImage(assembly, "GameUpdater.WinForms.Resources.offline_icon.png");
     }
 
-    private static Image? TryLoadEmbeddedImage(System.Reflection.Assembly assembly, string resourceName)
-    {
-        try
-        {
-            using var stream = assembly.GetManifestResourceStream(resourceName);
-            return stream is null ? null : Image.FromStream(stream);
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
     private void ResourcesGrid_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
     {
         if (e.RowIndex < 0 ||
@@ -914,6 +1080,20 @@ public sealed partial class MainForm
         e.Value = isActive ? _resourceStatusActiveIcon : _resourceStatusInactiveIcon;
         e.FormattingApplied = e.Value is not null;
     }
+
+    private static Image? TryLoadEmbeddedImage(System.Reflection.Assembly assembly, string resourceName)
+    {
+        try
+        {
+            using var stream = assembly.GetManifestResourceStream(resourceName);
+            return stream is null ? null : Image.FromStream(stream);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
 
     private void EnsureResourcesContextMenu()
     {
@@ -1409,12 +1589,22 @@ public sealed partial class MainForm
         var runReady = !string.IsNullOrWhiteSpace(launchPath) && File.Exists(launchPath);
         var manifest = TryLoadManifest(game);
 
-        long? totalBytes = null;
+        long? idcBytes = null;
         int? fileCount = null;
         if (manifest is not null)
         {
-            totalBytes = manifest.Files.Sum(file => file.Size);
+            idcBytes = manifest.Files.Sum(file => file.Size);
             fileCount = manifest.Files.Count;
+        }
+        else if (sourceExists)
+        {
+            idcBytes = CalculateDirectorySizeSafe(sourcePath);
+        }
+
+        long? localBytes = null;
+        if (hasDownloadedData && Directory.Exists(game.InstallPath))
+        {
+            localBytes = CalculateDirectorySizeSafe(game.InstallPath);
         }
 
         var requiredAdditionalBytes = EstimateRequiredAdditionalBytes(sourcePath, game.InstallPath);
@@ -1440,7 +1630,11 @@ public sealed partial class MainForm
             DownloadSpeedDisplay = "-",
             RunStatus = runReady ? I18n.Server.RunStatusReady : I18n.Server.RunStatusMissingExe,
             FileCountDisplay = fileCount?.ToString("N0") ?? "-",
-            SizeGbDisplay = totalBytes.HasValue ? (totalBytes.Value / 1024d / 1024d / 1024d).ToString("N2") : "-",
+            VersionLocal = manifest?.Version ?? string.Empty,
+            VersionIdc = game.Version,
+            SizeLocalGb = localBytes.HasValue ? localBytes.Value / 1024d / 1024d / 1024d : null,
+            SizeIdcGb = idcBytes.HasValue ? idcBytes.Value / 1024d / 1024d / 1024d : null,
+            SizeMissingGb = requiredAdditionalBytes.HasValue ? requiredAdditionalBytes.Value / 1024d / 1024d / 1024d : null,
             RequiredAdditionalBytes = requiredAdditionalBytes
         };
     }
@@ -1734,6 +1928,13 @@ public sealed partial class MainForm
         var requiredAdditionalBytes = EstimateRequiredAdditionalBytes(sourceFolder.FullPath, targetPath);
         var healthStatus = BuildResourceHealthStatus(true, hasDownloadedData, runReady, requiredAdditionalBytes);
 
+        var idcBytes = CalculateDirectorySizeSafe(sourceFolder.FullPath);
+        long? localBytes = null;
+        if (hasDownloadedData && Directory.Exists(targetPath))
+        {
+            localBytes = CalculateDirectorySizeSafe(targetPath);
+        }
+
         return new ResourceGameRow
         {
             Id = 0,
@@ -1748,7 +1949,11 @@ public sealed partial class MainForm
             DownloadSpeedDisplay = "-",
             RunStatus = runReady ? I18n.Server.RunStatusReady : I18n.Server.RunStatusNotConfiguredExe,
             FileCountDisplay = "-",
-            SizeGbDisplay = "-",
+            VersionLocal = string.Empty,
+            VersionIdc = string.Empty,
+            SizeLocalGb = localBytes.HasValue ? localBytes.Value / 1024d / 1024d / 1024d : null,
+            SizeIdcGb = idcBytes > 0 ? idcBytes / 1024d / 1024d / 1024d : null,
+            SizeMissingGb = requiredAdditionalBytes.HasValue ? requiredAdditionalBytes.Value / 1024d / 1024d / 1024d : null,
             LastUpdatedAt = null,
             InstallPath = targetPath,
             IsDownloaded = hasDownloadedData,
