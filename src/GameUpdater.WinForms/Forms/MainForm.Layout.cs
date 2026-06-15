@@ -327,7 +327,17 @@ public sealed partial class MainForm
 
             btn.Click += (s, e) =>
             {
-                tabs.SelectedIndex = btnIndex;
+                if (tabs.SelectedIndex == btnIndex) return;
+
+                // Decouple the tab switch from the click event to prevent
+                // internal WinForms TabControl Handle/Layout deadlocks during rapid clicks
+                BeginInvoke(new Action(() =>
+                {
+                    if (!IsDisposed && tabs.SelectedIndex != btnIndex)
+                    {
+                        tabs.SelectedIndex = btnIndex;
+                    }
+                }));
             };
 
             tabButtons.Add(btn);

@@ -38,6 +38,7 @@ public sealed partial class MainForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = BodyBackColor;
         MinimumSize = this.ScaleSize(1000, 680);
+        Opacity = 0; // Hide the form initially to prevent white flash on load
 
         if (File.Exists("app.ico"))
         {
@@ -55,16 +56,23 @@ public sealed partial class MainForm : Form
         base.OnShown(e);
         _ = Task.Run(EnsureStartupWithWindows);
         await LoadCatalogOnStartupAsync();
-    }
-
-    protected override CreateParams CreateParams
-    {
-        get
+        
+        // Smooth fade-in effect to mask any rendering artifacts
+        var fadeTimer = new System.Windows.Forms.Timer { Interval = 15 };
+        fadeTimer.Tick += (s, ev) =>
         {
-            var cp = base.CreateParams;
-            cp.ExStyle |= 0x02000000; // WS_EX_COMPOSITED
-            return cp;
-        }
+            if (Opacity >= 1)
+            {
+                Opacity = 1;
+                fadeTimer.Stop();
+                fadeTimer.Dispose();
+            }
+            else
+            {
+                Opacity += 0.1;
+            }
+        };
+        fadeTimer.Start();
     }
 
     protected override void OnHandleCreated(EventArgs e)
