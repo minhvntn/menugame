@@ -403,8 +403,26 @@ public sealed class ResourceSyncService
             ? new TransferRateLimiter()
             : null;
         var totalFiles = sourceFiles.Count;
-        var knownTotalBytes = 0L;
-        var knownSizeFileCount = 0;
+
+        progress?.Report(UpdateProgressInfo.Create(0, "Đang tính toán dung lượng tổng...", 0, 0, 0));
+        long exactTotalBytes = 0;
+        await Parallel.ForEachAsync(
+            sourceFiles,
+            new ParallelOptions { MaxDegreeOfParallelism = 10, CancellationToken = cancellationToken },
+            async (file, ct) =>
+            {
+                try
+                {
+                    using var request = new HttpRequestMessage(HttpMethod.Head, file.Uri);
+                    using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var size = response.Content.Headers.ContentLength ?? 0;
+                        Interlocked.Add(ref exactTotalBytes, size);
+                    }
+                }
+                catch { /* ignore */ }
+            }).ConfigureAwait(false);
 
         for (var index = 0; index < sourceFiles.Count; index++)
         {
@@ -418,7 +436,6 @@ public sealed class ResourceSyncService
             if (targetInfo.Exists && syncMode == ResourceSyncMode.MissingOnly)
             {
                 skipped++;
-                RegisterKnownFileSize(targetInfo.Length);
                 if (targetInfo.Length > 0)
                 {
                     processedProgressBytes += targetInfo.Length;
@@ -458,7 +475,7 @@ public sealed class ResourceSyncService
                             ? Math.Clamp(currentFileDownloadedBytes / (double)fileTotal, 0d, 1d)
                             : 0d;
 
-                        TryReportProgress(sourceFile.RelativePath, index, fileProgress, force: false, currentFileTotalBytes);
+                        TryReportProgress(sourceFile.RelativePath, index, fileProgress, force: false);
                     },
                     waitIfPausedAsync,
                     cancellationToken)
@@ -470,7 +487,6 @@ public sealed class ResourceSyncService
                 var notModifiedSize = targetInfo.Exists
                     ? targetInfo.Length
                     : downloadResult.TotalBytes.GetValueOrDefault();
-                RegisterKnownFileSize(notModifiedSize > 0 ? notModifiedSize : null);
                 if (notModifiedSize > 0)
                 {
                     processedProgressBytes += notModifiedSize;
@@ -489,8 +505,6 @@ public sealed class ResourceSyncService
             {
                 downloadedFileSize = new FileInfo(targetFile).Length;
             }
-
-            RegisterKnownFileSize(downloadedFileSize);
             var completedSize = downloadedFileSize.GetValueOrDefault(currentFileDownloadedBytes);
             if (completedSize > currentFileDownloadedBytes)
             {
@@ -508,7 +522,7 @@ public sealed class ResourceSyncService
         progress?.Report(UpdateProgressInfo.Create(
             100,
             "Hoàn tất đồng bộ tài nguyên.",
-            totalBytes: EstimateTotalBytes(),
+            totalBytes: exactTotalBytes > 0 ? exactTotalBytes : null,
             processedBytes: processedProgressBytes,
             speedMbps: finalSpeedMbPerSecond));
 
@@ -525,8 +539,7 @@ public sealed class ResourceSyncService
             string relativePath,
             int completedFiles,
             double currentFileProgress,
-            bool force,
-            long? currentFileTotalBytesHint = null)
+            bool force)
         {
             var elapsed = transferStopwatch.Elapsed;
             if (!force && elapsed - lastProgressReport < TimeSpan.FromMilliseconds(250))
@@ -537,13 +550,12 @@ public sealed class ResourceSyncService
             lastProgressReport = elapsed;
 
             var normalizedCompleted = Math.Clamp(completedFiles, 0, totalFiles);
-            var estimatedTotalBytes = EstimateTotalBytes(currentFileTotalBytesHint);
             int percent;
-            if (estimatedTotalBytes.HasValue && estimatedTotalBytes.Value > 0)
+            if (exactTotalBytes > 0)
             {
                 percent = (int)Math.Round(
                     Math.Clamp(
-                        (processedProgressBytes * 100d) / estimatedTotalBytes.Value,
+                        (processedProgressBytes * 100d) / exactTotalBytes,
                         0d,
                         100d));
             }
@@ -567,41 +579,9 @@ public sealed class ResourceSyncService
             progress?.Report(UpdateProgressInfo.Create(
                 percent,
                 message,
-                totalBytes: estimatedTotalBytes,
+                totalBytes: exactTotalBytes > 0 ? exactTotalBytes : null,
                 processedBytes: processedProgressBytes,
                 speedMbps: speedMbPerSecond));
-        }
-
-        void RegisterKnownFileSize(long? fileSizeBytes)
-        {
-            if (!fileSizeBytes.HasValue || fileSizeBytes.Value <= 0)
-            {
-                return;
-            }
-
-            knownTotalBytes += fileSizeBytes.Value;
-            knownSizeFileCount++;
-        }
-
-        long? EstimateTotalBytes(long? currentFileSize = null)
-        {
-            var effectiveKnownBytes = knownTotalBytes;
-            var effectiveKnownCount = knownSizeFileCount;
-
-            if (currentFileSize.HasValue && currentFileSize.Value > 0)
-            {
-                effectiveKnownBytes += currentFileSize.Value;
-                effectiveKnownCount++;
-            }
-
-            if (effectiveKnownCount <= 0 || effectiveKnownBytes <= 0 || totalFiles <= 0)
-            {
-                return null;
-            }
-
-            var averageBytesPerFile = effectiveKnownBytes / (double)effectiveKnownCount;
-            var estimatedTotalBytes = (long)Math.Round(averageBytesPerFile * totalFiles);
-            return Math.Max(effectiveKnownBytes, estimatedTotalBytes);
         }
     }
 

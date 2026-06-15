@@ -1,6 +1,7 @@
 using Microsoft.Win32;
 using GameLauncher.Client.Services;
 using GameUpdater.Shared.Localization;
+using GameLauncher.Client.Extensions;
 
 namespace GameLauncher.Client.Forms;
 
@@ -28,11 +29,15 @@ public sealed partial class MainForm : Form
         _launchService = launchService;
 
         Text = I18n.Launcher.WindowTitle;
-        Width = 1570;
-        Height = 950;
+        AutoScaleMode = AutoScaleMode.Dpi;
+        
+        var workingArea = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1920, 1080);
+        Width = Math.Min(this.ScaleDpi(1570), workingArea.Width);
+        Height = Math.Min(this.ScaleDpi(950), workingArea.Height);
+        
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = BodyBackColor;
-        MinimumSize = new Size(1000, 680);
+        MinimumSize = this.ScaleSize(1000, 680);
 
         if (File.Exists("app.ico"))
         {
@@ -50,6 +55,16 @@ public sealed partial class MainForm : Form
         base.OnShown(e);
         _ = Task.Run(EnsureStartupWithWindows);
         await LoadCatalogOnStartupAsync();
+    }
+
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            var cp = base.CreateParams;
+            cp.ExStyle |= 0x02000000; // WS_EX_COMPOSITED
+            return cp;
+        }
     }
 
     protected override void OnHandleCreated(EventArgs e)

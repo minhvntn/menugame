@@ -1,3 +1,4 @@
+using GameUpdater.WinForms.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -32,7 +33,7 @@ namespace GameUpdater.WinForms.Forms
                 Text = "Chọn ổ đĩa để tải trò chơi mới:",
                 Font = new Font("Segoe UI", 10f, FontStyle.Bold),
                 AutoSize = true,
-                Location = new Point(20, 20)
+                Location = this.ScalePoint(20, 20)
             };
             Controls.Add(titleLabel);
 
@@ -40,8 +41,8 @@ namespace GameUpdater.WinForms.Forms
             {
                 FlowDirection = FlowDirection.TopDown,
                 WrapContents = false,
-                Location = new Point(20, 50),
-                Size = new Size(340, 150),
+                Location = this.ScalePoint(20, 50),
+                Size = this.ScaleSize(340, 150),
                 AutoScroll = true
             };
             Controls.Add(_radioPanel);
@@ -52,8 +53,8 @@ namespace GameUpdater.WinForms.Forms
             {
                 Text = "Xác nhận",
                 DialogResult = DialogResult.OK,
-                Location = new Point(200, 220),
-                Size = new Size(80, 30),
+                Location = this.ScalePoint(200, 220),
+                Size = this.ScaleSize(80, 30),
                 BackColor = Color.FromArgb(37, 99, 235),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat
@@ -64,8 +65,8 @@ namespace GameUpdater.WinForms.Forms
             {
                 Text = "Hủy bỏ",
                 DialogResult = DialogResult.Cancel,
-                Location = new Point(290, 220),
-                Size = new Size(80, 30),
+                Location = this.ScalePoint(290, 220),
+                Size = this.ScaleSize(80, 30),
                 BackColor = Color.FromArgb(241, 245, 249),
                 ForeColor = Color.Black,
                 FlatStyle = FlatStyle.Flat
@@ -105,7 +106,7 @@ namespace GameUpdater.WinForms.Forms
                     Text = infoText,
                     Tag = drive,
                     AutoSize = true,
-                    Margin = new Padding(0, 0, 0, 10),
+                    Margin = this.ScalePadding(0, 0, 0, 10),
                     Font = new Font("Segoe UI", 9.5f),
                     Checked = isFirst
                 };

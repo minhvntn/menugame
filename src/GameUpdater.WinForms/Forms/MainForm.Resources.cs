@@ -28,41 +28,83 @@ public sealed partial class MainForm
         if (node == null || _resourceTree.Font == null) return;
 
         bool isSelected = (e.State & TreeNodeStates.Selected) != 0;
-        bool isHovered = false; // TreeView doesn't easily provide hover state for nodes without mouse tracking, but standard selection is fine
+        // TreeView doesn't easily provide hover state for nodes without mouse tracking, but standard selection is fine
 
         var backColor = isSelected ? Color.FromArgb(243, 232, 255) : _resourceTree.BackColor; // purple-100 for selection
         var textColor = isSelected ? Color.FromArgb(126, 34, 206) : Color.FromArgb(71, 85, 105); // purple-700 or slate-600
 
-        // Draw Background
-        var bounds = e.Bounds;
-        using (var brush = new SolidBrush(backColor))
+        // Clear background first to prevent text ghosting
+        using (var bgBrush = new SolidBrush(_resourceTree.BackColor))
         {
-            g.FillRectangle(brush, bounds);
+            g.FillRectangle(bgBrush, new Rectangle(0, e.Bounds.Top, _resourceTree.ClientSize.Width, e.Bounds.Height));
         }
 
-        // Draw Text
+        // Draw Background
+        var bounds = e.Bounds;
+        if (node.Level > 0)
+        {
+            var nodeRect = new Rectangle(bounds.Left + 8, bounds.Top + 2, _resourceTree.ClientSize.Width - bounds.Left - 16, bounds.Height - 4);
+            if (isSelected)
+            {
+                using var path = GameUpdater.WinForms.Controls.CardPanel.GetRoundedRectPath(nodeRect, 6);
+                using var brush = new SolidBrush(backColor);
+                g.FillPath(brush, path);
+            }
+        }
+
+        // Draw Text and Icon
         var textFont = isSelected ? new Font(_resourceTree.Font, FontStyle.Bold) : _resourceTree.Font;
         
-        // Calculate indent
-        int indent = node.Level * 20 + 24; 
+        int indent = 16; 
         
         // If it's a root node, make it bold and slate-800
         if (node.Level == 0)
         {
             textColor = Color.FromArgb(30, 41, 59); // slate-800
             textFont = new Font(_resourceTree.Font, FontStyle.Bold);
-            indent = 8;
+            indent = 4;
+            var textRect = new Rectangle(bounds.Left + indent, bounds.Top, _resourceTree.ClientSize.Width - bounds.Left - indent - 8, bounds.Height);
+            TextRenderer.DrawText(g, node.Text, textFont, textRect, textColor, TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
+        }
+        else
+        {
+            int iconSize = 16;
+            int iconY = bounds.Top + (bounds.Height - iconSize) / 2;
+            int textX = bounds.Left + indent + iconSize + 8;
+            
+            if (node.Tag is ResourceFilterKind filterKind)
+            {
+                Image? imgToDraw = null;
+                if (filterKind == ResourceFilterKind.GameList) imgToDraw = _iconGameList;
+                else if (filterKind == ResourceFilterKind.SourceConfig) imgToDraw = _iconSourceConfig;
+
+                if (imgToDraw != null)
+                {
+                    g.DrawImage(imgToDraw, new Rectangle(bounds.Left + indent, iconY, iconSize, iconSize));
+                }
+                else
+                {
+                    // Draw emoji icon for other filters
+                    string emoji = "📄";
+                    if (filterKind == ResourceFilterKind.Missing) emoji = "📥";
+                    else if (filterKind == ResourceFilterKind.Downloaded) emoji = "✔️";
+                    else if (filterKind == ResourceFilterKind.DownloadMonitor) emoji = "🖥️";
+                    
+                    using var emojiFont = new Font("Segoe UI Emoji", 9f);
+                    TextRenderer.DrawText(g, emoji, emojiFont, new Point(bounds.Left + indent, iconY - 1), textColor);
+                }
+            }
+
+            var textRect = new Rectangle(textX, bounds.Top, _resourceTree.ClientSize.Width - textX - 40, bounds.Height);
+            TextRenderer.DrawText(g, node.Text, textFont, textRect, textColor, TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
         }
 
-        var textRect = new Rectangle(bounds.Left + indent, bounds.Top, bounds.Width - indent - 40, bounds.Height);
-        TextRenderer.DrawText(g, node.Text, textFont, textRect, textColor, TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
-
         // Draw Badge
-        if (node.Level > 0 && node.Tag is ResourceFilterKind filterKind)
+        if (node.Level > 0 && node.Tag is ResourceFilterKind badgeFilterKind)
         {
             int count = -1;
-            if (filterKind == ResourceFilterKind.Missing) count = _resourceMissingCount;
-            if (filterKind == ResourceFilterKind.Downloaded) count = _resourceDownloadedCount;
+            if (badgeFilterKind == ResourceFilterKind.Missing) count = _resourceMissingCount;
+            if (badgeFilterKind == ResourceFilterKind.Downloaded) count = _resourceDownloadedCount;
 
             if (count >= 0)
             {
@@ -97,6 +139,8 @@ public sealed partial class MainForm
            textFont.Dispose(); 
         }
     }
+    private Image? _iconGameList;
+    private Image? _iconSourceConfig;
 
     private void BuildResourceTree()
     {
@@ -108,47 +152,76 @@ public sealed partial class MainForm
         _filterResourceDebounceTimer.Tick -= FilterResourceDebounceTimer_Tick;
         _filterResourceDebounceTimer.Tick += FilterResourceDebounceTimer_Tick;
 
+        if (_iconGameList == null)
+            _iconGameList = TryLoadEmbeddedImage(typeof(MainForm).Assembly, "GameUpdater.WinForms.Resources.tro-choi.png");
+        if (_iconSourceConfig == null)
+            _iconSourceConfig = TryLoadEmbeddedImage(typeof(MainForm).Assembly, "GameUpdater.WinForms.Resources.setting.png");
+
         _resourceTree.Nodes.Clear();
 
-        var resourceRoot = new TreeNode(I18n.Server.ResourceTreeRoot)
+        var mainRoot = new TreeNode("Tài nguyên")
         {
-            Tag = ResourceFilterKind.All
+            Tag = "Header"
         };
-        resourceRoot.Nodes.Add(new TreeNode(I18n.Server.ResourceTreeMissing)
+        mainRoot.Nodes.Add(new TreeNode("Danh sách trò chơi") { Tag = ResourceFilterKind.GameList });
+        mainRoot.Nodes.Add(new TreeNode("Cấu hình nguồn") { Tag = ResourceFilterKind.SourceConfig });
+        
+        var filterRoot = new TreeNode("Trạng thái")
         {
-            Tag = ResourceFilterKind.Missing
-        });
-        resourceRoot.Nodes.Add(new TreeNode(I18n.Server.ResourceTreeDownloaded)
-        {
-            Tag = ResourceFilterKind.Downloaded
-        });
+            Tag = "Header"
+        };
+        filterRoot.Nodes.Add(new TreeNode(I18n.Server.ResourceTreeMissing) { Tag = ResourceFilterKind.Missing });
+        filterRoot.Nodes.Add(new TreeNode(I18n.Server.ResourceTreeDownloaded) { Tag = ResourceFilterKind.Downloaded });
 
         var monitorRoot = new TreeNode(I18n.Server.ResourceTreeMonitorRoot)
         {
-            Tag = ResourceFilterKind.DownloadMonitor
+            Tag = "Header"
         };
-        monitorRoot.Nodes.Add(new TreeNode(I18n.Server.ResourceTreeMonitor)
-        {
-            Tag = ResourceFilterKind.DownloadMonitor
-        });
+        monitorRoot.Nodes.Add(new TreeNode(I18n.Server.ResourceTreeMonitor) { Tag = ResourceFilterKind.DownloadMonitor });
 
-        _resourceTree.Nodes.Add(resourceRoot);
+        _resourceTree.Nodes.Add(mainRoot);
+        _resourceTree.Nodes.Add(filterRoot);
         _resourceTree.Nodes.Add(monitorRoot);
         _resourceTree.ExpandAll();
 
         _resourceTree.AfterSelect += ResourceTree_AfterSelect;
-        _resourceTree.SelectedNode = resourceRoot;
+        _resourceTree.SelectedNode = mainRoot.Nodes[0];
     }
 
     private void ResourceTree_AfterSelect(object? sender, TreeViewEventArgs e)
     {
+        if (e.Node?.Tag is "Header")
+        {
+            // Do not allow selection of headers
+            _resourceTree.SelectedNode = e.Node.Nodes.Count > 0 ? e.Node.Nodes[0] : null;
+            return;
+        }
+
         if (e.Node?.Tag is ResourceFilterKind filterKind)
         {
-            if (_resourceWorkspaceTabControl.TabPages.Count > 0 && _resourceWorkspaceTabControl.SelectedIndex != 0)
+            if (filterKind == ResourceFilterKind.SourceConfig)
             {
-                _resourceWorkspaceTabControl.SelectedIndex = 0;
+                if (_resourceWorkspaceTabControl.TabPages.Count > 1 && _resourceWorkspaceTabControl.SelectedIndex != 1)
+                {
+                    _resourceWorkspaceTabControl.SelectedIndex = 1;
+                }
             }
-            ApplyResourceFilter(filterKind);
+            else
+            {
+                if (_resourceWorkspaceTabControl.TabPages.Count > 0 && _resourceWorkspaceTabControl.SelectedIndex != 0)
+                {
+                    _resourceWorkspaceTabControl.SelectedIndex = 0;
+                }
+
+                if (filterKind != ResourceFilterKind.GameList)
+                {
+                    ApplyResourceFilter(filterKind);
+                }
+                else
+                {
+                    ApplyResourceFilter(ResourceFilterKind.All);
+                }
+            }
         }
     }
 
@@ -879,7 +952,6 @@ public sealed partial class MainForm
             Width = 160
         });
 
-        _resourcesGrid.Columns.Add(CreateTextColumn("Ngày cập nhật", nameof(ResourceGameRow.LastUpdatedAt), 150, "dd/MM/yyyy HH:mm"));
 
         _resourcesGrid.Columns.Add(new DataGridViewTextBoxColumn
         {
@@ -908,10 +980,14 @@ public sealed partial class MainForm
         _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderCategory, nameof(ResourceGameRow.Category), 120));
         _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderSourcePath, nameof(ResourceGameRow.SourcePath), 260));
         _resourcesGrid.Columns.Add(CreateTextColumn(I18n.Server.ResourceGridHeaderInstallPath, nameof(ResourceGameRow.InstallPath), 400, fill: true));
+        
+        _resourcesGrid.Columns.Add(CreateTextColumn("Ngày cập nhật", nameof(ResourceGameRow.LastUpdatedAt), 150, "dd/MM/yyyy HH:mm"));
     }
 
     private void ResourcesGrid_CellPainting(object? sender, DataGridViewCellPaintingEventArgs e)
     {
+        if (e.Graphics is null || e.CellStyle is null || e.CellStyle.Font is null) return;
+
         if (e.RowIndex == -1 && e.ColumnIndex >= 0)
         {
             var colName = _resourcesGrid.Columns[e.ColumnIndex].Name;

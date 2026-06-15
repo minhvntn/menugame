@@ -56,7 +56,11 @@ public sealed partial class MainForm
         row.Message = message;
         row.UpdatedAt = DateTime.Now;
         UpdateDownloadMonitorDerivedColumns(row, progressInfo);
-        _downloadMonitorBinding.ResetBindings(false);
+        var monitorIndex = _downloadMonitorBinding.IndexOf(row);
+        if (monitorIndex >= 0)
+        {
+            _downloadMonitorBinding.ResetItem(monitorIndex);
+        }
 
         if (_currentResourceFilter == ResourceFilterKind.DownloadMonitor)
         {
@@ -251,7 +255,11 @@ public sealed partial class MainForm
             return;
         }
 
-        _resourcesBinding.ResetBindings(false);
+        var index = _resourcesBinding.IndexOf(resourceRow);
+        if (index >= 0)
+        {
+            _resourcesBinding.ResetItem(index);
+        }
     }
 
     private static string ExtractDownloadSpeedDisplay(string message)

@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <Optimize>true</Optimize>
     <PublishReadyToRun>true</PublishReadyToRun>
     <InvariantGlobalization>true</InvariantGlobalization>

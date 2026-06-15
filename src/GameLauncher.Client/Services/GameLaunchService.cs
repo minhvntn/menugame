@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using GameLauncher.Client.Models;
 
 namespace GameLauncher.Client.Services;
@@ -52,6 +52,8 @@ public sealed class GameLaunchService
             WorkingDirectory = workingDirectory,
             UseShellExecute = false
         };
+
+        ApplyRiotGamesNetCafeFix(startInfo, executablePath, row.LaunchArguments ?? string.Empty);
 
         var process = Process.Start(startInfo);
         if (process is null)
@@ -125,6 +127,114 @@ public sealed class GameLaunchService
 
         message = "Không có ứng dụng do launcher mở đang chạy.";
         return false;
+    }
+
+    private static void ApplyRiotGamesNetCafeFix(ProcessStartInfo startInfo, string executablePath, string launchArguments)
+    {
+        try
+        {
+            var fileName = Path.GetFileName(executablePath);
+            var isLeagueClient = string.Equals(fileName, "LeagueClient.exe", StringComparison.OrdinalIgnoreCase);
+            var isValorant = string.Equals(fileName, "VALORANT.exe", StringComparison.OrdinalIgnoreCase);
+            var isRiotClient = string.Equals(fileName, "RiotClientServices.exe", StringComparison.OrdinalIgnoreCase);
+
+            string productName = string.Empty;
+            string installFullPath = Path.GetDirectoryName(executablePath)!;
+
+            if (isLeagueClient)
+            {
+                productName = "league_of_legends";
+            }
+            else if (isValorant)
+            {
+                productName = "valorant";
+            }
+            else if (isRiotClient)
+            {
+                if (launchArguments.Contains("league_of_legends", StringComparison.OrdinalIgnoreCase))
+                {
+                    productName = "league_of_legends";
+                    var guessPath = Path.GetFullPath(Path.Combine(installFullPath, "..", "League of Legends"));
+                    if (Directory.Exists(guessPath))
+                    {
+                        installFullPath = guessPath;
+                    }
+                }
+                else if (launchArguments.Contains("valorant", StringComparison.OrdinalIgnoreCase))
+                {
+                    productName = "valorant";
+                    var guessPath = Path.GetFullPath(Path.Combine(installFullPath, "..", "VALORANT", "live"));
+                    if (Directory.Exists(guessPath))
+                    {
+                        installFullPath = guessPath;
+                    }
+                }
+            }
+
+            if (string.IsNullOrEmpty(productName))
+            {
+                return;
+            }
+
+            var programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+            var riotGamesDir = Path.Combine(programData, "Riot Games");
+            Directory.CreateDirectory(riotGamesDir);
+
+            var currentDir = new DirectoryInfo(installFullPath);
+            DirectoryInfo? riotClientDir = null;
+            for (int i = 0; i < 3 && currentDir != null; i++)
+            {
+                var candidate = new DirectoryInfo(Path.Combine(currentDir.FullName, "Riot Client"));
+                if (candidate.Exists)
+                {
+                    riotClientDir = candidate;
+                    break;
+                }
+                if (currentDir.Parent != null)
+                {
+                    var altCandidate = new DirectoryInfo(Path.Combine(currentDir.Parent.FullName, "Riot Client"));
+                    if (altCandidate.Exists)
+                    {
+                        riotClientDir = altCandidate;
+                        break;
+                    }
+                }
+                currentDir = currentDir.Parent;
+            }
+
+            if (riotClientDir != null)
+            {
+                var rcsPath = Path.Combine(riotClientDir.FullName, "RiotClientServices.exe");
+                
+                // Ghi đè file RiotClientInstalls.json để client nhận diện Launcher
+                var rcsPathFwd = rcsPath.Replace('\\', '/');
+                var installsJsonPath = Path.Combine(riotGamesDir, "RiotClientInstalls.json");
+                File.WriteAllText(installsJsonPath, $"{{\n  \"rc_default\": \"{rcsPathFwd}\",\n  \"rc_live\": \"{rcsPathFwd}\"\n}}");
+
+                // Ép Riot Client chạy trực tiếp với tham số install-directory để nó lập tức nhận diện game mà không cần check C:\ProgramData
+                startInfo.FileName = rcsPath;
+                startInfo.Arguments = $"--launch-product={productName} --launch-patchline=live --install-directory=\"{installFullPath}\"";
+                startInfo.WorkingDirectory = riotClientDir.FullName;
+            }
+
+            // Ghi file YAML Metadata để bỏ qua bước Verify/Repair
+            var productMetadataDir = Path.Combine(riotGamesDir, "Metadata", $"{productName}.live");
+            Directory.CreateDirectory(productMetadataDir);
+            var yamlPath = Path.Combine(productMetadataDir, $"{productName}.live.product_settings.yaml");
+
+            var installRoot = Directory.GetParent(installFullPath)?.FullName ?? installFullPath;
+            var installFullPathFwd = installFullPath.Replace('\\', '/');
+            var installRootFwd = installRoot.Replace('\\', '/');
+
+            var yamlContent = $@"product_install_full_path: ""{installFullPathFwd}""
+product_install_root: ""{installRootFwd}""
+settings:
+  create_shortcuts: false
+  locale: ""vn_VN""
+";
+            File.WriteAllText(yamlPath, yamlContent);
+        }
+        catch { /* ignore */ }
     }
 
     private static string ResolveExecutablePathWithPrecheck(LauncherGameRow row)

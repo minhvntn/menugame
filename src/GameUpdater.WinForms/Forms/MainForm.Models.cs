@@ -10,7 +10,9 @@ public sealed partial class MainForm
         All,
         Missing,
         Downloaded,
-        DownloadMonitor
+        DownloadMonitor,
+        GameList,
+        SourceConfig
     }
 
     private sealed class ResourceGameRow

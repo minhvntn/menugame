@@ -1,3 +1,4 @@
+using GameUpdater.WinForms.Extensions;
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -46,7 +47,7 @@ public sealed class GameEditorForm : Form
 
         Text = existingGame is null ? I18n.Server.GameEditorAddTitle : I18n.Server.GameEditorEditTitle;
         StartPosition = FormStartPosition.CenterParent;
-        ClientSize = new Size(850, 750); // Use ClientSize to guarantee no scrollbar
+        ClientSize = this.ScaleSize(850, 750); // Use ClientSize to guarantee no scrollbar
         MinimizeBox = false;
         MaximizeBox = false;
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -78,7 +79,7 @@ public sealed class GameEditorForm : Form
     {
         Controls.Clear();
 
-        var mainPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(0) };
+        var mainPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = this.ScalePadding(0) };
         Controls.Add(mainPanel);
 
         // --- Header ---
@@ -88,9 +89,9 @@ public sealed class GameEditorForm : Form
             e.Graphics.DrawLine(pen, 0, headerPanel.Height - 1, headerPanel.Width, headerPanel.Height - 1);
         };
         
-        var headerIcon = new IconBox(IconShape.Gamepad, ColorBgIconPurple, ColorPrimary) { Location = new Point(24, 20), Size = new Size(48, 48) };
-        var headerTitle = new Label { Text = "Thêm trò chơi", Font = FontMainTitle, ForeColor = ColorTextMain, AutoSize = true, Location = new Point(88, 22) };
-        var headerSub = new Label { Text = "Thêm thông tin game để hệ thống có thể khởi chạy và quản lý", Font = FontSubTitle, ForeColor = ColorTextSub, AutoSize = true, Location = new Point(90, 52) };
+        var headerIcon = new IconBox(IconShape.Gamepad, ColorBgIconPurple, ColorPrimary) { Location = this.ScalePoint(24, 20), Size = this.ScaleSize(48, 48) };
+        var headerTitle = new Label { Text = "Thêm trò chơi", Font = FontMainTitle, ForeColor = ColorTextMain, AutoSize = true, Location = this.ScalePoint(88, 22) };
+        var headerSub = new Label { Text = "Thêm thông tin game để hệ thống có thể khởi chạy và quản lý", Font = FontSubTitle, ForeColor = ColorTextSub, AutoSize = true, Location = this.ScalePoint(90, 52) };
         
         headerPanel.Controls.Add(headerIcon);
         headerPanel.Controls.Add(headerTitle);
@@ -114,9 +115,9 @@ public sealed class GameEditorForm : Form
         
         // Handle layout when footerPanel resizes or initially
         footerPanel.Layout += (s, e) => {
-            _isClientCheckBox.Location = new Point(30, (footerPanel.Height - _isClientCheckBox.Height) / 2);
-            _isHotCheckBox.Location = new Point(200, (footerPanel.Height - _isHotCheckBox.Height) / 2);
-            saveBtn.Location = new Point(footerPanel.Width - saveBtn.Width - 40, (footerPanel.Height - saveBtn.Height) / 2);
+            _isClientCheckBox.Location = this.ScalePoint(30, (footerPanel.Height - _isClientCheckBox.Height) / 2);
+            _isHotCheckBox.Location = this.ScalePoint(200, (footerPanel.Height - _isHotCheckBox.Height) / 2);
+            saveBtn.Location = this.ScalePoint(footerPanel.Width - saveBtn.Width - 40, (footerPanel.Height - saveBtn.Height) / 2);
         };
 
         saveBtn.Click += SaveButton_Click;
@@ -126,7 +127,7 @@ public sealed class GameEditorForm : Form
         mainPanel.Controls.Add(footerPanel);
 
         // --- Content ---
-        var contentPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0) };
+        var contentPanel = new Panel { Dock = DockStyle.Fill, Padding = this.ScalePadding(0) };
         mainPanel.Controls.Add(contentPanel);
         contentPanel.BringToFront();
 
@@ -148,12 +149,12 @@ public sealed class GameEditorForm : Form
 
         // Install Path
         _pathTextBox.PlaceholderText = "Chọn đường dẫn cài đặt";
-        var pathPnl = new Panel { Size = new Size(500, 44) };
+        var pathPnl = new Panel { Size = this.ScaleSize(500, 44) };
         var pathInnerWrap = CreateInputWrapper(_pathTextBox);
-        pathInnerWrap.Size = new Size(385, 44);
-        pathInnerWrap.Location = new Point(0, 0);
+        pathInnerWrap.Size = this.ScaleSize(385, 44);
+        pathInnerWrap.Location = this.ScalePoint(0, 0);
         
-        var browseBtn = new ModernButton { Text = "Chọn", Size = new Size(105, 44), Location = new Point(395, 0), ColorType = ButtonColorType.Secondary, IconType = ButtonIconType.Folder, Font = new Font("Segoe UI", 10f, FontStyle.Regular) };
+        var browseBtn = new ModernButton { Text = "Chọn", Size = this.ScaleSize(105, 44), Location = this.ScalePoint(395, 0), ColorType = ButtonColorType.Secondary, IconType = ButtonIconType.Folder, Font = new Font("Segoe UI", 10f, FontStyle.Regular) };
         browseBtn.Click += BrowseInstallButton_Click;
 
         pathPnl.Controls.Add(pathInnerWrap);
@@ -171,6 +172,7 @@ public sealed class GameEditorForm : Form
 
         // EXE
         _exePanel.BrowseClicked += BrowseLaunchButton_Click;
+        _exePanel.FileChanged += ExePanel_FileChanged;
         var exeRow = CreateRow(IconShape.Running, "Tệp chạy (EXE)", "File thực thi để chạy game", _exePanel, 120, y);
         contentPanel.Controls.Add(exeRow);
         y += exeRow.Height + rowSpacing;
@@ -184,18 +186,18 @@ public sealed class GameEditorForm : Form
     private Panel CreateRow(IconShape iconShape, string title, string subtitle, Control inputControl, int inputHeight, int yPos)
     {
         int rowHeight = Math.Max(56, inputHeight + 4);
-        var row = new Panel { Width = 800, Height = rowHeight, Location = new Point(30, yPos) };
+        var row = new Panel { Width = 800, Height = rowHeight, Location = this.ScalePoint(30, yPos) };
         
-        var iconBox = new IconBox(iconShape, ColorBgIconGray, ColorPrimary) { Location = new Point(0, (rowHeight - 56) / 2), Size = new Size(56, 56) };
+        var iconBox = new IconBox(iconShape, ColorBgIconGray, ColorPrimary) { Location = this.ScalePoint(0, (rowHeight - 56) / 2), Size = this.ScaleSize(56, 56) };
         row.Controls.Add(iconBox);
 
-        var titleLbl = new Label { Text = title, Font = FontTitle, ForeColor = ColorTextMain, AutoSize = true, Location = new Point(70, (rowHeight - 56) / 2 + 8) };
-        var subLbl = new Label { Text = subtitle, Font = FontSubTitle, ForeColor = ColorTextSub, AutoSize = true, Location = new Point(70, (rowHeight - 56) / 2 + 32) };
+        var titleLbl = new Label { Text = title, Font = FontTitle, ForeColor = ColorTextMain, AutoSize = true, Location = this.ScalePoint(70, (rowHeight - 56) / 2 + 8) };
+        var subLbl = new Label { Text = subtitle, Font = FontSubTitle, ForeColor = ColorTextSub, AutoSize = true, Location = this.ScalePoint(70, (rowHeight - 56) / 2 + 32) };
         row.Controls.Add(titleLbl);
         row.Controls.Add(subLbl);
 
-        inputControl.Location = new Point(250, (rowHeight - inputHeight) / 2);
-        inputControl.Size = new Size(500, inputHeight);
+        inputControl.Location = this.ScalePoint(250, (rowHeight - inputHeight) / 2);
+        inputControl.Size = this.ScaleSize(500, inputHeight);
         row.Controls.Add(inputControl);
 
         return row;
@@ -203,7 +205,7 @@ public sealed class GameEditorForm : Form
 
     private Panel CreateInputWrapper(Control innerControl)
     {
-        var pnl = new Panel { BackColor = Color.White, Padding = new Padding(12, 10, 12, 10) };
+        var pnl = new Panel { BackColor = Color.White, Padding = this.ScalePadding(12, 10, 12, 10) };
         pnl.Paint += (s, e) => {
             using var path = GetRoundedRectPath(pnl.ClientRectangle, 6);
             using var pen = new Pen(ColorBorder);
@@ -247,6 +249,34 @@ public sealed class GameEditorForm : Form
 
         _categoryComboBox.SelectedItem = selectedCategory;
         if (_categoryComboBox.SelectedIndex < 0) _categoryComboBox.SelectedIndex = 0;
+    }
+
+    private void ExePanel_FileChanged(object? sender, string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path)) return;
+
+        try
+        {
+            var directoryPath = Path.GetDirectoryName(path);
+            if (string.IsNullOrWhiteSpace(directoryPath)) return;
+
+            // Tự điền Đường dẫn cài đặt nếu đang trống
+            if (string.IsNullOrWhiteSpace(_pathTextBox.Text))
+            {
+                _pathTextBox.Text = directoryPath;
+            }
+
+            // Tự điền Tên trò chơi nếu đang trống (lấy tên thư mục chứa game)
+            if (string.IsNullOrWhiteSpace(_nameTextBox.Text))
+            {
+                var directoryName = Path.GetFileName(directoryPath);
+                if (!string.IsNullOrWhiteSpace(directoryName))
+                {
+                    _nameTextBox.Text = directoryName;
+                }
+            }
+        }
+        catch { /* ignore errors */ }
     }
 
     private void BrowseInstallButton_Click(object? sender, EventArgs e)
@@ -450,6 +480,7 @@ public class DragDropExePanel : Panel
 {
     public string FilePath { get; private set; } = string.Empty;
     public event EventHandler? BrowseClicked;
+    public event EventHandler<string>? FileChanged;
 
     private readonly Label _cloudLbl = new Label { Text = "Kéo thả file .exe vào đây", Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), AutoSize = true, ForeColor = Color.FromArgb(30,30,40) };
     private readonly Label _orLbl = new Label { Text = "hoặc", Font = new Font("Segoe UI", 9f), AutoSize = true, ForeColor = Color.FromArgb(130,130,140) };
@@ -467,13 +498,13 @@ public class DragDropExePanel : Panel
     {
         AllowDrop = true;
         BackColor = Color.FromArgb(250, 251, 255);
-        Padding = new Padding(2);
+        Padding = this.ScalePadding(2);
         
         // Empty State
-        _cloudIcon.Location = new Point(140, 15);
-        _cloudLbl.Location = new Point(180, 20);
-        _orLbl.Location = new Point(230, 45);
-        _browseBtn.Location = new Point(180, 70);
+        _cloudIcon.Location = this.ScalePoint(140, 15);
+        _cloudLbl.Location = this.ScalePoint(180, 20);
+        _orLbl.Location = this.ScalePoint(230, 45);
+        _browseBtn.Location = this.ScalePoint(180, 70);
         _browseBtn.Click += (s, e) => BrowseClicked?.Invoke(this, e);
 
         Controls.Add(_cloudIcon);
@@ -488,18 +519,18 @@ public class DragDropExePanel : Panel
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             e.Graphics.DrawPath(pen, path);
         };
-        _filePanel.Padding = new Padding(10);
+        _filePanel.Padding = this.ScalePadding(10);
         
-        _fileIcon.Location = new Point(10, 10);
-        _fileNameLbl.Location = new Point(60, 10);
-        _filePathLbl.Location = new Point(60, 32);
+        _fileIcon.Location = this.ScalePoint(10, 10);
+        _fileNameLbl.Location = this.ScalePoint(60, 10);
+        _filePathLbl.Location = this.ScalePoint(60, 32);
         
-        _removeBtn.Location = new Point(0, 20); // Set later
+        _removeBtn.Location = this.ScalePoint(0, 20); // Set later
         _removeBtn.Click += (s, e) => SetFile(string.Empty);
         _removeBtn.MouseEnter += (s, e) => _removeBtn.ForeColor = Color.Red;
         _removeBtn.MouseLeave += (s, e) => _removeBtn.ForeColor = Color.FromArgb(130,130,140);
 
-        _fileSizeLbl.Location = new Point(0, 20); // Set later
+        _fileSizeLbl.Location = this.ScalePoint(0, 20); // Set later
 
         _filePanel.Controls.Add(_fileIcon);
         _filePanel.Controls.Add(_fileNameLbl);
@@ -526,17 +557,17 @@ public class DragDropExePanel : Panel
     private void OnResize(object? sender, EventArgs e)
     {
         int cx = Width / 2;
-        _cloudIcon.Location = new Point(cx - _cloudLbl.Width/2 - 20, 15);
-        _cloudLbl.Location = new Point(_cloudIcon.Right + 10, 20);
-        _orLbl.Location = new Point(cx - _orLbl.Width/2, 45);
-        _browseBtn.Location = new Point(cx - _browseBtn.Width/2, 70);
+        _cloudIcon.Location = this.ScalePoint(cx - _cloudLbl.Width/2 - 20, 15);
+        _cloudLbl.Location = this.ScalePoint(_cloudIcon.Right + 10, 20);
+        _orLbl.Location = this.ScalePoint(cx - _orLbl.Width/2, 45);
+        _browseBtn.Location = this.ScalePoint(cx - _browseBtn.Width/2, 70);
 
-        _filePanel.Location = new Point(10, 10);
+        _filePanel.Location = this.ScalePoint(10, 10);
         _filePanel.Width = Width - 20;
         _filePanel.Height = Height - 20;
 
-        _removeBtn.Location = new Point(_filePanel.Width - 30, 20);
-        _fileSizeLbl.Location = new Point(_filePanel.Width - 90, 20);
+        _removeBtn.Location = this.ScalePoint(_filePanel.Width - 30, 20);
+        _fileSizeLbl.Location = this.ScalePoint(_filePanel.Width - 90, 20);
     }
 
     private void OnDragEnter(object? sender, DragEventArgs e)
@@ -596,5 +627,7 @@ public class DragDropExePanel : Panel
 
             _filePanel.Visible = true;
         }
+
+        FileChanged?.Invoke(this, path);
     }
 }

@@ -1,3 +1,4 @@
+using GameLauncher.Client.Extensions;
 using System.Diagnostics;
 using System.Reflection;
 using GameUpdater.Shared.Localization;
@@ -91,7 +92,7 @@ public sealed partial class MainForm
         {
             Dock = DockStyle.Fill,
             BackColor = Color.Transparent,
-            Padding = new Padding(18, 8, 20, 8)
+            Padding = this.ScalePadding(18, 8, 20, 8)
         };
         headerPanel.Paint += (_, e) =>
         {
@@ -115,7 +116,7 @@ public sealed partial class MainForm
         {
             Width = 160,
             Height = 100,
-            Margin = new Padding(0, 3, 0, 0),
+            Margin = this.ScalePadding(0, 3, 0, 0),
             Image = _headerLogoImage,
             SizeMode = PictureBoxSizeMode.Zoom,
             BackColor = Color.Transparent
@@ -128,7 +129,7 @@ public sealed partial class MainForm
         _cafeNameLabel.Font = new Font("Segoe UI", 22f, FontStyle.Bold);
         _cafeNameLabel.Paint += (sender, e) =>
         {
-            var lbl = (Label)sender;
+            if (sender is not Label lbl) return;
             if (lbl.Width <= 0 || lbl.Height <= 0 || string.IsNullOrEmpty(lbl.Text)) return;
             
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
@@ -153,7 +154,7 @@ public sealed partial class MainForm
             Dock = DockStyle.Fill,
             ColumnCount = 1,
             RowCount = 2,
-            Margin = new Padding(10, 16, 0, 0)
+            Margin = this.ScalePadding(10, 16, 0, 0)
         };
         cafeTextPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         cafeTextPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -186,8 +187,8 @@ public sealed partial class MainForm
             Width = 420,
             Height = 38,
             BackColor = Color.Transparent,
-            Padding = new Padding(38, 9, 14, 9),
-            Margin = new Padding(0),
+            Padding = this.ScalePadding(38, 9, 14, 9),
+            Margin = this.ScalePadding(0),
             Anchor = AnchorStyles.None
         };
         searchHost.Paint += (_, e) =>
@@ -218,7 +219,7 @@ public sealed partial class MainForm
             Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.RightToLeft,
             WrapContents = false,
-            Padding = new Padding(0, 6, 0, 0)
+            Padding = this.ScalePadding(0, 6, 0, 0)
         };
         quickActions.Controls.Add(CreateHeaderLinkButton(I18n.Launcher.QuickLinkYoutubeText, I18n.Launcher.QuickLinkYoutubeTooltip, I18n.Launcher.QuickLinkYoutubeUrl, Color.FromArgb(239, 68, 68), Color.FromArgb(185, 28, 28))); // red
         quickActions.Controls.Add(CreateHeaderLinkButton(I18n.Launcher.QuickLinkFacebookText, I18n.Launcher.QuickLinkFacebookTooltip, I18n.Launcher.QuickLinkFacebookUrl, Color.FromArgb(59, 130, 246), Color.FromArgb(29, 78, 216))); // blue
@@ -264,7 +265,7 @@ public sealed partial class MainForm
         {
             Dock = DockStyle.Fill,
             BackColor = Color.Transparent,
-            Padding = new Padding(10, 16, 10, 12)
+            Padding = this.ScalePadding(10, 16, 10, 12)
         };
         sidebar.Paint += (_, e) =>
         {
@@ -300,7 +301,7 @@ public sealed partial class MainForm
             ColumnCount = 1,
             RowCount = 3,
             BackColor = Color.Transparent,
-            Padding = new Padding(8, 12, 8, 8)
+            Padding = this.ScalePadding(8, 12, 8, 8)
         };
         vipLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28f));
         vipLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22f));
@@ -315,7 +316,7 @@ public sealed partial class MainForm
             AutoSize = false,
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleCenter,
-            Margin = new Padding(0)
+            Margin = this.ScalePadding(0)
         };
 
         var vipTitle = new Label
@@ -326,7 +327,7 @@ public sealed partial class MainForm
             AutoSize = false,
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleCenter,
-            Margin = new Padding(0)
+            Margin = this.ScalePadding(0)
         };
 
         var vipDesc = new Label
@@ -336,7 +337,7 @@ public sealed partial class MainForm
             ForeColor = Color.FromArgb(200, 205, 215),
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.TopCenter,
-            Margin = new Padding(0, 2, 0, 0)
+            Margin = this.ScalePadding(0, 2, 0, 0)
         };
 
         vipLayout.Controls.Add(vipIcon, 0, 0);
@@ -351,7 +352,7 @@ public sealed partial class MainForm
         _categoryListPanel.WrapContents = false;
         _categoryListPanel.AutoScroll = true;
         _categoryListPanel.BackColor = Color.Transparent;
-        _categoryListPanel.Padding = new Padding(0, 6, 4, 4);
+        _categoryListPanel.Padding = this.ScalePadding(0, 6, 4, 4);
         EnableDoubleBuffering(_categoryListPanel);
 
         sidebar.Controls.Add(_categoryListPanel);
@@ -369,7 +370,7 @@ public sealed partial class MainForm
             ColumnCount = 1,
             RowCount = 2,
             BackColor = Color.Transparent,
-            Padding = new Padding(0, 18, 0, 12)
+            Padding = this.ScalePadding(0, 18, 0, 12)
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 242f));
@@ -386,7 +387,7 @@ public sealed partial class MainForm
             Height = 42,
             Dock = DockStyle.Top,
             ColumnCount = 2,
-            Padding = new Padding(32, 0, 22, 0),
+            Padding = this.ScalePadding(32, 0, 22, 0),
             BackColor = Color.Transparent
         };
         hotTopBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
@@ -397,8 +398,8 @@ public sealed partial class MainForm
             Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
-            Margin = new Padding(0),
-            Padding = new Padding(0)
+            Margin = this.ScalePadding(0),
+            Padding = this.ScalePadding(0)
         };
 
         var fireIcon = new Label
@@ -407,7 +408,7 @@ public sealed partial class MainForm
             ForeColor = Color.FromArgb(255, 87, 34), // Fiery Red/Orange
             AutoSize = true,
             Font = new Font("Segoe UI Emoji", 13f, FontStyle.Regular),
-            Margin = new Padding(0, 6, 4, 0)
+            Margin = this.ScalePadding(0, 6, 4, 0)
         };
 
         var hotTitleText = new Label
@@ -416,7 +417,7 @@ public sealed partial class MainForm
             ForeColor = Color.White,
             AutoSize = true,
             Font = new Font("Segoe UI Semibold", 12f, FontStyle.Bold),
-            Margin = new Padding(0, 8, 0, 0)
+            Margin = this.ScalePadding(0, 8, 0, 0)
         };
 
         hotTitlePanel.Controls.Add(fireIcon);
@@ -433,17 +434,17 @@ public sealed partial class MainForm
         hotTopBar.Controls.Add(hotTitlePanel, 0, 0);
         hotTopBar.Controls.Add(_hotSortLabel, 1, 0);
 
-        _hotCardsViewport.Location = new Point(32, 42);
-        _hotCardsViewport.Size = new Size(1312, 200);
+        _hotCardsViewport.Location = this.ScalePoint(32, 42);
+        _hotCardsViewport.Size = this.ScaleSize(1312, 200);
         _hotCardsViewport.BackColor = Color.Transparent;
         _hotCardsViewport.AutoScroll = false;
 
-        _hotCardsPanel.Location = new Point(0, 0);
+        _hotCardsPanel.Location = this.ScalePoint(0, 0);
         _hotCardsPanel.AutoScroll = false;
         _hotCardsPanel.WrapContents = false;
         _hotCardsPanel.FlowDirection = FlowDirection.LeftToRight;
-        _hotCardsPanel.Padding = new Padding(0, 8, 0, 8);
-        _hotCardsPanel.Margin = new Padding(0);
+        _hotCardsPanel.Padding = this.ScalePadding(0, 8, 0, 8);
+        _hotCardsPanel.Margin = this.ScalePadding(0);
         _hotCardsPanel.BackColor = Color.Transparent;
         _hotCardsPanel.AutoSize = true;
         _hotCardsPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
@@ -452,7 +453,7 @@ public sealed partial class MainForm
         _hotCardsViewport.Controls.Add(_hotCardsPanel);
 
         // Left Carousel Button (Outside viewport, in the left 32px padding zone)
-        _hotLeftBtn.Size = new Size(32, 44);
+        _hotLeftBtn.Size = this.ScaleSize(32, 44);
         _hotLeftBtn.FlatStyle = FlatStyle.Flat;
         _hotLeftBtn.FlatAppearance.BorderSize = 0;
         _hotLeftBtn.FlatAppearance.MouseOverBackColor = Color.Transparent;
@@ -466,7 +467,7 @@ public sealed partial class MainForm
         _hotLeftBtn.Click += (_, _) => SlideCarousel(164); // Slide left
 
         // Right Carousel Button (Outside viewport, in the right 22px padding zone)
-        _hotRightBtn.Size = new Size(32, 44);
+        _hotRightBtn.Size = this.ScaleSize(32, 44);
         _hotRightBtn.FlatStyle = FlatStyle.Flat;
         _hotRightBtn.FlatAppearance.BorderSize = 0;
         _hotRightBtn.FlatAppearance.MouseOverBackColor = Color.Transparent;
@@ -490,12 +491,16 @@ public sealed partial class MainForm
 
         hotSectionPanel.Resize += (_, _) =>
         {
-            _hotCardsViewport.Width = Math.Min(1312, hotSectionPanel.Width - 54);
-            _hotCardsViewport.Height = hotSectionPanel.Height - 42;
+            int topBarHeight = this.ScaleDpi(42);
+            int maxWidth = this.ScaleDpi(1312);
+            int paddingRight = this.ScaleDpi(54);
+
+            _hotCardsViewport.Width = Math.Min(maxWidth, hotSectionPanel.Width - paddingRight);
+            _hotCardsViewport.Height = hotSectionPanel.Height - topBarHeight;
             
             // Vertically center left/right buttons and place them in outer margins
-            _hotLeftBtn.Location = new Point(0, 42 + (_hotCardsViewport.Height - _hotLeftBtn.Height) / 2);
-            _hotRightBtn.Location = new Point(hotSectionPanel.Width - _hotRightBtn.Width, 42 + (_hotCardsViewport.Height - _hotRightBtn.Height) / 2);
+            _hotLeftBtn.Location = new Point(0, topBarHeight + (_hotCardsViewport.Height - _hotLeftBtn.Height) / 2);
+            _hotRightBtn.Location = new Point(hotSectionPanel.Width - _hotRightBtn.Width, topBarHeight + (_hotCardsViewport.Height - _hotRightBtn.Height) / 2);
             
             int minLeft = _hotCardsViewport.Width - _hotCardsPanel.Width;
             if (minLeft > 0) minLeft = 0;
@@ -514,8 +519,8 @@ public sealed partial class MainForm
         _normalCardsPanel.AutoScroll = true;
         _normalCardsPanel.WrapContents = true;
         _normalCardsPanel.FlowDirection = FlowDirection.LeftToRight;
-        _normalCardsPanel.Padding = new Padding(0, 8, SystemInformation.VerticalScrollBarWidth, 8);
-        _normalCardsPanel.Margin = new Padding(0);
+        _normalCardsPanel.Padding = this.ScalePadding(0, 8, SystemInformation.VerticalScrollBarWidth, 8);
+        _normalCardsPanel.Margin = this.ScalePadding(0);
         _normalCardsPanel.BackColor = Color.Transparent;
         EnableDoubleBuffering(_normalCardsPanel);
 
@@ -530,8 +535,8 @@ public sealed partial class MainForm
         {
             Dock = DockStyle.Fill,
             BackColor = Color.Transparent,
-            Padding = new Padding(0),
-            Margin = new Padding(0, 0, 0, 8)
+            Padding = this.ScalePadding(0),
+            Margin = this.ScalePadding(0, 0, 0, 8)
         };
 
         var layout = new TableLayoutPanel
@@ -548,7 +553,7 @@ public sealed partial class MainForm
         {
             Dock = DockStyle.Fill,
             ColumnCount = 2,
-            Padding = new Padding(32, 0, 22, 0)
+            Padding = this.ScalePadding(32, 0, 22, 0)
         };
         topBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         topBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -574,7 +579,7 @@ public sealed partial class MainForm
         topBar.Controls.Add(sortLabel, 1, 0);
         layout.Controls.Add(topBar, 0, 0);
 
-        bodyControl.Margin = new Padding(32, 0, 22, 0);
+        bodyControl.Margin = this.ScalePadding(32, 0, 22, 0);
         layout.Controls.Add(bodyControl, 0, 1);
         panel.Controls.Add(layout);
         return panel;
@@ -586,7 +591,7 @@ public sealed partial class MainForm
         {
             Dock = DockStyle.Fill,
             BackColor = Color.Transparent,
-            Padding = new Padding(14, 6, 14, 6)
+            Padding = this.ScalePadding(14, 6, 14, 6)
         };
         panel.Paint += (_, e) =>
         {
@@ -610,7 +615,7 @@ public sealed partial class MainForm
         _bannerMessageLabel.BackColor = Color.Transparent;
         _bannerMessageLabel.Text = "👋  " + I18n.Launcher.DefaultBannerMessage;
         _bannerMessageLabel.Visible = true;
-        _bannerMessageLabel.Padding = new Padding(0, 0, 0, 1);
+        _bannerMessageLabel.Padding = this.ScalePadding(0, 0, 0, 1);
 
         var rightPanel = new FlowLayoutPanel
         {
@@ -618,8 +623,8 @@ public sealed partial class MainForm
             Dock = DockStyle.Right,
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
-            Margin = new Padding(0),
-            Padding = new Padding(0)
+            Margin = this.ScalePadding(0),
+            Padding = this.ScalePadding(0)
         };
 
         var dotLabel = new Label
@@ -628,13 +633,13 @@ public sealed partial class MainForm
             Text = "\u25CF",
             ForeColor = Color.FromArgb(139, 92, 246), // #8B5CF6
             Font = new Font("Segoe UI", 9f, FontStyle.Regular),
-            Margin = new Padding(0, 5, 6, 0)
+            Margin = this.ScalePadding(0, 5, 6, 0)
         };
 
         _footerMachineLabel.AutoSize = true;
         _footerMachineLabel.ForeColor = Color.FromArgb(139, 147, 167); // #8B93A7
         _footerMachineLabel.Font = new Font("Segoe UI", 10f, FontStyle.Regular);
-        _footerMachineLabel.Margin = new Padding(0, 4, 12, 0);
+        _footerMachineLabel.Margin = this.ScalePadding(0, 4, 12, 0);
         _footerMachineLabel.Text = Environment.MachineName;
 
         var barLabel = new Label
@@ -643,13 +648,13 @@ public sealed partial class MainForm
             Text = "|",
             ForeColor = Color.FromArgb(42, 47, 61), // #2A2F3D
             Font = new Font("Segoe UI", 10f, FontStyle.Regular),
-            Margin = new Padding(0, 3, 12, 0)
+            Margin = this.ScalePadding(0, 3, 12, 0)
         };
 
         _footerClockLabel.AutoSize = true;
         _footerClockLabel.ForeColor = Color.White;
         _footerClockLabel.Font = new Font("Segoe UI Semibold", 10f, FontStyle.Bold);
-        _footerClockLabel.Margin = new Padding(0, 4, 0, 0);
+        _footerClockLabel.Margin = this.ScalePadding(0, 4, 0, 0);
 
         rightPanel.Controls.Add(dotLabel);
         rightPanel.Controls.Add(_footerMachineLabel);
@@ -708,8 +713,8 @@ public sealed partial class MainForm
             BackColor = Color.Transparent,
             ForeColor = Color.White,
             Cursor = Cursors.Hand,
-            Margin = new Padding(0, 0, 0, 8),
-            Padding = new Padding(0)
+            Margin = this.ScalePadding(0, 0, 0, 8),
+            Padding = this.ScalePadding(0)
         };
         button.FlatAppearance.BorderSize = 0;
         button.FlatAppearance.MouseOverBackColor = Color.Transparent;
@@ -1065,11 +1070,11 @@ public sealed partial class MainForm
         {
             Dock = DockStyle.Fill,
             BackColor = Color.Transparent,
-            Margin = new Padding(0)
+            Margin = this.ScalePadding(0)
         };
 
         _normalCardsPanel.Dock = DockStyle.None;
-        _normalCardsPanel.Padding = new Padding(0, 8, SystemInformation.VerticalScrollBarWidth, 8);
+        _normalCardsPanel.Padding = this.ScalePadding(0, 8, SystemInformation.VerticalScrollBarWidth, 8);
 
         viewport.Controls.Add(_normalCardsPanel);
 
@@ -1081,7 +1086,7 @@ public sealed partial class MainForm
         _customScrollbar.Width = 16;
         _customScrollbar.Dock = DockStyle.Fill;
         _customScrollbar.BackColor = Color.Transparent;
-        _customScrollbar.Margin = new Padding(0, 8, 0, 8);
+        _customScrollbar.Margin = this.ScalePadding(0, 8, 0, 8);
         _customScrollbar.Cursor = Cursors.Hand;
 
         _customScrollbar.Paint += CustomScrollbar_Paint;
@@ -1201,7 +1206,7 @@ public sealed partial class MainForm
 
         int clampedVal = Math.Clamp(value, min, max);
 
-        _normalCardsPanel.AutoScrollPosition = new Point(0, clampedVal);
+        _normalCardsPanel.AutoScrollPosition = this.ScalePoint(0, clampedVal);
         _customScrollbar.Invalidate();
     }
 

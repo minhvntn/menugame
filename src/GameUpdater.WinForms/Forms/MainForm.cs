@@ -9,6 +9,7 @@ using GameUpdater.Core.Services;
 using GameUpdater.Shared.Localization;
 using GameUpdater.Shared.Models;
 using GameUpdater.WinForms.Controls;
+using GameUpdater.WinForms.Extensions;
 using System.Collections.Concurrent;
 
 namespace GameUpdater.WinForms.Forms;
@@ -198,8 +199,12 @@ public sealed partial class MainForm : Form
         _autoCatalogPath = Path.Combine(AppContext.BaseDirectory, "games.catalog.json");
 
         Text = I18n.Server.MainWindowTitle;
-        Width = 1570;
-        Height = 950;
+        AutoScaleMode = AutoScaleMode.Dpi;
+        
+        var workingArea = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1920, 1080);
+        Width = Math.Min(this.ScaleDpi(1570), workingArea.Width);
+        Height = Math.Min(this.ScaleDpi(950), workingArea.Height);
+        
         StartPosition = FormStartPosition.CenterScreen;
 
         if (File.Exists("app.ico"))

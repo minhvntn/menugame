@@ -25,6 +25,7 @@ public class ModernCheckBox : CheckBox
     }
 
     private string _customText = string.Empty;
+    [System.Diagnostics.CodeAnalysis.AllowNull]
     public override string Text
     {
         get => _customText;
